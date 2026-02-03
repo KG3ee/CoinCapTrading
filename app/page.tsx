@@ -27,13 +27,16 @@ export default function HomePage() {
         <div className="flex gap-6 min-w-max">
           {cryptoPrices.slice(0, 4).map((crypto) => (
             <div key={crypto.symbol} className="flex items-center gap-3">
-              <Image
-                src={crypto.logo}
-                alt={crypto.name}
-                width={32}
-                height={32}
-                className="w-8 h-8 rounded-full"
-              />
+              <div className="relative w-8 h-8 flex-shrink-0">
+                <Image
+                  src={crypto.logo}
+                  alt={crypto.name}
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 rounded-full object-cover"
+                  priority={false}
+                />
+              </div>
               <div>
                 <p className="text-xs text-gray-400">{crypto.symbol}</p>
                 <p className="text-sm font-semibold">${crypto.price}</p>
@@ -122,13 +125,16 @@ export default function HomePage() {
                   className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <Image
-                      src={crypto.logo}
-                      alt={crypto.name}
-                      width={40}
-                      height={40}
-                      className="w-10 h-10 rounded-full"
-                    />
+                    <div className="relative w-10 h-10 flex-shrink-0">
+                      <Image
+                        src={crypto.logo}
+                        alt={crypto.name}
+                        width={40}
+                        height={40}
+                        className="w-10 h-10 rounded-full object-cover"
+                        priority={false}
+                      />
+                    </div>
                     <div>
                       <p className="font-semibold">{crypto.symbol}</p>
                       <p className="text-xs text-gray-400">{crypto.name}</p>
