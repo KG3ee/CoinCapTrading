@@ -1,15 +1,16 @@
 'use client';
 
 import { TrendingUp, TrendingDown, BarChart3, DollarSign, Activity } from 'lucide-react';
+import Image from 'next/image';
 
 export default function HomePage() {
   const cryptoPrices = [
-    { name: 'Bitcoin', symbol: 'BTC', price: '43,250.00', change: '+2.5', isUp: true },
-    { name: 'Ethereum', symbol: 'ETH', price: '2,280.50', change: '+1.8', isUp: true },
-    { name: 'Ripple', symbol: 'XRP', price: '0.5234', change: '-0.9', isUp: false },
-    { name: 'Cardano', symbol: 'ADA', price: '0.4567', change: '+3.2', isUp: true },
-    { name: 'Solana', symbol: 'SOL', price: '98.75', change: '-1.2', isUp: false },
-    { name: 'Polkadot', symbol: 'DOT', price: '6.89', change: '+0.5', isUp: true },
+    { name: 'Bitcoin', symbol: 'BTC', price: '43,250.00', change: '+2.5', isUp: true, logo: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png' },
+    { name: 'Ethereum', symbol: 'ETH', price: '2,280.50', change: '+1.8', isUp: true, logo: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png' },
+    { name: 'Ripple', symbol: 'XRP', price: '0.5234', change: '-0.9', isUp: false, logo: 'https://assets.coingecko.com/coins/images/44/large/xrp.png' },
+    { name: 'Cardano', symbol: 'ADA', price: '0.4567', change: '+3.2', isUp: true, logo: 'https://assets.coingecko.com/coins/images/975/large/cardano.png' },
+    { name: 'Solana', symbol: 'SOL', price: '98.75', change: '-1.2', isUp: false, logo: 'https://assets.coingecko.com/coins/images/4128/large/solana.png' },
+    { name: 'Polkadot', symbol: 'DOT', price: '6.89', change: '+0.5', isUp: true, logo: 'https://assets.coingecko.com/coins/images/12171/large/polkadot.png' },
   ];
 
   const recentTransactions = [
@@ -26,6 +27,13 @@ export default function HomePage() {
         <div className="flex gap-6 min-w-max">
           {cryptoPrices.slice(0, 4).map((crypto) => (
             <div key={crypto.symbol} className="flex items-center gap-3">
+              <Image
+                src={crypto.logo}
+                alt={crypto.name}
+                width={32}
+                height={32}
+                className="w-8 h-8 rounded-full"
+              />
               <div>
                 <p className="text-xs text-gray-400">{crypto.symbol}</p>
                 <p className="text-sm font-semibold">${crypto.price}</p>
@@ -114,9 +122,13 @@ export default function HomePage() {
                   className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-purple-500 flex items-center justify-center text-sm font-bold">
-                      {crypto.symbol.charAt(0)}
-                    </div>
+                    <Image
+                      src={crypto.logo}
+                      alt={crypto.name}
+                      width={40}
+                      height={40}
+                      className="w-10 h-10 rounded-full"
+                    />
                     <div>
                       <p className="font-semibold">{crypto.symbol}</p>
                       <p className="text-xs text-gray-400">{crypto.name}</p>
