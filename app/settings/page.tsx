@@ -157,6 +157,7 @@ export default function SettingsPage() {
             <p className="font-medium">Sign Out</p>
           </button>
         </div>
+        </div>
       </div>
     </div>
   );
