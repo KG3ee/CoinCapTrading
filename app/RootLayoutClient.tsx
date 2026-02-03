@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, TrendingUp, ArrowLeftRight, Wallet, Menu, X } from 'lucide-react';
+import { Home, TrendingUp, ArrowLeftRight, Wallet, Menu, X, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -12,7 +12,7 @@ export function RootLayoutClient({
 }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password';
+  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/settings';
 
   const navItems = [
     { name: 'Home', icon: Home, href: '/' },
@@ -20,6 +20,8 @@ export function RootLayoutClient({
     { name: 'Trade', icon: ArrowLeftRight, href: '/trade' },
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
   ];
+
+  const settingsLink = { name: 'Settings', icon: Settings, href: '/settings' };
 
   if (isAuthPage) {
     return <>{children}</>;
@@ -54,7 +56,16 @@ export function RootLayoutClient({
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 space-y-2 border-t border-white/10">
+          <Link
+            href={settingsLink.href}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              pathname === settingsLink.href ? 'bg-accent text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <Settings size={20} />
+            <span className="font-medium">{settingsLink.name}</span>
+          </Link>
           <div className="glass-card">
             <p className="text-xs text-gray-400 mb-1">Portfolio Value</p>
             <p className="text-xl font-bold">$24,567.89</p>
@@ -81,7 +92,7 @@ export function RootLayoutClient({
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black/80 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)}>
-          <div className="absolute top-16 left-0 right-0 glass-card m-4">
+          <div className="absolute top-16 left-0 right-0 glass-card m-4 max-h-[calc(100vh-100px)] overflow-y-auto">
             <nav className="space-y-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -97,6 +108,22 @@ export function RootLayoutClient({
                   >
                     <Icon size={20} />
                     <span className="font-medium">{item.name}</span>
+                  </Link>
+                );
+              })}
+              <div className="border-t border-white/10 pt-2">
+                <Link
+                  href={settingsLink.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg min-h-[44px] ${
+                    pathname === settingsLink.href ? 'bg-accent text-white' : 'text-gray-400'
+                  }`}
+                >
+                  <Settings size={20} />
+                  <span className="font-medium">{settingsLink.name}</span>
+                </Link>
+              </div>
+            </nav>
                   </Link>
                 );
               })}
