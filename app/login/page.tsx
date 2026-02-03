@@ -31,21 +31,43 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     
-    // Save credentials if "Remember me" is checked
-    if (rememberMe) {
-      localStorage.setItem('rememberedEmail', email);
-      localStorage.setItem('rememberedPassword', password);
-    } else {
-      // Clear saved credentials if not checked
-      localStorage.removeItem('rememberedEmail');
-      localStorage.removeItem('rememberedPassword');
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Login failed');
+        setIsLoading(false);
+        return;
+      }
+
+      // Save credentials if "Remember me" is checked
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', email);
+        localStorage.setItem('rememberedPassword', password);
+      } else {
+        // Clear saved credentials if not checked
+        localStorage.removeItem('rememberedEmail');
+        localStorage.removeItem('rememberedPassword');
+      }
+
+      // Save token to localStorage
+      localStorage.setItem('token', data.token);
+
+      // Redirect to home page on successful login
+      router.push('/');
+    } catch (error) {
+      console.error('Login error:', error);
+      alert('An error occurred during login');
+      setIsLoading(false);
     }
-    
-    // Simulate login delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Redirect to home page on successful login
-    router.push('/');
   };
 
   return (
