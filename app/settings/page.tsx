@@ -20,7 +20,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
       {/* Header */}
       <div className="sticky top-0 z-50 flex items-center justify-between p-4 glass border-b border-white/10">
         <button
@@ -33,54 +33,56 @@ export default function SettingsPage() {
         <div className="w-10 h-10" />
       </div>
 
-      {/* Profile Section */}
-      <div className="p-6 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-b border-white/10">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold border-2 border-accent">
-            KG
-          </div>
-          <div className="flex-1">
-            <p className="text-white text-lg font-semibold">KG</p>
-            <p className="text-gray-400 text-xs">Premium Member</p>
-          </div>
-        </div>
-
-        {/* UID and Referral */}
-        <div className="mt-6 space-y-3">
-          <div className="glass-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-xs">UID</p>
-                <p className="text-white font-semibold">1106103</p>
-              </div>
-              <button
-                onClick={() => handleCopy('1106103', 'uid')}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-              >
-                <Copy size={18} className={copied === 'uid' ? 'text-success' : 'text-gray-400'} />
-              </button>
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Profile Section */}
+        <div className="p-6 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-b border-white/10">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold border-2 border-accent">
+              KG
+            </div>
+            <div className="flex-1">
+              <p className="text-white text-lg font-semibold">KG</p>
+              <p className="text-gray-400 text-xs">Premium Member</p>
             </div>
           </div>
 
-          <div className="glass-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-xs">Referral Code</p>
-                <p className="text-white font-semibold">REF1234567</p>
+          {/* UID and Referral */}
+          <div className="mt-6 space-y-3">
+            <div className="glass-card">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-xs">UID</p>
+                  <p className="text-white font-semibold">1106103</p>
+                </div>
+                <button
+                  onClick={() => handleCopy('1106103', 'uid')}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                >
+                  <Copy size={18} className={copied === 'uid' ? 'text-success' : 'text-gray-400'} />
+                </button>
               </div>
-              <button
-                onClick={() => handleCopy('REF1234567', 'referral')}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-              >
-                <Copy size={18} className={copied === 'referral' ? 'text-success' : 'text-gray-400'} />
-              </button>
+            </div>
+
+            <div className="glass-card">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-xs">Referral Code</p>
+                  <p className="text-white font-semibold">REF1234567</p>
+                </div>
+                <button
+                  onClick={() => handleCopy('REF1234567', 'referral')}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                >
+                  <Copy size={18} className={copied === 'referral' ? 'text-success' : 'text-gray-400'} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Settings Menu */}
-      <div className="p-4 space-y-6">
+        {/* Settings Menu */}
+        <div className="p-4 space-y-6 pb-20">
         {/* Account Section */}
         <div className="space-y-1">
           <button className="w-full flex items-center gap-4 p-4 rounded-lg hover:bg-white/5 transition-colors">
@@ -145,7 +147,6 @@ export default function SettingsPage() {
             </div>
           </button>
         </div>
-
         {/* Sign Out */}
         <div className="border-t border-white/10 pt-6">
           <button
