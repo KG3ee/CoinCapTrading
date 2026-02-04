@@ -16,7 +16,7 @@ export function RootLayoutClient({
 
   const navItems = [
     { name: 'Home', icon: Home, href: '/' },
-    { name: 'Markets', icon: TrendingUp, href: '/markets' },
+    { name: 'Dashboard', icon: TrendingUp, href: '/dashboard' },
     { name: 'Trade', icon: ArrowLeftRight, href: '/trade' },
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
   ];
