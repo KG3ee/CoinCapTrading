@@ -91,7 +91,7 @@ export function RootLayoutClient({
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={() => setMobileMenuOpen(false)}>
+        <div className="md:hidden fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={() => setMobileMenuOpen(false)}>
           <div className="glass-card m-4 mt-20" onClick={(e) => e.stopPropagation()}>
             <nav className="space-y-2">
               {navItems.map((item) => {
