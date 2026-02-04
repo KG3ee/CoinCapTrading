@@ -1,7 +1,9 @@
 import { connectDB } from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import { createToken } from '@/lib/auth';
+import { sendVerificationEmail } from '@/lib/email';
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,29 +49,30 @@ export async function POST(request: NextRequest) {
       password,
     });
 
-    // Create token
-    const token = createToken(user._id.toString(), user.email);
+    // Generate verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    user.verificationToken = verificationToken;
+    user.verificationTokenExpires = verificationTokenExpires;
+    await user.save();
+
+    // Send verification email
+    const verificationUrl = `${process.env.NEXT_PUBLIC_API_URL}/verify-email?token=${verificationToken}`;
+    await sendVerificationEmail(email, verificationToken);
 
     const response = NextResponse.json(
       {
-        message: 'User registered successfully',
+        message: 'Account created successfully. Please check your email to verify your account.',
         user: {
           id: user._id,
           fullName: user.fullName,
           email: user.email,
           uid: user.uid,
         },
-        token,
       },
       { status: 201 }
     );
-
-    response.cookies.set('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60,
-    });
 
     return response;
   } catch (error) {

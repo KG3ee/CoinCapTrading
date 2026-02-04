@@ -37,6 +37,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if email is verified
+    if (!user.isVerified) {
+      return NextResponse.json(
+        { error: 'Please verify your email first' },
+        { status: 403 }
+      );
+    }
+
     // Create token
     const token = createToken(user._id.toString(), user.email);
 
