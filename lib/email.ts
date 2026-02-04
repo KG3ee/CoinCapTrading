@@ -7,7 +7,7 @@ export async function sendVerificationEmail(email: string, token: string) {
 
   try {
     await resend.emails.send({
-      from: 'noreply@coincaptrading.com',
+      from: 'onboarding@resend.dev', // Resend test domain - works without verification
       to: email,
       subject: 'Verify your CoinCapTrading email',
       html: `
