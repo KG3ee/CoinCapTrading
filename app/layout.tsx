@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
 import './globals.css';
 import { RootLayoutClient } from './RootLayoutClient';
 
@@ -20,6 +19,17 @@ export async function generateStaticParams() {
   ];
 }
 
+async function getMessages(locale: string) {
+  const validLocale = ['en', 'es', 'fr', 'de', 'zh', 'ja'].includes(locale) ? locale : 'en';
+  
+  try {
+    return (await import(`../public/locales/${validLocale}.json`)).default;
+  } catch (error) {
+    console.error(`Failed to load locale ${validLocale}:`, error);
+    return (await import('../public/locales/en.json')).default;
+  }
+}
+
 export default async function RootLayout({
   children,
   params,
@@ -28,12 +38,12 @@ export default async function RootLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const messages = await getMessages();
+  const messages = await getMessages(locale || 'en');
 
   return (
     <html lang={locale || 'en'}>
       <body className="bg-[#0a0a0a] text-white overflow-hidden">
-        <NextIntlClientProvider messages={messages}>
+        <NextIntlClientProvider messages={messages} locale={locale || 'en'}>
           <RootLayoutClient>{children}</RootLayoutClient>
         </NextIntlClientProvider>
       </body>
