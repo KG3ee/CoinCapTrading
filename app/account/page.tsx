@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { useLanguageSwitch } from '@/lib/useLanguageSwitch';
 import {
   User,
   Lock,
@@ -40,7 +42,9 @@ interface UserProfile {
 type TabType = 'profile' | 'settings' | 'security';
 
 export default function AccountPage() {
+  const t = useTranslations('account');
   const router = useRouter();
+  const { changeLanguage, locale } = useLanguageSwitch();
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -287,12 +291,12 @@ export default function AccountPage() {
       <div className="sticky top-0 z-50 glass border-b border-white/10 backdrop-blur-md">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-4">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push(`/`)}
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
           >
             <ArrowLeft size={24} className="text-white" />
           </button>
-          <h1 className="text-white font-semibold text-lg">Account Settings</h1>
+          <h1 className="text-white font-semibold text-lg">{t('title')}</h1>
         </div>
       </div>
 
@@ -332,7 +336,7 @@ export default function AccountPage() {
             }`}
           >
             <User size={18} className="inline mr-2" />
-            Profile
+            {t('tabs.profile')}
           </button>
           <button
             onClick={() => {
@@ -348,7 +352,7 @@ export default function AccountPage() {
             }`}
           >
             <Globe size={18} className="inline mr-2" />
-            Settings
+            {t('tabs.settings')}
           </button>
           <button
             onClick={() => {
@@ -363,7 +367,7 @@ export default function AccountPage() {
             }`}
           >
             <Lock size={18} className="inline mr-2" />
-            Security
+            {t('tabs.security')}
           </button>
         </div>
 
@@ -589,14 +593,25 @@ export default function AccountPage() {
         {/* SETTINGS TAB */}
         {activeTab === 'settings' && (
           <div className="glass-card p-6 space-y-6">
-            <h3 className="text-lg font-bold text-white">Preferences</h3>
+            <h3 className="text-lg font-bold text-white">{t('settings.title')}</h3>
 
             {/* Language */}
             <div>
-              <label className="text-sm text-gray-400 block mb-2">Language</label>
+              <label className="text-sm text-gray-400 block mb-2">{t('settings.language')}</label>
               <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
+                value={locale}
+                onChange={(e) => {
+                  changeLanguage(e.target.value);
+                  const langMap: { [key: string]: string } = {
+                    'en': 'English',
+                    'es': 'Spanish',
+                    'fr': 'French',
+                    'de': 'German',
+                    'zh': 'Chinese',
+                    'ja': 'Japanese',
+                  };
+                  setLanguage(langMap[e.target.value] || 'English');
+                }}
                 className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-white appearance-none cursor-pointer hover:bg-white/10 transition-colors"
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
@@ -605,25 +620,26 @@ export default function AccountPage() {
                   paddingRight: '36px',
                 }}
               >
-                <option value="English" className="bg-slate-800 text-white">English</option>
-                <option value="Spanish" className="bg-slate-800 text-white">Spanish</option>
-                <option value="French" className="bg-slate-800 text-white">French</option>
-                <option value="German" className="bg-slate-800 text-white">German</option>
-                <option value="Chinese" className="bg-slate-800 text-white">Chinese</option>
-                <option value="Japanese" className="bg-slate-800 text-white">Japanese</option>
+                <option value="en" className="bg-slate-800 text-white">English</option>
+                <option value="es" className="bg-slate-800 text-white">Español</option>
+                <option value="fr" className="bg-slate-800 text-white">Français</option>
+                <option value="de" className="bg-slate-800 text-white">Deutsch</option>
+                <option value="zh" className="bg-slate-800 text-white">中文</option>
+                <option value="ja" className="bg-slate-800 text-white">日本語</option>
               </select>
             </div>
 
             {/* Withdrawal Address */}
             <div>
-              <label className="text-sm text-gray-400 block mb-2">Withdrawal Address</label>
+              <label className="text-sm text-gray-400 block mb-2">{t('settings.withdrawalAddress')}</label>
               <input
                 type="text"
                 value={withdrawalAddress}
                 onChange={(e) => setWithdrawalAddress(e.target.value)}
-                placeholder="Your crypto wallet address"
+                placeholder={t('settings.withdrawalAddressPlaceholder')}
                 className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-white placeholder-gray-500"
               />
+              <p className="text-xs text-gray-500 mt-1">{t('settings.withdrawalAddressHint')}</p>
               <p className="text-xs text-gray-500 mt-1">Used for withdrawals and payouts</p>
             </div>
 

@@ -1,0 +1,138 @@
+{
+  "common": {
+    "home": "首页",
+    "dashboard": "仪表板",
+    "trade": "交易",
+    "wallet": "钱包",
+    "account": "账户",
+    "logout": "退出登录",
+    "save": "保存",
+    "cancel": "取消",
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功"
+  },
+  "account": {
+    "title": "账户设置",
+    "tabs": {
+      "profile": "个人资料",
+      "settings": "设置",
+      "security": "安全"
+    },
+    "profile": {
+      "editProfile": "编辑个人资料",
+      "profilePicture": "头像",
+      "chooseImage": "选择图片",
+      "imageSizeHint": "最大 5MB。JPG、PNG、GIF",
+      "fullName": "全名",
+      "saveChanges": "保存更改",
+      "saving": "保存中...",
+      "accountStatus": "账户状态",
+      "emailVerified": "邮箱已验证",
+      "accountCreated": "账户创建时间",
+      "twoFAStatus": "双因素认证状态",
+      "verified": "已验证",
+      "pending": "待处理",
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "accountInformation": "账户信息",
+      "userId": "用户 ID",
+      "uid": "UID",
+      "referralCode": "推荐码",
+      "shareWithFriends": "与朋友分享此代码赚取奖励！"
+    },
+    "settings": {
+      "title": "偏好设置",
+      "language": "语言",
+      "withdrawalAddress": "提现地址",
+      "withdrawalAddressPlaceholder": "您的加密货币钱包地址",
+      "withdrawalAddressHint": "用于提现和支付",
+      "saveSettings": "保存设置"
+    },
+    "security": {
+      "changePassword": "更改密码",
+      "currentPassword": "当前密码",
+      "currentPasswordPlaceholder": "输入您的当前密码",
+      "newPassword": "新密码",
+      "newPasswordPlaceholder": "输入您的新密码",
+      "newPasswordHint": "最少 6 个字符",
+      "confirmPassword": "确认新密码",
+      "confirmPasswordPlaceholder": "确认您的新密码",
+      "changePasswordBtn": "更改密码",
+      "changing": "更改中...",
+      "twoFactorAuth": "双因素认证",
+      "addExtraLayer": "为您的账户添加额外的安全保护层",
+      "manageTwoFA": "管理双因素认证",
+      "enableTwoFA": "启用双因素认证"
+    },
+    "messages": {
+      "profileUpdated": "个人资料已成功更新！",
+      "passwordChanged": "密码已成功更改！",
+      "passwordsNotMatch": "新密码不匹配",
+      "passwordTooShort": "新密码必须至少为 6 个字符",
+      "userNotFound": "未找到用户"
+    }
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "email": "电子邮件",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "forgotPassword": "忘记密码？",
+    "signUp": "注册",
+    "signIn": "登录",
+    "noAccount": "没有账户？",
+    "haveAccount": "已有账户？"
+  },
+  "landing": {
+    "hero": {
+      "title": "自信地交易加密货币",
+      "subtitle": "从 10,000 美元虚拟资本开始，无风险掌握加密交易",
+      "getStarted": "免费开始",
+      "signIn": "登录",
+      "bankSecurity": "银行级安全",
+      "instantVerification": "即时验证"
+    },
+    "markets": {
+      "title": "实时市场"
+    },
+    "features": {
+      "title": "为什么选择 CryptoTrade？",
+      "lightning": "闪电般快速",
+      "lightningDesc": "在毫秒内执行交易",
+      "secure": "安全可靠",
+      "secureDesc": "银行级加密和安全",
+      "trading24": "24/7 交易",
+      "trading24Desc": "随时随地交易加密货币",
+      "mobile": "移动就绪",
+      "mobileDesc": "移动设备上的全功能交易"
+    },
+    "stats": {
+      "users": "50K+ 活跃用户",
+      "trades": "250 万+ 总交易",
+      "volume": "52 亿+ 交易量"
+    },
+    "cta": {
+      "ready": "准备开始交易？",
+      "createAccount": "创建免费账户"
+    }
+  },
+  "dashboard": {
+    "title": "交易仪表板",
+    "portfolioValue": "投资组合价值",
+    "availableBalance": "可用余额",
+    "totalInvested": "总投资",
+    "totalReturns": "总收益",
+    "holdings": "持仓",
+    "recentTrades": "最近交易",
+    "symbol": "符号",
+    "amount": "数量",
+    "avgPrice": "平均价格",
+    "currentPrice": "当前价格",
+    "totalValue": "总价值",
+    "gainLoss": "收益/损失",
+    "makeFirstTrade": "进行您的第一笔交易",
+    "startTrading": "开始交易，看您的投资组合增长！"
+  }
+}

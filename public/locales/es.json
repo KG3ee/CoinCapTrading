@@ -1,0 +1,138 @@
+{
+  "common": {
+    "home": "Inicio",
+    "dashboard": "Panel de Control",
+    "trade": "Comercio",
+    "wallet": "Billetera",
+    "account": "Cuenta",
+    "logout": "Cerrar Sesión",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito"
+  },
+  "account": {
+    "title": "Configuración de Cuenta",
+    "tabs": {
+      "profile": "Perfil",
+      "settings": "Configuración",
+      "security": "Seguridad"
+    },
+    "profile": {
+      "editProfile": "Editar Perfil",
+      "profilePicture": "Foto de Perfil",
+      "chooseImage": "Elegir Imagen",
+      "imageSizeHint": "Máximo 5MB. JPG, PNG, GIF",
+      "fullName": "Nombre Completo",
+      "saveChanges": "Guardar Cambios",
+      "saving": "Guardando...",
+      "accountStatus": "Estado de Cuenta",
+      "emailVerified": "Correo Verificado",
+      "accountCreated": "Cuenta Creada",
+      "twoFAStatus": "Estado de 2FA",
+      "verified": "Verificado",
+      "pending": "Pendiente",
+      "enabled": "Habilitado",
+      "disabled": "Deshabilitado",
+      "accountInformation": "Información de Cuenta",
+      "userId": "ID de Usuario",
+      "uid": "UID",
+      "referralCode": "Código de Referencia",
+      "shareWithFriends": "¡Comparte este código con amigos para ganar recompensas!"
+    },
+    "settings": {
+      "title": "Preferencias",
+      "language": "Idioma",
+      "withdrawalAddress": "Dirección de Retiro",
+      "withdrawalAddressPlaceholder": "Tu dirección de billetera cripto",
+      "withdrawalAddressHint": "Se utiliza para retiros y pagos",
+      "saveSettings": "Guardar Configuración"
+    },
+    "security": {
+      "changePassword": "Cambiar Contraseña",
+      "currentPassword": "Contraseña Actual",
+      "currentPasswordPlaceholder": "Ingresa tu contraseña actual",
+      "newPassword": "Nueva Contraseña",
+      "newPasswordPlaceholder": "Ingresa tu nueva contraseña",
+      "newPasswordHint": "Mínimo 6 caracteres",
+      "confirmPassword": "Confirmar Nueva Contraseña",
+      "confirmPasswordPlaceholder": "Confirma tu nueva contraseña",
+      "changePasswordBtn": "Cambiar Contraseña",
+      "changing": "Cambiando...",
+      "twoFactorAuth": "Autenticación de Dos Factores",
+      "addExtraLayer": "Agrega una capa adicional de seguridad a tu cuenta",
+      "manageTwoFA": "Gestionar 2FA",
+      "enableTwoFA": "Habilitar 2FA"
+    },
+    "messages": {
+      "profileUpdated": "¡Perfil actualizado exitosamente!",
+      "passwordChanged": "¡Contraseña cambiada exitosamente!",
+      "passwordsNotMatch": "Las nuevas contraseñas no coinciden",
+      "passwordTooShort": "La nueva contraseña debe tener al menos 6 caracteres",
+      "userNotFound": "Usuario no encontrado"
+    }
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "register": "Registrarse",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "confirmPassword": "Confirmar Contraseña",
+    "forgotPassword": "¿Olvidaste tu Contraseña?",
+    "signUp": "Registrarse",
+    "signIn": "Iniciar Sesión",
+    "noAccount": "¿No tienes una cuenta?",
+    "haveAccount": "¿Ya tienes una cuenta?"
+  },
+  "landing": {
+    "hero": {
+      "title": "Comercia Cripto con Confianza",
+      "subtitle": "Comienza con $10,000 en capital virtual y domina el comercio de criptomonedas sin riesgo",
+      "getStarted": "Comenzar Gratis",
+      "signIn": "Iniciar Sesión",
+      "bankSecurity": "Seguridad de Nivel Bancario",
+      "instantVerification": "Verificación Instantánea"
+    },
+    "markets": {
+      "title": "Mercados en Vivo"
+    },
+    "features": {
+      "title": "¿Por qué elegir CryptoTrade?",
+      "lightning": "Súper Rápido",
+      "lightningDesc": "Ejecuta operaciones en milisegundos",
+      "secure": "Seguro y Confiable",
+      "secureDesc": "Encriptación y seguridad de nivel bancario",
+      "trading24": "Comercio 24/7",
+      "trading24Desc": "Comercia cripto en cualquier momento y lugar",
+      "mobile": "Compatible Móvil",
+      "mobileDesc": "Comercio completo en dispositivo móvil"
+    },
+    "stats": {
+      "users": "50K+ Usuarios Activos",
+      "trades": "2.5M+ Operaciones Totales",
+      "volume": "$5.2B+ Volumen de Comercio"
+    },
+    "cta": {
+      "ready": "¿Listo para comenzar a comerciar?",
+      "createAccount": "Crear Cuenta Gratis"
+    }
+  },
+  "dashboard": {
+    "title": "Panel de Control de Comercio",
+    "portfolioValue": "Valor del Portafolio",
+    "availableBalance": "Saldo Disponible",
+    "totalInvested": "Total Invertido",
+    "totalReturns": "Retornos Totales",
+    "holdings": "Participaciones",
+    "recentTrades": "Operaciones Recientes",
+    "symbol": "Símbolo",
+    "amount": "Cantidad",
+    "avgPrice": "Precio Promedio",
+    "currentPrice": "Precio Actual",
+    "totalValue": "Valor Total",
+    "gainLoss": "Ganancia/Pérdida",
+    "makeFirstTrade": "Realiza tu Primer Comercio",
+    "startTrading": "¡Comienza a comerciar para ver crecer tu portafolio!"
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "common": {
+    "home": "Startseite",
+    "dashboard": "Dashboard",
+    "trade": "Handel",
+    "wallet": "Brieftasche",
+    "account": "Konto",
+    "logout": "Abmelden",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "loading": "Wird geladen...",
+    "error": "Fehler",
+    "success": "Erfolg"
+  },
+  "account": {
+    "title": "Kontoeinstellungen",
+    "tabs": {
+      "profile": "Profil",
+      "settings": "Einstellungen",
+      "security": "Sicherheit"
+    },
+    "profile": {
+      "editProfile": "Profil Bearbeiten",
+      "profilePicture": "Profilbild",
+      "chooseImage": "Bild Auswählen",
+      "imageSizeHint": "Maximum 5 MB. JPG, PNG, GIF",
+      "fullName": "Vollständiger Name",
+      "saveChanges": "Änderungen Speichern",
+      "saving": "Wird gespeichert...",
+      "accountStatus": "Kontostatus",
+      "emailVerified": "E-Mail Verifiziert",
+      "accountCreated": "Konto Erstellt",
+      "twoFAStatus": "2FA-Status",
+      "verified": "Verifiziert",
+      "pending": "Ausstehend",
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert",
+      "accountInformation": "Kontoinformationen",
+      "userId": "Benutzer-ID",
+      "uid": "UID",
+      "referralCode": "Empfehlungscode",
+      "shareWithFriends": "Teilen Sie diesen Code mit Freunden, um Belohnungen zu verdienen!"
+    },
+    "settings": {
+      "title": "Voreinstellungen",
+      "language": "Sprache",
+      "withdrawalAddress": "Abhebungsadresse",
+      "withdrawalAddressPlaceholder": "Ihre Krypto-Brieftaschenadresse",
+      "withdrawalAddressHint": "Wird für Abhebungen und Auszahlungen verwendet",
+      "saveSettings": "Einstellungen Speichern"
+    },
+    "security": {
+      "changePassword": "Passwort Ändern",
+      "currentPassword": "Aktuelles Passwort",
+      "currentPasswordPlaceholder": "Geben Sie Ihr aktuelles Passwort ein",
+      "newPassword": "Neues Passwort",
+      "newPasswordPlaceholder": "Geben Sie Ihr neues Passwort ein",
+      "newPasswordHint": "Mindestens 6 Zeichen",
+      "confirmPassword": "Neues Passwort Bestätigen",
+      "confirmPasswordPlaceholder": "Bestätigen Sie Ihr neues Passwort",
+      "changePasswordBtn": "Passwort Ändern",
+      "changing": "Wird geändert...",
+      "twoFactorAuth": "Zwei-Faktor-Authentifizierung",
+      "addExtraLayer": "Fügen Sie eine zusätzliche Sicherheitsebene zu Ihrem Konto hinzu",
+      "manageTwoFA": "2FA Verwalten",
+      "enableTwoFA": "2FA Aktivieren"
+    },
+    "messages": {
+      "profileUpdated": "Profil erfolgreich aktualisiert!",
+      "passwordChanged": "Passwort erfolgreich geändert!",
+      "passwordsNotMatch": "Neue Passwörter stimmen nicht überein",
+      "passwordTooShort": "Das neue Passwort muss mindestens 6 Zeichen lang sein",
+      "userNotFound": "Benutzer nicht gefunden"
+    }
+  },
+  "auth": {
+    "login": "Anmelden",
+    "register": "Registrieren",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "confirmPassword": "Passwort Bestätigen",
+    "forgotPassword": "Passwort Vergessen?",
+    "signUp": "Registrieren",
+    "signIn": "Anmelden",
+    "noAccount": "Sie haben kein Konto?",
+    "haveAccount": "Sie haben bereits ein Konto?"
+  },
+  "landing": {
+    "hero": {
+      "title": "Handeln Sie Krypto mit Zuversicht",
+      "subtitle": "Beginnen Sie mit $10.000 virtualem Kapital und meistern Sie Krypto-Trading ohne Risiko",
+      "getStarted": "Kostenlos Beginnen",
+      "signIn": "Anmelden",
+      "bankSecurity": "Bankensicherheit",
+      "instantVerification": "Sofortige Überprüfung"
+    },
+    "markets": {
+      "title": "Live-Märkte"
+    },
+    "features": {
+      "title": "Warum CryptoTrade Wählen?",
+      "lightning": "Blitzschnell",
+      "lightningDesc": "Führen Sie Transaktionen in Millisekunden aus",
+      "secure": "Sicher und Zuverlässig",
+      "secureDesc": "Bankensicherheit und Verschlüsselung",
+      "trading24": "24/7 Trading",
+      "trading24Desc": "Handeln Sie Krypto jederzeit und überall",
+      "mobile": "Mobil Optimiert",
+      "mobileDesc": "Vollständiger Handel auf dem Mobilgerät"
+    },
+    "stats": {
+      "users": "50K+ Aktive Benutzer",
+      "trades": "2.5M+ Gesamttransaktionen",
+      "volume": "$5.2B+ Handelsvolumen"
+    },
+    "cta": {
+      "ready": "Bereit zum Handeln?",
+      "createAccount": "Kostenloses Konto Erstellen"
+    }
+  },
+  "dashboard": {
+    "title": "Trading-Dashboard",
+    "portfolioValue": "Portfoliowert",
+    "availableBalance": "Verfügbarer Saldo",
+    "totalInvested": "Gesamtinvestition",
+    "totalReturns": "Gesamtrenditen",
+    "holdings": "Bestände",
+    "recentTrades": "Aktuelle Transaktionen",
+    "symbol": "Symbol",
+    "amount": "Menge",
+    "avgPrice": "Durchschnittspreis",
+    "currentPrice": "Aktueller Preis",
+    "totalValue": "Gesamtwert",
+    "gainLoss": "Gewinn/Verlust",
+    "makeFirstTrade": "Führen Sie Ihren Ersten Trade Durch",
+    "startTrading": "Beginnen Sie mit dem Handel, um Ihr Portfolio wachsen zu sehen!"
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "common": {
+    "home": "ホーム",
+    "dashboard": "ダッシュボード",
+    "trade": "取引",
+    "wallet": "ウォレット",
+    "account": "アカウント",
+    "logout": "ログアウト",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功"
+  },
+  "account": {
+    "title": "アカウント設定",
+    "tabs": {
+      "profile": "プロフィール",
+      "settings": "設定",
+      "security": "セキュリティ"
+    },
+    "profile": {
+      "editProfile": "プロフィールを編集",
+      "profilePicture": "プロフィール写真",
+      "chooseImage": "画像を選択",
+      "imageSizeHint": "最大 5MB。JPG、PNG、GIF",
+      "fullName": "フルネーム",
+      "saveChanges": "変更を保存",
+      "saving": "保存中...",
+      "accountStatus": "アカウントステータス",
+      "emailVerified": "メール確認済み",
+      "accountCreated": "アカウント作成日",
+      "twoFAStatus": "2FA ステータス",
+      "verified": "確認済み",
+      "pending": "保留中",
+      "enabled": "有効",
+      "disabled": "無効",
+      "accountInformation": "アカウント情報",
+      "userId": "ユーザー ID",
+      "uid": "UID",
+      "referralCode": "紹介コード",
+      "shareWithFriends": "このコードを友人と共有して報酬を獲得しましょう！"
+    },
+    "settings": {
+      "title": "基本設定",
+      "language": "言語",
+      "withdrawalAddress": "出金アドレス",
+      "withdrawalAddressPlaceholder": "暗号資産ウォレットアドレス",
+      "withdrawalAddressHint": "出金と送金に使用されます",
+      "saveSettings": "設定を保存"
+    },
+    "security": {
+      "changePassword": "パスワードを変更",
+      "currentPassword": "現在のパスワード",
+      "currentPasswordPlaceholder": "現在のパスワードを入力",
+      "newPassword": "新しいパスワード",
+      "newPasswordPlaceholder": "新しいパスワードを入力",
+      "newPasswordHint": "最低 6 文字",
+      "confirmPassword": "新しいパスワードを確認",
+      "confirmPasswordPlaceholder": "新しいパスワードを確認",
+      "changePasswordBtn": "パスワードを変更",
+      "changing": "変更中...",
+      "twoFactorAuth": "二要素認証",
+      "addExtraLayer": "アカウントに追加のセキュリティレイヤーを追加",
+      "manageTwoFA": "2FA を管理",
+      "enableTwoFA": "2FA を有効にする"
+    },
+    "messages": {
+      "profileUpdated": "プロフィールが正常に更新されました！",
+      "passwordChanged": "パスワードが正常に変更されました！",
+      "passwordsNotMatch": "新しいパスワードが一致しません",
+      "passwordTooShort": "新しいパスワードは最低 6 文字である必要があります",
+      "userNotFound": "ユーザーが見つかりません"
+    }
+  },
+  "auth": {
+    "login": "ログイン",
+    "register": "登録",
+    "email": "メール",
+    "password": "パスワード",
+    "confirmPassword": "パスワードを確認",
+    "forgotPassword": "パスワードをお忘れですか？",
+    "signUp": "登録",
+    "signIn": "ログイン",
+    "noAccount": "アカウントをお持ちでないですか？",
+    "haveAccount": "既にアカウントをお持ちですか？"
+  },
+  "landing": {
+    "hero": {
+      "title": "自信を持って暗号資産を取引",
+      "subtitle": "10,000 ドルの仮想資本で始めて、リスクなしで暗号取引をマスター",
+      "getStarted": "無料で開始",
+      "signIn": "ログイン",
+      "bankSecurity": "銀行レベルのセキュリティ",
+      "instantVerification": "即座の認証"
+    },
+    "markets": {
+      "title": "ライブマーケット"
+    },
+    "features": {
+      "title": "CryptoTrade を選ぶ理由",
+      "lightning": "超高速",
+      "lightningDesc": "ミリ秒単位でトレードを実行",
+      "secure": "安全で信頼性の高い",
+      "secureDesc": "銀行レベルの暗号化とセキュリティ",
+      "trading24": "24/7 取引",
+      "trading24Desc": "いつでもどこでも暗号資産を取引",
+      "mobile": "モバイル対応",
+      "mobileDesc": "モバイルでの完全な取引機能"
+    },
+    "stats": {
+      "users": "50,000 人以上のアクティブユーザー",
+      "trades": "250 万以上の取引",
+      "volume": "52 億ドル以上の取引量"
+    },
+    "cta": {
+      "ready": "取引を開始する準備はできていますか？",
+      "createAccount": "無料アカウント作成"
+    }
+  },
+  "dashboard": {
+    "title": "トレーディングダッシュボード",
+    "portfolioValue": "ポートフォリオ価値",
+    "availableBalance": "利用可能残高",
+    "totalInvested": "総投資額",
+    "totalReturns": "総リターン",
+    "holdings": "保有資産",
+    "recentTrades": "最近のトレード",
+    "symbol": "シンボル",
+    "amount": "数量",
+    "avgPrice": "平均価格",
+    "currentPrice": "現在の価格",
+    "totalValue": "合計価値",
+    "gainLoss": "利益/損失",
+    "makeFirstTrade": "最初のトレードを実行",
+    "startTrading": "取引を開始して、ポートフォリオの成長を見ましょう！"
+  }
+}

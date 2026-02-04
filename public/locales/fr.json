@@ -1,0 +1,138 @@
+{
+  "common": {
+    "home": "Accueil",
+    "dashboard": "Tableau de Bord",
+    "trade": "Commerce",
+    "wallet": "Portefeuille",
+    "account": "Compte",
+    "logout": "Déconnexion",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès"
+  },
+  "account": {
+    "title": "Paramètres du Compte",
+    "tabs": {
+      "profile": "Profil",
+      "settings": "Paramètres",
+      "security": "Sécurité"
+    },
+    "profile": {
+      "editProfile": "Modifier le Profil",
+      "profilePicture": "Photo de Profil",
+      "chooseImage": "Choisir une Image",
+      "imageSizeHint": "Maximum 5 Mo. JPG, PNG, GIF",
+      "fullName": "Nom Complet",
+      "saveChanges": "Enregistrer les Modifications",
+      "saving": "Enregistrement...",
+      "accountStatus": "État du Compte",
+      "emailVerified": "Email Vérifié",
+      "accountCreated": "Compte Créé",
+      "twoFAStatus": "État 2FA",
+      "verified": "Vérifié",
+      "pending": "En Attente",
+      "enabled": "Activé",
+      "disabled": "Désactivé",
+      "accountInformation": "Informations du Compte",
+      "userId": "ID Utilisateur",
+      "uid": "UID",
+      "referralCode": "Code de Parrainage",
+      "shareWithFriends": "Partagez ce code avec vos amis pour gagner des récompenses!"
+    },
+    "settings": {
+      "title": "Préférences",
+      "language": "Langue",
+      "withdrawalAddress": "Adresse de Retrait",
+      "withdrawalAddressPlaceholder": "Votre adresse de portefeuille crypto",
+      "withdrawalAddressHint": "Utilisé pour les retraits et les paiements",
+      "saveSettings": "Enregistrer les Paramètres"
+    },
+    "security": {
+      "changePassword": "Changer le Mot de Passe",
+      "currentPassword": "Mot de Passe Actuel",
+      "currentPasswordPlaceholder": "Entrez votre mot de passe actuel",
+      "newPassword": "Nouveau Mot de Passe",
+      "newPasswordPlaceholder": "Entrez votre nouveau mot de passe",
+      "newPasswordHint": "Minimum 6 caractères",
+      "confirmPassword": "Confirmer le Nouveau Mot de Passe",
+      "confirmPasswordPlaceholder": "Confirmez votre nouveau mot de passe",
+      "changePasswordBtn": "Changer le Mot de Passe",
+      "changing": "Changement...",
+      "twoFactorAuth": "Authentification à Deux Facteurs",
+      "addExtraLayer": "Ajoutez une couche de sécurité supplémentaire à votre compte",
+      "manageTwoFA": "Gérer 2FA",
+      "enableTwoFA": "Activer 2FA"
+    },
+    "messages": {
+      "profileUpdated": "Profil mis à jour avec succès!",
+      "passwordChanged": "Mot de passe changé avec succès!",
+      "passwordsNotMatch": "Les nouveaux mots de passe ne correspondent pas",
+      "passwordTooShort": "Le nouveau mot de passe doit contenir au moins 6 caractères",
+      "userNotFound": "Utilisateur non trouvé"
+    }
+  },
+  "auth": {
+    "login": "Connexion",
+    "register": "S'Inscrire",
+    "email": "Email",
+    "password": "Mot de Passe",
+    "confirmPassword": "Confirmer le Mot de Passe",
+    "forgotPassword": "Mot de Passe Oublié?",
+    "signUp": "S'Inscrire",
+    "signIn": "Se Connecter",
+    "noAccount": "Vous n'avez pas de compte?",
+    "haveAccount": "Vous avez déjà un compte?"
+  },
+  "landing": {
+    "hero": {
+      "title": "Négociez la Crypto en Confiance",
+      "subtitle": "Commencez avec $10,000 en capital virtuel et maîtrisez le trading de crypto sans risque",
+      "getStarted": "Commencer Gratuitement",
+      "signIn": "Se Connecter",
+      "bankSecurity": "Sécurité de Niveau Bancaire",
+      "instantVerification": "Vérification Instantanée"
+    },
+    "markets": {
+      "title": "Marchés en Direct"
+    },
+    "features": {
+      "title": "Pourquoi Choisir CryptoTrade?",
+      "lightning": "Ultra Rapide",
+      "lightningDesc": "Exécutez les transactions en millisecondes",
+      "secure": "Sécurisé et Fiable",
+      "secureDesc": "Chiffrement et sécurité de niveau bancaire",
+      "trading24": "Trading 24/7",
+      "trading24Desc": "Tradez la crypto n'importe quand, n'importe où",
+      "mobile": "Adapté Mobile",
+      "mobileDesc": "Trading complet sur mobile"
+    },
+    "stats": {
+      "users": "50K+ Utilisateurs Actifs",
+      "trades": "2.5M+ Transactions Totales",
+      "volume": "$5.2B+ Volume de Trading"
+    },
+    "cta": {
+      "ready": "Prêt à commencer à trader?",
+      "createAccount": "Créer un Compte Gratuit"
+    }
+  },
+  "dashboard": {
+    "title": "Tableau de Bord Trading",
+    "portfolioValue": "Valeur du Portefeuille",
+    "availableBalance": "Solde Disponible",
+    "totalInvested": "Total Investi",
+    "totalReturns": "Rendements Totaux",
+    "holdings": "Avoirs",
+    "recentTrades": "Transactions Récentes",
+    "symbol": "Symbole",
+    "amount": "Montant",
+    "avgPrice": "Prix Moyen",
+    "currentPrice": "Prix Actuel",
+    "totalValue": "Valeur Totale",
+    "gainLoss": "Gain/Perte",
+    "makeFirstTrade": "Effectuez votre Premier Trade",
+    "startTrading": "Commencez à trader pour voir votre portefeuille croître!"
+  }
+}

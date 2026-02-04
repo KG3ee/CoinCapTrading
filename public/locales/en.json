@@ -1,0 +1,138 @@
+{
+  "common": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "trade": "Trade",
+    "wallet": "Wallet",
+    "account": "Account",
+    "logout": "Logout",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  },
+  "account": {
+    "title": "Account Settings",
+    "tabs": {
+      "profile": "Profile",
+      "settings": "Settings",
+      "security": "Security"
+    },
+    "profile": {
+      "editProfile": "Edit Profile",
+      "profilePicture": "Profile Picture",
+      "chooseImage": "Choose Image",
+      "imageSizeHint": "Max 5MB. JPG, PNG, GIF",
+      "fullName": "Full Name",
+      "saveChanges": "Save Changes",
+      "saving": "Saving...",
+      "accountStatus": "Account Status",
+      "emailVerified": "Email Verified",
+      "accountCreated": "Account Created",
+      "twoFAStatus": "2FA Status",
+      "verified": "Verified",
+      "pending": "Pending",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "accountInformation": "Account Information",
+      "userId": "User ID",
+      "uid": "UID",
+      "referralCode": "Referral Code",
+      "shareWithFriends": "Share this code with friends to earn rewards!"
+    },
+    "settings": {
+      "title": "Preferences",
+      "language": "Language",
+      "withdrawalAddress": "Withdrawal Address",
+      "withdrawalAddressPlaceholder": "Your crypto wallet address",
+      "withdrawalAddressHint": "Used for withdrawals and payouts",
+      "saveSettings": "Save Settings"
+    },
+    "security": {
+      "changePassword": "Change Password",
+      "currentPassword": "Current Password",
+      "currentPasswordPlaceholder": "Enter your current password",
+      "newPassword": "New Password",
+      "newPasswordPlaceholder": "Enter your new password",
+      "newPasswordHint": "Minimum 6 characters",
+      "confirmPassword": "Confirm New Password",
+      "confirmPasswordPlaceholder": "Confirm your new password",
+      "changePasswordBtn": "Change Password",
+      "changing": "Changing...",
+      "twoFactorAuth": "Two-Factor Authentication",
+      "addExtraLayer": "Add an extra layer of security to your account",
+      "manageTwoFA": "Manage 2FA",
+      "enableTwoFA": "Enable 2FA"
+    },
+    "messages": {
+      "profileUpdated": "Profile updated successfully!",
+      "passwordChanged": "Password changed successfully!",
+      "passwordsNotMatch": "New passwords do not match",
+      "passwordTooShort": "New password must be at least 6 characters",
+      "userNotFound": "User not found"
+    }
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "forgotPassword": "Forgot Password?",
+    "signUp": "Sign Up",
+    "signIn": "Sign In",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?"
+  },
+  "landing": {
+    "hero": {
+      "title": "Trade Crypto with Confidence",
+      "subtitle": "Start with $10,000 in virtual capital and master crypto trading with zero risk",
+      "getStarted": "Get Started Free",
+      "signIn": "Sign In",
+      "bankSecurity": "Bank-Level Security",
+      "instantVerification": "Instant Verification"
+    },
+    "markets": {
+      "title": "Live Markets"
+    },
+    "features": {
+      "title": "Why Choose CryptoTrade?",
+      "lightning": "Lightning Fast",
+      "lightningDesc": "Execute trades in milliseconds",
+      "secure": "Secure & Safe",
+      "secureDesc": "Bank-level encryption and security",
+      "trading24": "24/7 Trading",
+      "trading24Desc": "Trade crypto anytime, anywhere",
+      "mobile": "Mobile Ready",
+      "mobileDesc": "Full-featured trading on mobile"
+    },
+    "stats": {
+      "users": "50K+ Active Users",
+      "trades": "2.5M+ Total Trades",
+      "volume": "$5.2B+ Trading Volume"
+    },
+    "cta": {
+      "ready": "Ready to start trading?",
+      "createAccount": "Create Free Account"
+    }
+  },
+  "dashboard": {
+    "title": "Trading Dashboard",
+    "portfolioValue": "Portfolio Value",
+    "availableBalance": "Available Balance",
+    "totalInvested": "Total Invested",
+    "totalReturns": "Total Returns",
+    "holdings": "Holdings",
+    "recentTrades": "Recent Trades",
+    "symbol": "Symbol",
+    "amount": "Amount",
+    "avgPrice": "Avg Price",
+    "currentPrice": "Current Price",
+    "totalValue": "Total Value",
+    "gainLoss": "Gain/Loss",
+    "makeFirstTrade": "Make Your First Trade",
+    "startTrading": "Start trading to see your portfolio grow!"
+  }
+}
