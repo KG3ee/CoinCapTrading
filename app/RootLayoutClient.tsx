@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, TrendingUp, ArrowLeftRight, Wallet, Menu, X, Settings } from 'lucide-react';
+import { Home, TrendingUp, ArrowLeftRight, Wallet, Menu, X, Settings, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -12,7 +12,7 @@ export function RootLayoutClient({
 }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/settings';
+  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/settings' || pathname === '/reset-password' || pathname === '/verify-email';
 
   const navItems = [
     { name: 'Home', icon: Home, href: '/' },
@@ -21,6 +21,7 @@ export function RootLayoutClient({
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
   ];
 
+  const profileLink = { name: 'Profile', icon: User, href: '/profile' };
   const settingsLink = { name: 'Settings', icon: Settings, href: '/settings' };
 
   if (isAuthPage) {
@@ -57,6 +58,15 @@ export function RootLayoutClient({
         </nav>
 
         <div className="p-4 space-y-2 border-t border-white/10">
+          <Link
+            href={profileLink.href}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+              pathname === profileLink.href ? 'bg-accent text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <User size={20} />
+            <span className="font-medium">{profileLink.name}</span>
+          </Link>
           <Link
             href={settingsLink.href}
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
@@ -112,6 +122,16 @@ export function RootLayoutClient({
                 );
               })}
               <div className="border-t border-white/10 pt-2">
+                <Link
+                  href={profileLink.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg min-h-[44px] ${
+                    pathname === profileLink.href ? 'bg-accent text-white' : 'text-gray-400'
+                  }`}
+                >
+                  <User size={20} />
+                  <span className="font-medium">{profileLink.name}</span>
+                </Link>
                 <Link
                   href={settingsLink.href}
                   onClick={() => setMobileMenuOpen(false)}
