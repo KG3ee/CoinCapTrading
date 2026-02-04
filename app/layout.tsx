@@ -22,16 +22,25 @@ export async function generateStaticParams() {
 
 export default async function RootLayout({
   children,
-  params,
 }: {
   children: React.ReactNode;
-  params: { locale: string };
 }) {
-  const locale = await getLocale();
-  const messages = await getMessages();
+  let locale = 'en';
+  try {
+    locale = await getLocale();
+  } catch (e) {
+    locale = 'en';
+  }
+
+  let messages = {};
+  try {
+    messages = await getMessages();
+  } catch (e) {
+    messages = {};
+  }
 
   return (
-    <html lang={locale}>
+    <html lang={locale || 'en'}>
       <body className="bg-[#0a0a0a] text-white overflow-hidden">
         <NextIntlClientProvider messages={messages}>
           <RootLayoutClient>{children}</RootLayoutClient>
