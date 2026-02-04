@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages, getLocale } from 'next-intl/server';
+import { getMessages } from 'next-intl/server';
 import './globals.css';
 import { RootLayoutClient } from './RootLayoutClient';
 
@@ -22,27 +22,18 @@ export async function generateStaticParams() {
 
 export default async function RootLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: { locale: string };
 }) {
-  let locale = 'en';
-  try {
-    locale = await getLocale();
-  } catch (e) {
-    locale = 'en';
-  }
-
-  let messages = {};
-  try {
-    messages = await getMessages();
-  } catch (e) {
-    messages = {};
-  }
+  const locale = params.locale || 'en';
+  const messages = await getMessages({ locale });
 
   return (
-    <html lang={locale || 'en'}>
+    <html lang={locale}>
       <body className="bg-[#0a0a0a] text-white overflow-hidden">
-        <NextIntlClientProvider messages={messages}>
+        <NextIntlClientProvider messages={messages} locale={locale}>
           <RootLayoutClient>{children}</RootLayoutClient>
         </NextIntlClientProvider>
       </body>
