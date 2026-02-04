@@ -54,6 +54,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    resetToken: {
+      type: String,
+      default: null,
+    },
+    resetTokenExpires: {
+      type: Date,
+      default: null,
+    },
     language: {
       type: String,
       default: 'English',
