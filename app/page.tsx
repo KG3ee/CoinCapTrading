@@ -35,6 +35,7 @@ export default function HomePage() {
                   height={32}
                   className="w-8 h-8 rounded-full object-cover"
                   priority={false}
+                  loading="lazy"
                 />
               </div>
               <div>
@@ -133,6 +134,7 @@ export default function HomePage() {
                         height={40}
                         className="w-10 h-10 rounded-full object-cover"
                         priority={false}
+                        loading="lazy"
                       />
                     </div>
                     <div>
