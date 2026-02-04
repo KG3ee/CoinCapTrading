@@ -19,6 +19,7 @@ interface UserProfile {
   language: string;
   withdrawalAddress: string;
   profilePicture: string | null;
+  isTwoFactorEnabled: boolean;
   createdAt: string;
 }
 
@@ -192,15 +193,15 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-50 glass border-b border-white/10 backdrop-blur-md">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-center sm:justify-between gap-4">
           <button
             onClick={() => router.push('/')}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors absolute left-4 sm:relative sm:left-0"
           >
             <ArrowLeft size={24} className="text-white" />
           </button>
           <h1 className="text-white font-semibold text-lg">My Profile</h1>
-          <div className="w-10" />
+          <div className="w-10 hidden sm:block" />
         </div>
       </div>
 
@@ -217,7 +218,7 @@ export default function ProfilePage() {
 
         {/* Profile Card */}
         <div className="glass-card">
-          <div className="flex items-start justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
             <div className="flex items-center gap-4">
               {user.profilePicture ? (
                 <img
@@ -230,9 +231,9 @@ export default function ProfilePage() {
                   {user.fullName.charAt(0).toUpperCase()}
                 </div>
               )}
-              <div>
+              <div className="flex-1">
                 <h2 className="text-2xl font-bold text-white">{user.fullName}</h2>
-                <p className="text-gray-400 flex items-center gap-2">
+                <p className="text-gray-400 flex items-center gap-2 text-sm sm:text-base">
                   <Mail size={16} />
                   {user.email}
                 </p>
@@ -241,7 +242,7 @@ export default function ProfilePage() {
             {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="px-4 py-2 rounded-lg bg-accent/20 hover:bg-accent/30 text-accent font-semibold transition-colors"
+                className="px-4 py-2 rounded-lg bg-accent/20 hover:bg-accent/30 text-accent font-semibold transition-colors whitespace-nowrap"
               >
                 Edit Profile
               </button>
@@ -302,7 +303,7 @@ export default function ProfilePage() {
             {/* Profile Picture */}
             <div>
               <label className="text-sm text-gray-400 block mb-2">Profile Picture</label>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 {previewPicture ? (
                   <img
                     src={previewPicture}
@@ -310,11 +311,11 @@ export default function ProfilePage() {
                     className="w-16 h-16 rounded-full object-cover border-2 border-accent"
                   />
                 ) : (
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold border-2 border-accent">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold border-2 border-accent flex-shrink-0">
                     {fullName.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <label className="flex-1">
+                <label className="flex-1 min-w-0">
                   <input
                     type="file"
                     accept="image/*"
@@ -417,13 +418,26 @@ export default function ProfilePage() {
             Account Security
           </h3>
           <div className="space-y-3">
-            <button className="w-full px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold transition-colors flex items-center gap-2">
+            <button
+              onClick={() => router.push('/change-password')}
+              className="w-full px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold transition-colors flex items-center gap-2"
+            >
               <Lock size={18} className="text-accent" />
               Change Password
             </button>
-            <button className="w-full px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold transition-colors flex items-center gap-2">
-              <Shield size={18} className="text-accent" />
-              Enable Two-Factor Authentication
+            <button
+              onClick={() => router.push(user.isTwoFactorEnabled ? '/2fa/manage' : '/2fa/setup')}
+              className="w-full px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold transition-colors flex items-center justify-between"
+            >
+              <span className="flex items-center gap-2">
+                <Shield size={18} className="text-accent" />
+                Two-Factor Authentication
+              </span>
+              {user.isTwoFactorEnabled && (
+                <span className="px-2 py-1 rounded bg-green-500/20 text-green-300 text-xs font-semibold">
+                  Enabled
+                </span>
+              )}
             </button>
           </div>
         </div>
