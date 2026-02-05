@@ -6,6 +6,10 @@ type CoinCapAsset = {
   id: string;
   priceUsd: string;
   changePercent24Hr: string;
+  high24Hr?: string;
+  low24Hr?: string;
+  volume24Hr?: string;
+  marketCap?: string;
 };
 
 type PriceMap = Record<
@@ -13,6 +17,10 @@ type PriceMap = Record<
   {
     priceUsd: number;
     changePercent24Hr: number;
+    high24Hr?: number;
+    low24Hr?: number;
+    volume24Hr?: number;
+    marketCap?: number;
   }
 >;
 
@@ -54,6 +62,10 @@ export function useCoinCapPrices(ids: string[], refreshMs = 3000) {
           nextPrices[asset.id] = {
             priceUsd: Number(asset.priceUsd),
             changePercent24Hr: Number(asset.changePercent24Hr),
+            high24Hr: asset.high24Hr ? Number(asset.high24Hr) : undefined,
+            low24Hr: asset.low24Hr ? Number(asset.low24Hr) : undefined,
+            volume24Hr: asset.volume24Hr ? Number(asset.volume24Hr) : undefined,
+            marketCap: asset.marketCap ? Number(asset.marketCap) : undefined,
           };
         });
 

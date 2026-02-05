@@ -20,6 +20,15 @@ const formatChange = (value: number) => {
   return `${sign}${value.toFixed(2)}`;
 };
 
+const formatVolume = (value: number) => {
+  if (!value) return '$0';
+  if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
+  if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
+  if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
+  if (value >= 1e3) return `$${(value / 1e3).toFixed(2)}K`;
+  return `$${value.toFixed(2)}`;
+};
+
 const orderBook = {
   asks: [
     { price: '43,252.10', amount: '0.156', total: '6,747.33' },
@@ -49,6 +58,12 @@ export default function TradePage() {
   const livePrice = btcLive ? formatPrice(btcLive.priceUsd) : '43,250.00';
   const liveChange = btcLive ? formatChange(btcLive.changePercent24Hr) : '+2.5';
   const isUp = btcLive ? btcLive.changePercent24Hr >= 0 : true;
+  
+  // Get 24h market data - all formatted consistently
+  const high24h = btcLive?.high24Hr ? formatPrice(btcLive.high24Hr) : '43,980.12';
+  const low24h = btcLive?.low24Hr ? formatPrice(btcLive.low24Hr) : '42,110.55';
+  const volume24h = btcLive?.volume24Hr ? formatVolume(btcLive.volume24Hr) : '$28.4B';
+  const marketCap = btcLive?.marketCap ? formatVolume(btcLive.marketCap) : '$850B';
 
   return (
     <div className="min-h-screen p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
@@ -88,19 +103,19 @@ export default function TradePage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
               <div className="p-3 rounded-lg bg-white/5">
                 <p className="text-xs text-gray-400">24h High</p>
-                <p className="font-semibold">$43,980.12</p>
+                <p className="font-semibold">${high24h}</p>
               </div>
               <div className="p-3 rounded-lg bg-white/5">
                 <p className="text-xs text-gray-400">24h Low</p>
-                <p className="font-semibold">$42,110.55</p>
+                <p className="font-semibold">${low24h}</p>
               </div>
               <div className="p-3 rounded-lg bg-white/5">
                 <p className="text-xs text-gray-400">24h Volume</p>
-                <p className="font-semibold">$28.4B</p>
+                <p className="font-semibold">{volume24h}</p>
               </div>
               <div className="p-3 rounded-lg bg-white/5">
-                <p className="text-xs text-gray-400">Funding</p>
-                <p className="font-semibold">0.015%</p>
+                <p className="text-xs text-gray-400">Market Cap</p>
+                <p className="font-semibold">{marketCap}</p>
               </div>
             </div>
           </div>
