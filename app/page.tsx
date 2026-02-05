@@ -52,26 +52,26 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="responsive-container max-w-7xl mx-auto space-y-4 sm:space-y-6 pb-4">
+    <div className="responsive-container max-w-7xl mx-auto space-y-3 sm:space-y-4 md:space-y-5 lg:space-y-6 pb-4">
       {/* Price Ticker */}
       <div className="glass-card overflow-x-auto snap-x snap-mandatory">
-        <div className="flex gap-3 sm:gap-4 md:gap-6 min-w-max p-2 sm:p-3">
+        <div className="flex gap-2 sm:gap-3 md:gap-4 lg:gap-6 min-w-max p-2 sm:p-3 md:p-4">
           {livePrices.slice(0, 4).map((crypto) => (
             <div key={crypto.symbol} className="flex items-center gap-2 snap-start shrink-0">
-              <div className="relative w-8 h-8 flex-shrink-0">
+              <div className="relative w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0">
                 <Image
                   src={crypto.logo}
                   alt={crypto.name}
                   width={32}
                   height={32}
-                  className="w-8 h-8 rounded-full object-cover"
+                  className="w-full h-full rounded-full object-cover"
                   priority={false}
                   loading="lazy"
                 />
               </div>
-              <div>
-                <p className="text-xs text-gray-400">{crypto.symbol}</p>
-                <p className="text-sm sm:text-base font-semibold">${crypto.price}</p>
+              <div className="min-w-0">
+                <p className="text-xs text-gray-400 truncate">{crypto.symbol}</p>
+                <p className="text-xs sm:text-sm md:text-base font-semibold truncate">${crypto.price}</p>
               </div>
               <span className={`text-xs flex items-center gap-1 whitespace-nowrap ${crypto.isUp ? 'text-success' : 'text-danger'}`}>
                 {crypto.isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
@@ -83,62 +83,62 @@ export default function HomePage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
         <div className="glass-card">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs text-gray-400 truncate">Total Balance</p>
-            <DollarSign size={14} className="text-accent flex-shrink-0" />
+            <DollarSign size={16} className="text-accent flex-shrink-0" />
           </div>
-          <p className="text-base sm:text-lg md:text-2xl font-bold truncate">$24,567.89</p>
-          <p className="text-xs text-success truncate">+12.5% ($2,731.00)</p>
+          <p className="text-sm sm:text-base md:text-lg lg:text-2xl font-bold truncate">$24,567.89</p>
+          <p className="text-xs text-success truncate mt-1">+12.5% ($2,731.00)</p>
         </div>
         
         <div className="glass-card">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-gray-400">24h Volume</p>
-            <BarChart3 size={16} className="text-purple-400" />
+            <p className="text-xs text-gray-400 truncate">24h Volume</p>
+            <BarChart3 size={16} className="text-purple-400 flex-shrink-0" />
           </div>
-          <p className="text-xl md:text-2xl font-bold">$8,429.12</p>
-          <p className="text-xs text-gray-400">15 Transactions</p>
+          <p className="text-sm sm:text-base md:text-lg lg:text-2xl font-bold truncate">$8,429.12</p>
+          <p className="text-xs text-gray-400 truncate mt-1">15 Transactions</p>
         </div>
         
         <div className="glass-card">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-gray-400">Top Gainer</p>
-            <TrendingUp size={16} className="text-success" />
+            <p className="text-xs text-gray-400 truncate">Top Gainer</p>
+            <TrendingUp size={16} className="text-success flex-shrink-0" />
           </div>
-          <p className="text-xl md:text-2xl font-bold">ADA</p>
-          <p className="text-xs text-success">+3.2%</p>
+          <p className="text-sm sm:text-base md:text-lg lg:text-2xl font-bold">ADA</p>
+          <p className="text-xs text-success mt-1">+3.2%</p>
         </div>
         
         <div className="glass-card">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-gray-400">Active Orders</p>
-            <Activity size={16} className="text-blue-400" />
+            <p className="text-xs text-gray-400 truncate">Active Orders</p>
+            <Activity size={16} className="text-blue-400 flex-shrink-0" />
           </div>
-          <p className="text-xl md:text-2xl font-bold">7</p>
-          <p className="text-xs text-gray-400">3 Pending</p>
+          <p className="text-sm sm:text-base md:text-lg lg:text-2xl font-bold">7</p>
+          <p className="text-xs text-gray-400 mt-1">3 Pending</p>
         </div>
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Chart Section - Full width on mobile, 2/3 on desktop */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
+        {/* Chart Section - Full width on mobile, spans multiple col on larger screens */}
+        <div className="md:col-span-2 lg:col-span-2 space-y-4 md:space-y-5 lg:space-y-6">
           {/* Trading Chart */}
           <div className="glass-card">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">BTC/USD</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <h2 className="text-base sm:text-lg md:text-xl font-semibold">BTC/USD</h2>
               <div className="flex gap-2">
-                <button className="text-xs px-3 py-1 rounded bg-accent text-white min-h-[44px] md:min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">1H</button>
-                <button className="text-xs px-3 py-1 rounded bg-white/5 hover:bg-white/10 min-h-[44px] md:min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">24H</button>
-                <button className="text-xs px-3 py-1 rounded bg-white/5 hover:bg-white/10 min-h-[44px] md:min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">7D</button>
-                <button className="text-xs px-3 py-1 rounded bg-white/5 hover:bg-white/10 min-h-[44px] md:min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">1M</button>
+                <button className="flex-1 sm:flex-none text-xs px-2 sm:px-3 py-2 rounded bg-accent text-white min-h-[44px] sm:min-h-[36px] md:min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">1H</button>
+                <button className="flex-1 sm:flex-none text-xs px-2 sm:px-3 py-2 rounded bg-white/5 hover:bg-white/10 min-h-[44px] sm:min-h-[36px] md:min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">24H</button>
+                <button className="flex-1 sm:flex-none text-xs px-2 sm:px-3 py-2 rounded bg-white/5 hover:bg-white/10 min-h-[44px] sm:min-h-[36px] md:min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">7D</button>
+                <button className="flex-1 sm:flex-none text-xs px-2 sm:px-3 py-2 rounded bg-white/5 hover:bg-white/10 min-h-[44px] sm:min-h-[36px] md:min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">1M</button>
               </div>
             </div>
             
             {/* TradingView Chart Placeholder */}
-            <div className="relative w-full h-[40vh] md:h-96 bg-black/20 rounded-lg border border-white/5 flex items-center justify-center">
+            <div className="relative w-full h-[35vh] sm:h-[40vh] md:h-[45vh] lg:h-96 bg-black/20 rounded-lg border border-white/5 flex items-center justify-center">
               <div className="text-center">
                 <BarChart3 size={48} className="mx-auto mb-2 text-gray-600" />
                 <p className="text-gray-500 text-sm">TradingView Chart</p>
@@ -147,10 +147,10 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Market Prices - 2 Column Grid on Mobile */}
+          {/* Market Prices - Responsive Grid */}
           <div className="glass-card">
-            <h2 className="text-lg font-semibold mb-4">Market Prices</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            <h2 className="text-base sm:text-lg md:text-xl font-semibold mb-3 sm:mb-4">Market Prices</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
               {livePrices.map((crypto) => (
                 <div
                   key={crypto.symbol}
@@ -187,10 +187,10 @@ export default function HomePage() {
         </div>
 
         {/* Quick Trade Section - Full width on mobile, 1/3 on desktop */}
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-5 lg:space-y-6">
           {/* Buy/Sell Form */}
           <div className="glass-card">
-            <h2 className="text-lg font-semibold mb-4">Quick Trade</h2>
+            <h2 className="text-base sm:text-lg md:text-xl font-semibold mb-4">Quick Trade</h2>
             
             <div className="flex gap-2 mb-4">
               <button className="flex-1 py-2 rounded-lg bg-success text-white font-medium min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
@@ -203,8 +203,8 @@ export default function HomePage() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-gray-400 block mb-2">Select Coin</label>
-                <select className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none min-h-[44px]">
+                <label className="text-xs text-gray-400 block mb-2 font-medium">Select Coin</label>
+                <select className="w-full px-3 sm:px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none min-h-[44px] text-sm">
                   <option>Bitcoin (BTC)</option>
                   <option>Ethereum (ETH)</option>
                   <option>Ripple (XRP)</option>
@@ -213,20 +213,20 @@ export default function HomePage() {
               </div>
 
               <div>
-                <label className="text-xs text-gray-400 block mb-2">Amount</label>
+                <label className="text-xs text-gray-400 block mb-2 font-medium">Amount</label>
                 <input
                   type="number"
                   placeholder="0.00"
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none min-h-[44px]"
+                  className="w-full px-3 sm:px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none min-h-[44px] text-sm"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-gray-400 block mb-2">Price (USD)</label>
+                <label className="text-xs text-gray-400 block mb-2 font-medium">Price (USD)</label>
                 <input
                   type="number"
                   placeholder="0.00"
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none min-h-[44px]"
+                  className="w-full px-3 sm:px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none min-h-[44px] text-sm"
                 />
               </div>
 
@@ -242,8 +242,8 @@ export default function HomePage() {
           </div>
 
           {/* Order Book Preview */}
-          <div className="glass-card hidden lg:block">
-            <h2 className="text-sm font-semibold mb-3">Order Book</h2>
+          <div className="glass-card hidden md:block">
+            <h2 className="text-sm sm:text-base font-semibold mb-3">Order Book</h2>
             <div className="space-y-2 text-xs">
               <div className="flex justify-between text-gray-400 pb-2 border-b border-white/10">
                 <span>Price</span>
@@ -283,7 +283,7 @@ export default function HomePage() {
 
       {/* Recent Transactions - List View on Mobile, Table on Desktop */}
       <div className="glass-card">
-        <h2 className="text-lg font-semibold mb-4">Recent Transactions</h2>
+        <h2 className="text-base sm:text-lg md:text-xl font-semibold mb-3 sm:mb-4">Recent Transactions</h2>
         
         {/* Mobile List View */}
         <div className="md:hidden space-y-3">
