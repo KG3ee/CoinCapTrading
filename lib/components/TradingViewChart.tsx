@@ -10,7 +10,7 @@ interface TradingViewChartProps {
 }
 
 // Simple SVG-based fallback chart
-function SimpleChart({ data, height }: { data: { time: number; price: number }[]; height: string }) {
+function SimpleChart({ data, height, coinName }: { data: { time: number; price: number }[]; height: string; coinName: string }) {
   if (!data || data.length === 0) return null;
 
   const prices = data.map(d => d.price);
@@ -124,9 +124,21 @@ export function TradingViewChart({ coinId, coinName, height = 'h-96' }: TradingV
         setIsLoading(true);
         setError(null);
 
-        // Fetch OHLC data from CoinGecko
+        // Map coin IDs to Binance symbols
+        const symbolMap: Record<string, string> = {
+          bitcoin: 'BTCUSDT',
+          ethereum: 'ETHUSDT',
+          ripple: 'XRPUSDT',
+          cardano: 'ADAUSDT',
+          solana: 'SOLUSDT',
+          polkadot: 'DOTUSDT',
+        };
+
+        const binanceSymbol = symbolMap[coinId.toLowerCase()] || `${coinId.toUpperCase()}USDT`;
+
+        // Fetch 30 days of daily (1d) candlestick data from Binance
         const response = await fetch(
-          `https://api.coingecko.com/api/v3/coins/${coinId.toLowerCase()}/ohlc?vs_currency=usd&days=30`,
+          `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=1d&limit=30`,
           {
             cache: 'no-store',
             headers: { 'Accept': 'application/json' },
@@ -134,17 +146,17 @@ export function TradingViewChart({ coinId, coinName, height = 'h-96' }: TradingV
         );
 
         if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
+          throw new Error(`Binance API error: ${response.status}`);
         }
 
         const data = await response.json();
 
-        // Transform data: [timestamp, open, high, low, close]
+        // Transform Binance data: [timestamp, open, high, low, close, volume, ...]
         const transformedData = data
-          .filter((candle: number[]) => candle.length === 5)
-          .map((candle: number[]) => ({
+          .filter((candle: any[]) => candle.length >= 5)
+          .map((candle: any[]) => ({
             time: Math.floor(candle[0] / 1000),
-            price: candle[4], // Use closing price
+            price: parseFloat(candle[4]), // Use closing price
           }));
 
         if (transformedData.length > 0) {
@@ -153,7 +165,7 @@ export function TradingViewChart({ coinId, coinName, height = 'h-96' }: TradingV
           setChartData(generateMockData());
         }
       } catch (err) {
-        console.warn('Chart data fetch failed, using mock data:', err);
+        console.warn('Binance API fetch failed, using mock data:', err);
         setChartData(generateMockData());
       } finally {
         setIsLoading(false);
@@ -188,7 +200,7 @@ export function TradingViewChart({ coinId, coinName, height = 'h-96' }: TradingV
     );
   }
 
-  return <SimpleChart data={chartData} height={height} />;
+  return <SimpleChart data={chartData} height={height} coinName={coinName} />;
 }
 
 // Generate realistic mock data
