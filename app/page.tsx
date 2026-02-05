@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TrendingUp, TrendingDown, BarChart3, DollarSign, Activity } from 'lucide-react';
 import Image from 'next/image';
@@ -25,6 +26,14 @@ const formatChange = (value: number) => {
 
 export default function HomePage() {
   const router = useRouter();
+  
+  // Quick Trade state
+  const [quickTradeType, setQuickTradeType] = useState<'buy' | 'sell'>('buy');
+  const [quickTradeCoin, setQuickTradeCoin] = useState('BTC');
+  const [quickTradeAmount, setQuickTradeAmount] = useState<string>('');
+  const [quickTradePrice, setQuickTradePrice] = useState<string>('');
+  const [quickTradeLoading, setQuickTradeLoading] = useState(false);
+  const [quickTradeMessage, setQuickTradeMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   const cryptoPrices = [
     { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: '43,250.00', change: '+2.5', isUp: true, logo: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png' },
@@ -54,6 +63,69 @@ export default function HomePage() {
     { id: 3, type: 'Buy', coin: 'SOL', amount: '10', price: '$987.50', time: '1h ago', status: 'Pending' },
     { id: 4, type: 'Sell', coin: 'ADA', amount: '500', price: '$228.35', time: '2h ago', status: 'Completed' },
   ];
+
+  // Quick trade handlers
+  const handleQuickTrade = async () => {
+    if (!quickTradeAmount || !quickTradePrice) {
+      setQuickTradeMessage({ type: 'error', text: 'Please enter amount and price' });
+      return;
+    }
+
+    if (parseFloat(quickTradeAmount) <= 0 || parseFloat(quickTradePrice) <= 0) {
+      setQuickTradeMessage({ type: 'error', text: 'Amount and price must be greater than 0' });
+      return;
+    }
+
+    setQuickTradeLoading(true);
+    setQuickTradeMessage(null);
+
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      
+      if (!token) {
+        setQuickTradeMessage({ type: 'error', text: 'Please login to place trades' });
+        setQuickTradeLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/trades/place', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          type: quickTradeType,
+          cryptoSymbol: quickTradeCoin,
+          amount: parseFloat(quickTradeAmount),
+          pricePerUnit: parseFloat(quickTradePrice),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setQuickTradeMessage({ type: 'error', text: data.error || 'Failed to place order' });
+        return;
+      }
+
+      setQuickTradeMessage({ 
+        type: 'success', 
+        text: `${quickTradeType === 'buy' ? 'Buy' : 'Sell'} order placed!` 
+      });
+
+      setQuickTradeAmount('');
+      setTimeout(() => {
+        setQuickTradeMessage(null);
+      }, 4000);
+
+    } catch (error) {
+      console.error('Trade error:', error);
+      setQuickTradeMessage({ type: 'error', text: 'Network error. Please try again.' });
+    } finally {
+      setQuickTradeLoading(false);
+    }
+  };
 
   return (
     <div className="responsive-container max-w-7xl mx-auto space-y-2 sm:space-y-2 md:space-y-3 lg:space-y-3 pb-4 min-h-screen flex flex-col">
@@ -209,17 +281,35 @@ export default function HomePage() {
         {/* Quick Trade Section - Full width on mobile, 1/3 on desktop */}
         <div className="space-y-2 md:space-y-2 lg:space-y-2">
           {/* Buy/Sell Form */}
-          <div 
-            className="glass-card p-3 cursor-pointer hover:bg-white/10 transition-colors"
-            onClick={() => router.push('/trade')}
-          >
+          <div className="glass-card p-3">
             <h2 className="text-sm font-semibold mb-2">Quick Trade</h2>
+
+            {/* Status Message */}
+            {quickTradeMessage && (
+              <div className={`mb-2 p-2 rounded text-xs ${quickTradeMessage.type === 'success' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
+                {quickTradeMessage.text}
+              </div>
+            )}
             
-            <div className="flex gap-1 mb-3">
-              <button className="flex-1 py-2 rounded-lg bg-success text-white font-medium text-xs min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+            <div className="flex gap-1 mb-2">
+              <button 
+                onClick={() => setQuickTradeType('buy')}
+                className={`flex-1 py-2 rounded-lg font-medium text-xs min-h-[36px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  quickTradeType === 'buy' 
+                    ? 'bg-success text-white' 
+                    : 'bg-white/5 hover:bg-white/10'
+                }`}
+              >
                 Buy
               </button>
-              <button className="flex-1 py-2 rounded-lg bg-white/5 hover:bg-white/10 font-medium text-xs min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+              <button 
+                onClick={() => setQuickTradeType('sell')}
+                className={`flex-1 py-2 rounded-lg font-medium text-xs min-h-[36px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  quickTradeType === 'sell' 
+                    ? 'bg-danger text-white' 
+                    : 'bg-white/5 hover:bg-white/10'
+                }`}
+              >
                 Sell
               </button>
             </div>
@@ -227,11 +317,15 @@ export default function HomePage() {
             <div className="space-y-2">
               <div>
                 <label className="text-xs text-gray-400 block mb-1 font-medium">Select Coin</label>
-                <select className="w-full px-2 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-xs" onClick={(e) => e.stopPropagation()}>
-                  <option>Bitcoin (BTC)</option>
-                  <option>Ethereum (ETH)</option>
-                  <option>Ripple (XRP)</option>
-                  <option>Cardano (ADA)</option>
+                <select 
+                  value={quickTradeCoin}
+                  onChange={(e) => setQuickTradeCoin(e.target.value)}
+                  className="w-full px-2 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-xs"
+                >
+                  <option>BTC</option>
+                  <option>ETH</option>
+                  <option>XRP</option>
+                  <option>ADA</option>
                 </select>
               </div>
 
@@ -240,8 +334,9 @@ export default function HomePage() {
                 <input
                   type="number"
                   placeholder="0.00"
+                  value={quickTradeAmount}
+                  onChange={(e) => setQuickTradeAmount(e.target.value)}
                   className="w-full px-2 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-xs"
-                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
 
@@ -250,24 +345,23 @@ export default function HomePage() {
                 <input
                   type="number"
                   placeholder="0.00"
+                  value={quickTradePrice}
+                  onChange={(e) => setQuickTradePrice(e.target.value)}
                   className="w-full px-2 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-xs"
-                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
 
               <div className="flex items-center justify-between py-2 border-t border-white/10 text-xs">
                 <p className="text-gray-400">Total</p>
-                <p className="font-bold">$0.00</p>
+                <p className="font-bold">${quickTradeAmount && quickTradePrice ? (parseFloat(quickTradeAmount) * parseFloat(quickTradePrice)).toFixed(2) : '0.00'}</p>
               </div>
 
               <button 
-                className="w-full py-2 rounded-lg bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 font-semibold transition-all text-xs min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  router.push('/trade');
-                }}
+                onClick={handleQuickTrade}
+                disabled={quickTradeLoading || !quickTradeAmount || !quickTradePrice}
+                className="w-full py-2 rounded-lg bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-all text-xs min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
-                Place Order
+                {quickTradeLoading ? 'Processing...' : 'Place Order'}
               </button>
             </div>
           </div>
