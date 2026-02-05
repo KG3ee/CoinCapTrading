@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { TrendingUp, TrendingDown, BarChart3, DollarSign, Activity } from 'lucide-react';
 import Image from 'next/image';
 import { useCoinCapPrices } from '@/lib/hooks/useCoinCapPrices';
@@ -23,6 +24,8 @@ const formatChange = (value: number) => {
 };
 
 export default function HomePage() {
+  const router = useRouter();
+  
   const cryptoPrices = [
     { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: '43,250.00', change: '+2.5', isUp: true, logo: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png' },
     { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', price: '2,280.50', change: '+1.8', isUp: true, logo: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png' },
@@ -85,7 +88,10 @@ export default function HomePage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-2 md:gap-2">
-        <div className="glass-card p-3 md:p-2">
+        <div 
+          className="glass-card p-3 md:p-2 cursor-pointer hover:bg-white/10 transition-colors"
+          onClick={() => router.push('/wallet')}
+        >
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs text-gray-400 truncate">Total Balance</p>
             <DollarSign size={14} className="text-accent flex-shrink-0" />
@@ -94,7 +100,10 @@ export default function HomePage() {
           <p className="text-xs text-success truncate mt-0.5">+12.5%</p>
         </div>
         
-        <div className="glass-card p-3 md:p-2 hidden md:block">
+        <div 
+          className="glass-card p-3 md:p-2 hidden md:block cursor-pointer hover:bg-white/10 transition-colors"
+          onClick={() => router.push('/trade')}
+        >
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs text-gray-400 truncate">24h Volume</p>
             <BarChart3 size={14} className="text-purple-400 flex-shrink-0" />
@@ -103,7 +112,10 @@ export default function HomePage() {
           <p className="text-xs text-gray-400 truncate mt-0.5">15 TX</p>
         </div>
         
-        <div className="glass-card p-3 md:p-2 hidden md:block">
+        <div 
+          className="glass-card p-3 md:p-2 hidden md:block cursor-pointer hover:bg-white/10 transition-colors"
+          onClick={() => router.push('/trade')}
+        >
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs text-gray-400 truncate">Top Gainer</p>
             <TrendingUp size={14} className="text-success flex-shrink-0" />
@@ -112,7 +124,10 @@ export default function HomePage() {
           <p className="text-xs text-success mt-0.5">+3.2%</p>
         </div>
         
-        <div className="glass-card p-3 md:p-2 hidden md:block">
+        <div 
+          className="glass-card p-3 md:p-2 hidden md:block cursor-pointer hover:bg-white/10 transition-colors"
+          onClick={() => router.push('/trade')}
+        >
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs text-gray-400 truncate">Active Orders</p>
             <Activity size={14} className="text-blue-400 flex-shrink-0" />
@@ -127,7 +142,10 @@ export default function HomePage() {
         {/* Chart Section - Full width on mobile, spans multiple col on larger screens */}
         <div className="md:col-span-2 lg:col-span-2 space-y-2 md:space-y-2 lg:space-y-2">
           {/* Trading Chart */}
-          <div className="glass-card p-3 md:p-3">
+          <div 
+            className="glass-card p-3 md:p-3 cursor-pointer hover:bg-white/10 transition-colors"
+            onClick={() => router.push('/trade')}
+          >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
               <h2 className="text-sm sm:text-base font-semibold">BTC/USD</h2>
               <div className="flex gap-1">
@@ -143,13 +161,20 @@ export default function HomePage() {
           </div>
 
           {/* Market Prices - Responsive Grid */}
-          <div className="glass-card p-3">
+          <div 
+            className="glass-card p-3 cursor-pointer hover:bg-white/10 transition-colors"
+            onClick={() => router.push('/markets')}
+          >
             <h2 className="text-sm font-semibold mb-2">Market Prices</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-2">
               {livePrices.map((crypto) => (
                 <div
                   key={crypto.symbol}
                   className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push('/markets');
+                  }}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="relative w-8 h-8 flex-shrink-0">
@@ -184,7 +209,10 @@ export default function HomePage() {
         {/* Quick Trade Section - Full width on mobile, 1/3 on desktop */}
         <div className="space-y-2 md:space-y-2 lg:space-y-2">
           {/* Buy/Sell Form */}
-          <div className="glass-card p-3">
+          <div 
+            className="glass-card p-3 cursor-pointer hover:bg-white/10 transition-colors"
+            onClick={() => router.push('/trade')}
+          >
             <h2 className="text-sm font-semibold mb-2">Quick Trade</h2>
             
             <div className="flex gap-1 mb-3">
@@ -199,7 +227,7 @@ export default function HomePage() {
             <div className="space-y-2">
               <div>
                 <label className="text-xs text-gray-400 block mb-1 font-medium">Select Coin</label>
-                <select className="w-full px-2 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-xs">
+                <select className="w-full px-2 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-xs" onClick={(e) => e.stopPropagation()}>
                   <option>Bitcoin (BTC)</option>
                   <option>Ethereum (ETH)</option>
                   <option>Ripple (XRP)</option>
@@ -213,6 +241,7 @@ export default function HomePage() {
                   type="number"
                   placeholder="0.00"
                   className="w-full px-2 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-xs"
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
 
@@ -222,6 +251,7 @@ export default function HomePage() {
                   type="number"
                   placeholder="0.00"
                   className="w-full px-2 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-xs"
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
 
@@ -230,14 +260,23 @@ export default function HomePage() {
                 <p className="font-bold">$0.00</p>
               </div>
 
-              <button className="w-full py-2 rounded-lg bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 font-semibold transition-all text-xs min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+              <button 
+                className="w-full py-2 rounded-lg bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 font-semibold transition-all text-xs min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push('/trade');
+                }}
+              >
                 Place Order
               </button>
             </div>
           </div>
 
           {/* Order Book Preview - Hidden on smaller screens */}
-          <div className="glass-card p-3 hidden sm:block">
+          <div 
+            className="glass-card p-3 hidden sm:block cursor-pointer hover:bg-white/10 transition-colors"
+            onClick={() => router.push('/trade')}
+          >
             <h2 className="text-xs font-semibold mb-2">Order Book</h2>
             <div className="space-y-1 text-xs">
               <div className="flex justify-between text-gray-400 pb-1 border-b border-white/10">
