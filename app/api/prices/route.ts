@@ -36,14 +36,19 @@ export async function GET(request: Request) {
       const binanceSymbol = symbolMap[id.toLowerCase()] || `${id.toUpperCase()}USDT`;
       
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        
         const response = await fetch(
           `https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSymbol}`,
           {
+            method: 'GET',
             cache: 'no-store',
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(5000),
+            signal: controller.signal,
           }
         );
+
+        clearTimeout(timeout);
 
         if (!response.ok) {
           console.warn(`Binance API error for ${binanceSymbol}: ${response.status}`);
@@ -69,43 +74,52 @@ export async function GET(request: Request) {
 
     const binancePrices = await Promise.all(binancePricesPromises);
     
-    // Fetch market cap from CoinGecko (just for market cap, not price-critical)
-    const marketCapPromises = idsArray.map(async (id) => {
+    // If Binance calls fail, try CoinGecko as fallback
+    const failedCoins = idsArray.filter((id, idx) => binancePrices[idx] === null);
+    let fallbackData: any[] = [];
+
+    if (failedCoins.length > 0) {
+      console.log(`Binance failed for ${failedCoins.length} coins, trying CoinGecko fallback...`);
+      
       try {
-        const response = await fetch(
-          `https://api.coingecko.com/api/v3/simple/price?ids=${id.toLowerCase()}&vs_currencies=usd&include_market_cap=true`,
+        const geckoResponse = await fetch(
+          `https://api.coingecko.com/api/v3/simple/price?ids=${failedCoins.join(',')}&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true`,
           {
-            cache: 'force-cache', // Cache aggressively since this is just for market cap
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(3000),
+            cache: 'no-store',
+            signal: AbortSignal.timeout(5000),
           }
         );
 
-        if (response.ok) {
-          const data = await response.json();
-          const marketCap = data[id.toLowerCase()]?.usd_market_cap;
-          return { id, marketCap };
+        if (geckoResponse.ok) {
+          const geckoData = await geckoResponse.json();
+          fallbackData = failedCoins.map(id => ({
+            id,
+            price: geckoData[id.toLowerCase()]?.usd || 0,
+            change24h: geckoData[id.toLowerCase()]?.usd_24h_change || 0,
+            high24h: 0,
+            low24h: 0,
+            volume24h: geckoData[id.toLowerCase()]?.usd_24h_vol || 0,
+          }));
         }
       } catch (error) {
-        console.warn(`Failed to fetch market cap for ${id}`);
+        console.warn('CoinGecko fallback also failed:', error);
       }
-      return { id, marketCap: null };
-    });
+    }
 
-    const marketCapData = await Promise.all(marketCapPromises);
-    const marketCapMap = new Map(marketCapData.map(d => [d.id, d.marketCap]));
+    // Merge Binance and fallback data
+    const allData = [...binancePrices.filter(p => p !== null), ...fallbackData];
 
-    // Transform and combine data
-    const transformedData: CoinCapAsset[] = binancePrices
-      .filter((item) => item !== null)
+    // Transform to expected format
+    const transformedData: CoinCapAsset[] = allData
+      .filter((item) => item !== null && item !== undefined)
       .map((item) => ({
-        id: item!.id,
-        priceUsd: String(item!.price),
-        changePercent24Hr: String(item!.change24h),
-        high24Hr: String(item!.high24h),
-        low24Hr: String(item!.low24h),
-        volume24Hr: String(item!.volume24h),
-        marketCap: marketCapMap.get(item!.id) ? String(marketCapMap.get(item!.id)) : '0',
+        id: item.id,
+        priceUsd: String(item.price || 0),
+        changePercent24Hr: String(item.change24h || 0),
+        high24Hr: String(item.high24h || 0),
+        low24Hr: String(item.low24h || 0),
+        volume24Hr: String(item.volume24h || 0),
+        marketCap: '0', // Can be fetched separately if needed
       }));
 
     return NextResponse.json({ data: transformedData }, { status: 200 });

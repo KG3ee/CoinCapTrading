@@ -136,7 +136,28 @@ export function TradingViewChart({ coinId, coinName, height = 'h-96' }: TradingV
 
         const binanceSymbol = symbolMap[coinId.toLowerCase()] || `${coinId.toUpperCase()}USDT`;
 
-        // Fetch 30 days of daily (1d) candlestick data from Binance
+        // Fetch through backend to avoid CORS issues
+        try {
+          const backendResponse = await fetch(
+            `/api/chart?symbol=${binanceSymbol}`,
+            {
+              cache: 'no-store',
+              headers: { 'Accept': 'application/json' },
+            }
+          );
+
+          if (backendResponse.ok) {
+            const chartDataResponse = await backendResponse.json();
+            if (chartDataResponse.data && chartDataResponse.data.length > 0) {
+              setChartData(chartDataResponse.data);
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn('Backend chart endpoint unavailable, trying direct Binance API:', e);
+        }
+
+        // Fallback: Direct Binance call (for development/standalone use)
         const response = await fetch(
           `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=1d&limit=30`,
           {
@@ -165,7 +186,7 @@ export function TradingViewChart({ coinId, coinName, height = 'h-96' }: TradingV
           setChartData(generateMockData());
         }
       } catch (err) {
-        console.warn('Binance API fetch failed, using mock data:', err);
+        console.warn('Chart data fetch failed, using mock data:', err);
         setChartData(generateMockData());
       } finally {
         setIsLoading(false);
