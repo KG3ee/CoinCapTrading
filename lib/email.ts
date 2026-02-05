@@ -1,12 +1,22 @@
 import { Resend } from 'resend';
 
+// Check if API key is configured
+if (!process.env.RESEND_API_KEY) {
+  console.warn('⚠️ RESEND_API_KEY is not configured. Email functionality will not work.');
+}
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendVerificationEmail(email: string, token: string) {
   const verificationUrl = `${process.env.NEXT_PUBLIC_API_URL}/verify-email?token=${token}`;
 
   try {
-    await resend.emails.send({
+    if (!process.env.RESEND_API_KEY) {
+      console.error('RESEND_API_KEY is not configured');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const response = await resend.emails.send({
       from: 'onboarding@resend.dev', // Resend test domain - works without verification
       to: email,
       subject: 'Verify your CoinCapTrading email',
@@ -24,10 +34,10 @@ export async function sendVerificationEmail(email: string, token: string) {
         </div>
       `,
     });
-    return true;
+    return { success: true, data: response };
   } catch (error) {
     console.error('Email send error:', error);
-    return false;
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to send email' };
   }
 }
 
@@ -35,7 +45,12 @@ export async function sendPasswordResetEmail(email: string, token: string) {
   const resetUrl = `${process.env.NEXT_PUBLIC_API_URL}/reset-password?token=${token}`;
 
   try {
-    await resend.emails.send({
+    if (!process.env.RESEND_API_KEY) {
+      console.error('RESEND_API_KEY is not configured');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const response = await resend.emails.send({
       from: 'onboarding@resend.dev',
       to: email,
       subject: 'Reset your CoinCapTrading password',
@@ -54,9 +69,9 @@ export async function sendPasswordResetEmail(email: string, token: string) {
         </div>
       `,
     });
-    return true;
+    return { success: true, data: response };
   } catch (error) {
     console.error('Email send error:', error);
-    return false;
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to send email' };
   }
 }

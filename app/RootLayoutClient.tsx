@@ -1,43 +1,36 @@
 'use client';
 
-import { Home, TrendingUp, ArrowLeftRight, Wallet, Menu, X, User } from 'lucide-react';
+import { Home, TrendingUp, ArrowLeftRight, Wallet, Menu, X, User, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { useLocale } from 'next-intl';
-import { useLanguageSwitch } from '@/lib/useLanguageSwitch';
+import { NextIntlClientProvider } from 'next-intl';
 
-export function RootLayoutClient({
+interface RootLayoutClientProps {
+  children: React.ReactNode;
+  locale: string;
+  messages: any;
+}
+
+function RootLayoutContent({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const locale = useLocale();
-  const { changeLanguage } = useLanguageSwitch();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
-  // Remove locale from pathname for auth page check
-  const pathWithoutLocale = pathname.replace(`/${locale}`, '') || '/';
-  const isAuthPage = pathWithoutLocale === '/login' || pathWithoutLocale === '/register' || pathWithoutLocale === '/forgot-password' || pathWithoutLocale === '/reset-password' || pathWithoutLocale === '/verify-email';
+  // Check if current page is auth page
+  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/verify-email';
 
   const navItems = [
     { name: 'Home', icon: Home, href: '/' },
-    { name: 'Dashboard', icon: TrendingUp, href: '/dashboard' },
+    { name: 'Markets', icon: BarChart3, href: '/markets' },
     { name: 'Trade', icon: ArrowLeftRight, href: '/trade' },
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
   ];
 
   const accountLink = { name: 'Account', icon: User, href: '/account' };
-  
-  const languages = [
-    { code: 'en', name: 'English' },
-    { code: 'es', name: 'Español' },
-    { code: 'fr', name: 'Français' },
-    { code: 'de', name: 'Deutsch' },
-    { code: 'zh', name: '中文' },
-    { code: 'ja', name: '日本語' },
-  ];
 
   if (isAuthPage) {
     return <>{children}</>;
@@ -83,28 +76,6 @@ export function RootLayoutClient({
             <span className="font-medium">{accountLink.name}</span>
           </Link>
           
-          {/* Language Selector */}
-          <div className="border-t border-white/10 pt-2">
-            <p className="text-xs text-gray-500 px-4 py-2">Language</p>
-            <select
-              value={locale}
-              onChange={(e) => changeLanguage(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-white appearance-none cursor-pointer hover:bg-white/10 transition-colors"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 12px center',
-                paddingRight: '36px',
-              }}
-            >
-              {languages.map((lang) => (
-                <option key={lang.code} value={lang.code} className="bg-slate-800 text-white">
-                  {lang.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          
           <div className="glass-card">
             <p className="text-xs text-gray-400 mb-1">Portfolio Value</p>
             <p className="text-xl font-bold">$24,567.89</p>
@@ -114,14 +85,14 @@ export function RootLayoutClient({
       </aside>
 
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 glass border-b border-white/10">
-        <div className="flex items-center justify-between p-4">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 glass border-b border-white/10 safe-t" style={{paddingTop: 'max(0.5rem, env(safe-area-inset-top))'}}>
+        <div className="flex items-center justify-between px-3 py-3 sm:px-4">
+          <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent truncate">
             CryptoTrade
           </h1>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-lg hover:bg-white/5 active:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="p-2 rounded-lg hover:bg-white/5 active:bg-white/10 min-h-touch min-w-touch flex items-center justify-center transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -131,8 +102,8 @@ export function RootLayoutClient({
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={() => setMobileMenuOpen(false)}>
-          <div className="glass-card m-4 mt-20" onClick={(e) => e.stopPropagation()}>
+        <div className="md:hidden fixed inset-0 z-[35] bg-black/80 backdrop-blur-sm overflow-y-auto" style={{top: 'max(56px, calc(56px + env(safe-area-inset-top)))'}} onClick={() => setMobileMenuOpen(false)}>
+          <div className="glass-card m-3 sm:m-4 mt-4 sm:mt-6 max-h-[calc(100vh-120px)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <nav className="space-y-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -142,8 +113,8 @@ export function RootLayoutClient({
                     key={item.name}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                      isActive ? 'bg-accent text-white' : 'text-gray-400'
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg min-h-touch transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                      isActive ? 'bg-accent text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'
                     }`}
                   >
                     <Icon size={20} />
@@ -155,8 +126,8 @@ export function RootLayoutClient({
                 <Link
                   href={accountLink.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                    pathname === accountLink.href ? 'bg-accent text-white' : 'text-gray-400'
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg min-h-touch transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                    pathname === accountLink.href ? 'bg-accent text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'
                   }`}
                 >
                   <User size={20} />
@@ -169,13 +140,13 @@ export function RootLayoutClient({
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto pt-16 md:pt-0 pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-0">
+      <main className="flex-1 overflow-auto pt-16 md:pt-0 pb-[calc(80px_+_env(safe-area-inset-bottom))] md:pb-0 min-h-screen">
         {children}
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
-        <div className="flex items-center justify-around px-2 py-2">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 safe-b" style={{paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))'}}>
+        <div className="flex items-center justify-around px-1 py-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
@@ -183,17 +154,29 @@ export function RootLayoutClient({
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex flex-col items-center gap-1 px-4 py-2 min-w-[44px] min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                className={`flex flex-col items-center justify-center gap-1 px-2 py-2 min-h-touch min-w-touch rounded-lg transition-smooth ${
                   isActive ? 'text-accent' : 'text-gray-400'
                 }`}
               >
-                <Icon size={20} />
-                <span className="text-xs font-medium">{item.name}</span>
+                <Icon size={24} />
+                <span className="text-xs font-medium hidden xs:inline">{item.name}</span>
               </Link>
             );
           })}
         </div>
       </nav>
     </div>
+  );
+}
+
+export function RootLayoutClient({
+  children,
+  locale,
+  messages,
+}: RootLayoutClientProps) {
+  return (
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <RootLayoutContent>{children}</RootLayoutContent>
+    </NextIntlClientProvider>
   );
 }

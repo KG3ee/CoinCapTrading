@@ -1,51 +1,35 @@
 import type { Metadata } from 'next';
-import { NextIntlClientProvider } from 'next-intl';
 import './globals.css';
 import { RootLayoutClient } from './RootLayoutClient';
+
+const DEFAULT_LOCALE = 'en';
 
 export const metadata: Metadata = {
   title: 'CryptoTrade - Crypto Trading Dashboard',
   description: 'Professional crypto trading dashboard with real-time data',
 };
 
-export async function generateStaticParams() {
-  return [
-    { locale: 'en' },
-    { locale: 'es' },
-    { locale: 'fr' },
-    { locale: 'de' },
-    { locale: 'zh' },
-    { locale: 'ja' },
-  ];
-}
-
-async function getMessages(locale: string) {
-  const validLocale = ['en', 'es', 'fr', 'de', 'zh', 'ja'].includes(locale) ? locale : 'en';
-  
+async function loadMessages(locale: string) {
   try {
-    return (await import(`../public/locales/${validLocale}.json`)).default;
-  } catch (error) {
-    console.error(`Failed to load locale ${validLocale}:`, error);
-    return (await import('../public/locales/en.json')).default;
+    return (await import(`../public/locales/${locale}.json`)).default;
+  } catch {
+    return (await import(`../public/locales/${DEFAULT_LOCALE}.json`)).default;
   }
 }
 
 export default async function RootLayout({
   children,
-  params,
 }: {
   children: React.ReactNode;
-  params: Promise<{ locale: string }>;
 }) {
-  const { locale } = await params;
-  const messages = await getMessages(locale || 'en');
+  const messages = await loadMessages(DEFAULT_LOCALE);
 
   return (
-    <html lang={locale || 'en'}>
+    <html lang={DEFAULT_LOCALE}>
       <body className="bg-[#0a0a0a] text-white">
-        <NextIntlClientProvider messages={messages} locale={locale || 'en'}>
-          <RootLayoutClient>{children}</RootLayoutClient>
-        </NextIntlClientProvider>
+        <RootLayoutClient locale={DEFAULT_LOCALE} messages={messages}>
+          {children}
+        </RootLayoutClient>
       </body>
     </html>
   );

@@ -2,22 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  font-size: clamp(14px, 2.5vw, 16px);
+}
+
 @layer base {
   body {
     @apply bg-background text-white antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
   }
   
   * {
     @apply border-border;
   }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
 }
 
-@layer utilities {
+@layer components {
   .glass {
     @apply bg-white/5 backdrop-blur-md border border-white/10;
   }
   
   .glass-card {
-    @apply glass rounded-xl p-4 shadow-lg;
+    @apply glass rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-5 shadow-lg transition-smooth;
   }
+
+  .text-responsive-xl {
+    @apply text-lg sm:text-xl md:text-2xl lg:text-3xl;
+  }
+
+  .text-responsive-lg {
+    @apply text-base sm:text-lg md:text-xl;
+  }
+
+  .btn-touch {
+    @apply min-h-touch min-w-touch focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent;
+  }
+
+  .responsive-container {
+    @apply px-3 py-4 sm:px-4 md:px-6 lg:px-8;
+  }
+
+  .responsive-pad {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+
+  .gap-responsive {
+    @apply gap-2 sm:gap-3 md:gap-4 lg:gap-6;
+  }
+
+  .transition-smooth {
+    @apply transition-all duration-300 ease-in-out;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }

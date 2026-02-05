@@ -19,6 +19,35 @@ A fully responsive crypto trading dashboard built with Next.js 14, Tailwind CSS,
 - **Styling**: Tailwind CSS
 - **Icons**: Lucide React
 - **Language**: TypeScript
+- **Database**: MongoDB
+- **Email Service**: Resend
+- **Authentication**: NextAuth.js
+
+## Environment Setup
+
+1. Copy `.env.local.example` to `.env.local`:
+```bash
+cp .env.local.example .env.local
+```
+
+2. Configure the required environment variables in `.env.local`:
+
+### Required Variables:
+- **MONGODB_URI**: MongoDB connection string (local or cloud)
+- **RESEND_API_KEY**: Get from [Resend.com](https://resend.com) for email functionality
+- **NEXT_PUBLIC_API_URL**: Your application URL (e.g., `http://localhost:3000`)
+- **JWT_SECRET**: A secure random string for token signing
+
+### Optional Variables:
+- **GOOGLE_CLIENT_ID**: For Google OAuth sign-in
+- **GOOGLE_CLIENT_SECRET**: For Google OAuth sign-in
+
+### Email Service Setup:
+To enable password reset and email verification:
+1. Sign up at [Resend.com](https://resend.com)
+2. Get your API key from the dashboard
+3. Add it to `.env.local` as `RESEND_API_KEY`
+4. For development, emails will be sent to your Resend sandbox (check email logs in Resend dashboard)
 
 ## Getting Started
 

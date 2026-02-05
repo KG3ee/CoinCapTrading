@@ -58,8 +58,12 @@ export async function POST(request: NextRequest) {
     await user.save();
 
     // Send verification email
-    const verificationUrl = `${process.env.NEXT_PUBLIC_API_URL}/verify-email?token=${verificationToken}`;
-    await sendVerificationEmail(email, verificationToken);
+    const emailResult = await sendVerificationEmail(email, verificationToken);
+    
+    if (!emailResult.success) {
+      console.error('Failed to send verification email:', emailResult.error);
+      // Still return success but user should check spam folder or resend verification
+    }
 
     const response = NextResponse.json(
       {

@@ -1,171 +1,465 @@
-"use client";
+'use client';
 
-import Image from 'next/image';
-import { ArrowDownToLine, ArrowUpRight, Copy, Plus } from 'lucide-react';
-import { useCoinCapPrices } from '@/lib/hooks/useCoinCapPrices';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  ArrowUpRight,
+  ArrowDownLeft,
+  TrendingUp,
+  BarChart3,
+  TrendingDown,
+  Eye,
+  EyeOff,
+  Loader,
+  AlertCircle,
+  ArrowLeft,
+} from 'lucide-react';
+import { fetchRealCryptoData, formatPrice, formatLargeNumber } from '@/lib/mockCryptoData';
 
-const formatUsd = (value: number) => {
-  if (Number.isNaN(value)) return '$0.00';
-  return value.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
-};
+interface Holding {
+  cryptoSymbol: string;
+  amount: number;
+  averageBuyPrice: number;
+  currentPrice: number;
+  totalValue: number;
+  gainLoss: number;
+  gainLossPercent: number;
+}
 
-const formatChange = (value: number) => {
-  if (Number.isNaN(value)) return '+0.00%';
-  const sign = value >= 0 ? '+' : '';
-  return `${sign}${value.toFixed(2)}%`;
-};
+interface Trade {
+  _id: string;
+  type: 'buy' | 'sell';
+  cryptoSymbol: string;
+  amount: number;
+  pricePerUnit: number;
+  totalValue: number;
+  transactionId: string;
+  createdAt: string;
+}
 
-const walletSummary = [
-  { label: 'Total Balance', value: '$24,567.89', change: '+12.5%', isUp: true },
-  { label: 'Available', value: '$18,442.10', change: '+4.1%', isUp: true },
-  { label: 'In Orders', value: '$3,927.45', change: '-1.2%', isUp: false },
-  { label: 'Rewards', value: '$2,198.34', change: '+0.8%', isUp: true },
-];
+interface WalletData {
+  portfolio: {
+    accountBalance: number;
+    totalPortfolioValue: number;
+    totalInvested: number;
+    totalReturns: number;
+    holdings: Holding[];
+  };
+  trades: Trade[];
+  stats: {
+    totalHoldings: number;
+    totalTrades: number;
+  };
+}
 
-const assets = [
-  { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', balance: 0.8245, value: '$35,714.12', change: '+2.4%', isUp: true, logo: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png' },
-  { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', balance: 6.12, value: '$13,957.90', change: '+1.3%', isUp: true, logo: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png' },
-  { id: 'solana', name: 'Solana', symbol: 'SOL', balance: 84.5, value: '$8,344.10', change: '-0.8%', isUp: false, logo: 'https://assets.coingecko.com/coins/images/4128/large/solana.png' },
-  { id: 'cardano', name: 'Cardano', symbol: 'ADA', balance: 4560, value: '$2,080.45', change: '+3.6%', isUp: true, logo: 'https://assets.coingecko.com/coins/images/975/large/cardano.png' },
-];
-
-const activity = [
-  { id: 1, type: 'Deposit', asset: 'USDT', amount: '+1,500.00', time: '10m ago', status: 'Completed' },
-  { id: 2, type: 'Withdraw', asset: 'BTC', amount: '-0.025', time: '45m ago', status: 'Processing' },
-  { id: 3, type: 'Transfer', asset: 'ETH', amount: '-1.20', time: '2h ago', status: 'Completed' },
-  { id: 4, type: 'Reward', asset: 'BNB', amount: '+4.50', time: '1d ago', status: 'Completed' },
-];
+type TabType = 'overview' | 'assets' | 'transactions';
 
 export default function WalletPage() {
-  const { prices } = useCoinCapPrices(assets.map((asset) => asset.id));
-  const liveAssets = assets.map((asset) => {
-    const live = prices[asset.id];
-    if (!live) return asset;
-    const liveValue = asset.balance * live.priceUsd;
+  const router = useRouter();
+  const [data, setData] = useState<WalletData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showBalance, setShowBalance] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
+
+  // Calculate trading analytics
+  const calculateAnalytics = (trades: Trade[]) => {
+    const buyTrades = trades.filter(t => t.type === 'buy');
+    const sellTrades = trades.filter(t => t.type === 'sell');
+    
+    const totalBuyValue = buyTrades.reduce((sum, t) => sum + t.totalValue, 0);
+    const totalSellValue = sellTrades.reduce((sum, t) => sum + t.totalValue, 0);
+    const totalTradingValue = totalBuyValue + totalSellValue;
+    
+    const avgTradeValue = trades.length > 0 ? totalTradingValue / trades.length : 0;
+    const winRate = trades.length > 0 ? (sellTrades.length / trades.length) * 100 : 0;
+    
+    const cryptoPerformance = new Map<string, { gainLoss: number; count: number }>();
+    trades.forEach(trade => {
+      const key = trade.cryptoSymbol;
+      const current = cryptoPerformance.get(key) || { gainLoss: 0, count: 0 };
+      cryptoPerformance.set(key, {
+        gainLoss: current.gainLoss + (trade.type === 'buy' ? -trade.totalValue : trade.totalValue),
+        count: current.count + 1,
+      });
+    });
+    
+    let bestCrypto = '';
+    let bestGainLoss = -Infinity;
+    let worstCrypto = '';
+    let worstGainLoss = Infinity;
+    
+    cryptoPerformance.forEach((value, key) => {
+      if (value.gainLoss > bestGainLoss) {
+        bestGainLoss = value.gainLoss;
+        bestCrypto = key;
+      }
+      if (value.gainLoss < worstGainLoss) {
+        worstGainLoss = value.gainLoss;
+        worstCrypto = key;
+      }
+    });
+    
     return {
-      ...asset,
-      value: formatUsd(liveValue),
-      change: formatChange(live.changePercent24Hr),
-      isUp: live.changePercent24Hr >= 0,
+      totalBuyValue,
+      totalSellValue,
+      avgTradeValue,
+      winRate,
+      bestCrypto,
+      bestGainLoss,
+      worstCrypto,
+      worstGainLoss,
+      buyCount: buyTrades.length,
+      sellCount: sellTrades.length,
     };
-  });
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          router.push('/login');
+          return;
+        }
+
+        const response = await fetch('/api/dashboard', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.status === 401) {
+          router.push('/login');
+          return;
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          setError(errorData.error || 'Failed to load wallet');
+        } else {
+          const dashboardData = await response.json();
+          
+          // Enrich holdings with real-time crypto data
+          const realCryptos = await fetchRealCryptoData();
+          const enrichedHoldings = dashboardData.portfolio.holdings.map((holding: Holding) => {
+            const realCrypto = realCryptos.find(c => c.symbol === holding.cryptoSymbol);
+            return {
+              ...holding,
+              currentPrice: realCrypto?.currentPrice || holding.currentPrice,
+              totalValue: holding.amount * (realCrypto?.currentPrice || holding.currentPrice),
+            };
+          });
+
+          setData({
+            ...dashboardData,
+            portfolio: {
+              ...dashboardData.portfolio,
+              holdings: enrichedHoldings,
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Error loading wallet:', error);
+        setError('Failed to load wallet data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center space-y-4">
+            <Loader className="animate-spin text-accent mx-auto" size={40} />
+            <p className="text-gray-400">Loading your wallet...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-8">
+        <div className="max-w-4xl mx-auto">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-accent hover:text-accent/80 mb-6 transition"
+          >
+            <ArrowLeft size={20} />
+            Go Back
+          </button>
+          <div className="glass-card p-6 border border-red-500/30 bg-red-500/10">
+            <div className="flex items-start gap-3">
+              <AlertCircle size={24} className="text-red-400 flex-shrink-0 mt-1" />
+              <div>
+                <h2 className="text-xl font-bold text-white mb-2">Error</h2>
+                <p className="text-red-400">{error}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const analytics = calculateAnalytics(data.trades);
+  const totalPortfolioValue = data.portfolio.totalPortfolioValue;
+  const totalInvested = data.portfolio.totalInvested;
+  const totalReturns = data.portfolio.totalReturns;
+  const isPositive = totalReturns >= 0;
+
+  // Tab styles
+  const tabClass = (tab: TabType) => `
+    px-4 py-3 font-semibold transition-all border-b-2
+    ${activeTab === tab 
+      ? 'border-accent text-accent' 
+      : 'border-transparent text-gray-400 hover:text-white'
+    }
+  `;
 
   return (
-    <div className="min-h-screen p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Wallet</h1>
-          <p className="text-sm text-gray-400">Manage balances, deposits, and withdrawals.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm min-h-[44px] flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-            <Copy size={16} />
-            Deposit Address
-          </button>
-          <button className="px-4 py-2 rounded-lg bg-accent text-white text-sm min-h-[44px] flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-            <Plus size={16} />
-            Add Funds
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {walletSummary.map((stat) => (
-          <div key={stat.label} className="glass-card">
-            <p className="text-xs text-gray-400 mb-1">{stat.label}</p>
-            <p className="text-xl md:text-2xl font-bold">{stat.value}</p>
-            <p className={`text-xs ${stat.isUp ? 'text-success' : 'text-danger'}`}>{stat.change}</p>
+    <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Wallet</h1>
+            <p className="text-gray-400">Manage your crypto assets and view trading history</p>
           </div>
-        ))}
-      </div>
+          <button
+            onClick={() => setShowBalance(!showBalance)}
+            className="p-2 hover:bg-white/10 rounded-lg transition"
+          >
+            {showBalance ? (
+              <Eye size={24} className="text-accent" />
+            ) : (
+              <EyeOff size={24} className="text-gray-400" />
+            )}
+          </button>
+        </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 glass-card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Assets</h2>
-            <button className="text-xs text-gray-400 hover:text-white">View All</button>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Account Balance */}
+          <div className="glass-card p-6 border border-white/10">
+            <p className="text-gray-400 text-sm mb-2">Available Balance</p>
+            <p className="text-3xl font-bold text-white">
+              {showBalance ? formatPrice(data.portfolio.accountBalance) : '••••••'}
+            </p>
           </div>
 
-          <div className="space-y-3">
-            {liveAssets.map((asset) => (
-              <div key={asset.symbol} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg bg-white/5">
-                <div className="flex items-center gap-3">
-                  <div className="relative w-10 h-10">
-                    <Image
-                      src={asset.logo}
-                      alt={asset.name}
-                      width={40}
-                      height={40}
-                      className="w-10 h-10 rounded-full object-cover"
-                      priority={false}
-                      loading="lazy"
-                    />
-                  </div>
-                  <div>
-                    <p className="font-semibold">{asset.name}</p>
-                    <p className="text-xs text-gray-400">{asset.symbol}</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-4 text-sm">
-                  <div>
-                    <p className="text-xs text-gray-400">Balance</p>
-                    <p className="font-semibold">{asset.balance.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Value</p>
-                    <p className="font-semibold">{asset.value}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">24h</p>
-                    <p className={`font-semibold ${asset.isUp ? 'text-success' : 'text-danger'}`}>{asset.change}</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                    Deposit
-                  </button>
-                  <button className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                    Withdraw
-                  </button>
-                </div>
+          {/* Portfolio Value */}
+          <div className="glass-card p-6 border border-white/10">
+            <p className="text-gray-400 text-sm mb-2">Total Portfolio Value</p>
+            <p className="text-3xl font-bold text-white">
+              {showBalance ? formatPrice(totalPortfolioValue) : '••••••'}
+            </p>
+            <p className="text-xs text-gray-400 mt-2">{data.stats.totalHoldings} assets</p>
+          </div>
+
+          {/* Total Returns */}
+          <div className="glass-card p-6 border border-white/10">
+            <p className="text-gray-400 text-sm mb-2">Total Returns</p>
+            <div className="flex items-end gap-2">
+              <p className={`text-3xl font-bold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                {showBalance ? formatPrice(totalReturns) : '••••••'}
+              </p>
+              {isPositive ? (
+                <TrendingUp size={20} className="text-green-400 mb-1" />
+              ) : (
+                <TrendingDown size={20} className="text-red-400 mb-1" />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="border-b border-white/10 flex gap-4">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={tabClass('overview')}
+          >
+            <div className="flex items-center gap-2">
+              <BarChart3 size={18} />
+              Overview
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('assets')}
+            className={tabClass('assets')}
+          >
+            <div className="flex items-center gap-2">
+              <ArrowUpRight size={18} />
+              Assets
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('transactions')}
+            className={tabClass('transactions')}
+          >
+            <div className="flex items-center gap-2">
+              <ArrowDownLeft size={18} />
+              Transactions
+            </div>
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Trading Analytics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="glass-card p-4 border border-white/10">
+                <p className="text-gray-400 text-sm mb-2">Total Trades</p>
+                <p className="text-2xl font-bold text-white">{data.stats.totalTrades}</p>
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="glass-card p-4 border border-white/10">
+                <p className="text-gray-400 text-sm mb-2">Win Rate</p>
+                <p className="text-2xl font-bold text-white">{analytics.winRate.toFixed(1)}%</p>
+              </div>
+              <div className="glass-card p-4 border border-white/10">
+                <p className="text-gray-400 text-sm mb-2">Best Performer</p>
+                <p className="text-2xl font-bold text-green-400">{analytics.bestCrypto || 'N/A'}</p>
+              </div>
+              <div className="glass-card p-4 border border-white/10">
+                <p className="text-gray-400 text-sm mb-2">Avg Trade Value</p>
+                <p className="text-2xl font-bold text-white">{formatPrice(analytics.avgTradeValue)}</p>
+              </div>
+            </div>
 
-        <div className="space-y-6">
-          <div className="glass-card">
-            <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-            <div className="space-y-3">
-              <button className="w-full px-4 py-3 rounded-lg bg-success text-white flex items-center justify-between min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                Deposit
-                <ArrowDownToLine size={18} />
-              </button>
-              <button className="w-full px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-between min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                Withdraw
-                <ArrowUpRight size={18} />
-              </button>
+            {/* Holdings Table */}
+            <div className="glass-card border border-white/10 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Asset</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400">Amount</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400">Avg Price</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400">Current Price</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400">Total Value</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400">Gain/Loss</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.portfolio.holdings.map((holding, index) => (
+                      <tr key={index} className="border-b border-white/5 hover:bg-white/5 transition">
+                        <td className="px-6 py-4 font-semibold text-white">{holding.cryptoSymbol}</td>
+                        <td className="px-6 py-4 text-right text-gray-300">{holding.amount.toFixed(6)}</td>
+                        <td className="px-6 py-4 text-right text-gray-300">{formatPrice(holding.averageBuyPrice)}</td>
+                        <td className="px-6 py-4 text-right text-gray-300">{formatPrice(holding.currentPrice)}</td>
+                        <td className="px-6 py-4 text-right font-semibold text-white">{formatPrice(holding.totalValue)}</td>
+                        <td className={`px-6 py-4 text-right font-semibold ${holding.gainLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {holding.gainLoss >= 0 ? '+' : ''}{formatPrice(holding.gainLoss)} ({holding.gainLossPercent >= 0 ? '+' : ''}{holding.gainLossPercent.toFixed(2)}%)
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
+        )}
 
-          <div className="glass-card">
-            <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
-            <div className="space-y-3">
-              {activity.map((item) => (
-                <div key={item.id} className="flex items-center justify-between text-sm p-2 rounded-lg hover:bg-white/5">
-                  <div>
-                    <p className="font-semibold">{item.type}</p>
-                    <p className="text-xs text-gray-400">{item.asset} • {item.time}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-semibold ${item.amount.startsWith('+') ? 'text-success' : 'text-danger'}`}>{item.amount}</p>
-                    <p className="text-xs text-gray-400">{item.status}</p>
-                  </div>
-                </div>
-              ))}
+        {activeTab === 'assets' && (
+          <div className="space-y-6">
+            {/* Assets Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="glass-card p-6 border border-white/10">
+                <p className="text-gray-400 text-sm mb-2">Total Assets Value</p>
+                <p className="text-3xl font-bold text-white">{formatPrice(data.portfolio.holdings.reduce((sum, h) => sum + h.totalValue, 0))}</p>
+                <p className="text-xs text-gray-400 mt-2">{data.stats.totalHoldings} assets</p>
+              </div>
+              <div className="glass-card p-6 border border-white/10">
+                <p className="text-gray-400 text-sm mb-2">Available Balance</p>
+                <p className="text-3xl font-bold text-white">{formatPrice(data.portfolio.accountBalance)}</p>
+                <p className="text-xs text-gray-400 mt-2">Ready to trade</p>
+              </div>
+            </div>
+
+            {/* Assets Table */}
+            <div className="glass-card border border-white/10 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Symbol</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400">Quantity</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400">Price</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400">Value</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400">Change 24h</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.portfolio.holdings.map((holding, index) => (
+                      <tr key={index} className="border-b border-white/5 hover:bg-white/5 transition">
+                        <td className="px-6 py-4 font-semibold text-white">{holding.cryptoSymbol}</td>
+                        <td className="px-6 py-4 text-right text-gray-300">{holding.amount.toFixed(6)}</td>
+                        <td className="px-6 py-4 text-right text-gray-300">{formatPrice(holding.currentPrice)}</td>
+                        <td className="px-6 py-4 text-right font-semibold text-white">{formatPrice(holding.totalValue)}</td>
+                        <td className={`px-6 py-4 text-right font-semibold ${holding.gainLossPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {holding.gainLossPercent >= 0 ? '+' : ''}{holding.gainLossPercent.toFixed(2)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {activeTab === 'transactions' && (
+          <div className="space-y-4">
+            {/* Transactions Table */}
+            <div className="glass-card border border-white/10 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Type</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Asset</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400">Amount</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400">Price</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-gray-400">Total</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-400">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.trades.slice(0, 20).map((trade) => (
+                      <tr key={trade._id} className="border-b border-white/5 hover:bg-white/5 transition">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            {trade.type === 'buy' ? (
+                              <ArrowDownLeft className="w-4 h-4 text-green-400" />
+                            ) : (
+                              <ArrowUpRight className="w-4 h-4 text-red-400" />
+                            )}
+                            <span className="capitalize font-semibold">{trade.type}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-white">{trade.cryptoSymbol}</td>
+                        <td className="px-6 py-4 text-right text-gray-300">{trade.amount.toFixed(6)}</td>
+                        <td className="px-6 py-4 text-right text-gray-300">{formatPrice(trade.pricePerUnit)}</td>
+                        <td className="px-6 py-4 text-right font-semibold text-white">{formatPrice(trade.totalValue)}</td>
+                        <td className="px-6 py-4 text-sm text-gray-400">{new Date(trade.createdAt).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

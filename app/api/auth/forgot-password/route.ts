@@ -37,7 +37,16 @@ export async function POST(request: NextRequest) {
     await user.save();
 
     // Send password reset email
-    await sendPasswordResetEmail(email, resetToken);
+    const emailResult = await sendPasswordResetEmail(email, resetToken);
+
+    if (!emailResult.success) {
+      console.error('Failed to send password reset email:', emailResult.error);
+      // Still return success to avoid revealing if email exists, but log the error
+      return NextResponse.json(
+        { message: 'If an account with this email exists, a password reset link has been sent.' },
+        { status: 200 }
+      );
+    }
 
     return NextResponse.json(
       { message: 'If an account with this email exists, a password reset link has been sent.' },

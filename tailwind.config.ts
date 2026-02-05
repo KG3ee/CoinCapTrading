@@ -19,6 +19,18 @@ const config: Config = {
       backdropBlur: {
         xs: '2px',
       },
+      spacing: {
+        safe: 'max(1rem, env(safe-area-inset-left))',
+        'safe-r': 'max(1rem, env(safe-area-inset-right))',
+      },
+      minHeight: {
+        touch: '44px',
+        'touch-sm': '40px',
+      },
+      minWidth: {
+        touch: '44px',
+        'touch-sm': '40px',
+      },
     },
   },
   plugins: [],

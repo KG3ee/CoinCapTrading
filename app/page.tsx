@@ -52,12 +52,12 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="responsive-container max-w-7xl mx-auto space-y-4 sm:space-y-6 pb-4">
       {/* Price Ticker */}
       <div className="glass-card overflow-x-auto snap-x snap-mandatory">
-        <div className="flex gap-4 sm:gap-6 min-w-max">
+        <div className="flex gap-3 sm:gap-4 md:gap-6 min-w-max p-2 sm:p-3">
           {livePrices.slice(0, 4).map((crypto) => (
-            <div key={crypto.symbol} className="flex items-center gap-3 snap-start">
+            <div key={crypto.symbol} className="flex items-center gap-2 snap-start shrink-0">
               <div className="relative w-8 h-8 flex-shrink-0">
                 <Image
                   src={crypto.logo}
@@ -71,9 +71,9 @@ export default function HomePage() {
               </div>
               <div>
                 <p className="text-xs text-gray-400">{crypto.symbol}</p>
-                <p className="text-sm font-semibold">${crypto.price}</p>
+                <p className="text-sm sm:text-base font-semibold">${crypto.price}</p>
               </div>
-              <span className={`text-xs flex items-center gap-1 ${crypto.isUp ? 'text-success' : 'text-danger'}`}>
+              <span className={`text-xs flex items-center gap-1 whitespace-nowrap ${crypto.isUp ? 'text-success' : 'text-danger'}`}>
                 {crypto.isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                 {crypto.change}%
               </span>
@@ -83,14 +83,14 @@ export default function HomePage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
         <div className="glass-card">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-gray-400">Total Balance</p>
-            <DollarSign size={16} className="text-accent" />
+            <p className="text-xs text-gray-400 truncate">Total Balance</p>
+            <DollarSign size={14} className="text-accent flex-shrink-0" />
           </div>
-          <p className="text-xl md:text-2xl font-bold">$24,567.89</p>
-          <p className="text-xs text-success">+12.5% ($2,731.00)</p>
+          <p className="text-base sm:text-lg md:text-2xl font-bold truncate">$24,567.89</p>
+          <p className="text-xs text-success truncate">+12.5% ($2,731.00)</p>
         </div>
         
         <div className="glass-card">
