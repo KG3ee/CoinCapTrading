@@ -65,7 +65,7 @@ function SimpleChart({ data, height, coinName, showPrice = true, currentPrice }:
       <svg
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         className="w-full flex-1"
-        style={{ minHeight: '200px' }}
+        style={{ minHeight: '120px' }}
         preserveAspectRatio="none"
       >
         {/* Grid lines */}
