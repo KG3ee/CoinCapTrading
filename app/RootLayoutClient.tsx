@@ -44,7 +44,7 @@ export function RootLayoutClient({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex min-h-screen">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:flex-col md:w-64 glass border-r border-white/10">
         <div className="p-6 border-b border-white/10">
@@ -61,7 +61,7 @@ export function RootLayoutClient({
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   isActive ? 'bg-accent text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'
                 }`}
               >
@@ -75,7 +75,7 @@ export function RootLayoutClient({
         <div className="p-4 space-y-2 border-t border-white/10">
           <Link
             href={accountLink.href}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
               pathname === accountLink.href ? 'bg-accent text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'
             }`}
           >
@@ -121,7 +121,8 @@ export function RootLayoutClient({
           </h1>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-lg hover:bg-white/5 active:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="p-2 rounded-lg hover:bg-white/5 active:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -141,7 +142,7 @@ export function RootLayoutClient({
                     key={item.name}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg min-h-[44px] ${
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                       isActive ? 'bg-accent text-white' : 'text-gray-400'
                     }`}
                   >
@@ -154,7 +155,7 @@ export function RootLayoutClient({
                 <Link
                   href={accountLink.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg min-h-[44px] ${
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                     pathname === accountLink.href ? 'bg-accent text-white' : 'text-gray-400'
                   }`}
                 >
@@ -168,12 +169,12 @@ export function RootLayoutClient({
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto pt-16 md:pt-0 pb-20 md:pb-0">
+      <main className="flex-1 overflow-auto pt-16 md:pt-0 pb-[calc(80px+env(safe-area-inset-bottom))] md:pb-0">
         {children}
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-center justify-around px-2 py-2">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -182,7 +183,7 @@ export function RootLayoutClient({
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex flex-col items-center gap-1 px-4 py-2 min-w-[44px] min-h-[44px] ${
+                className={`flex flex-col items-center gap-1 px-4 py-2 min-w-[44px] min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   isActive ? 'text-accent' : 'text-gray-400'
                 }`}
               >

@@ -1,369 +1,354 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import {
-  TrendingUp,
-  TrendingDown,
-  Zap,
-  Shield,
-  Globe,
-  Smartphone,
-  ArrowRight,
-  Check,
-  Users,
-  BarChart3,
-  Target,
-} from 'lucide-react';
-import Link from 'next/link';
+import { TrendingUp, TrendingDown, BarChart3, DollarSign, Activity } from 'lucide-react';
+import Image from 'next/image';
+import { useCoinCapPrices } from '@/lib/hooks/useCoinCapPrices';
+
+const formatPrice = (value: number) => {
+  if (Number.isNaN(value)) return '0.00';
+  if (value >= 1000) {
+    return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  if (value >= 1) {
+    return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  }
+  return value.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+};
+
+const formatChange = (value: number) => {
+  if (Number.isNaN(value)) return '+0.00';
+  const sign = value >= 0 ? '+' : '';
+  return `${sign}${value.toFixed(2)}`;
+};
 
 export default function HomePage() {
-  const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    setIsLoggedIn(!!token);
-  }, []);
-
-  const cryptoData = [
-    { symbol: 'BTC', name: 'Bitcoin', price: '$43,250', change: '+2.5%', isPositive: true },
-    { symbol: 'ETH', name: 'Ethereum', price: '$2,280', change: '+1.8%', isPositive: true },
-    { symbol: 'SOL', name: 'Solana', price: '$98.75', change: '-1.2%', isPositive: false },
-    { symbol: 'ADA', name: 'Cardano', price: '$0.456', change: '+3.2%', isPositive: true },
+  const cryptoPrices = [
+    { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: '43,250.00', change: '+2.5', isUp: true, logo: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png' },
+    { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', price: '2,280.50', change: '+1.8', isUp: true, logo: 'https://assets.coingecko.com/coins/images/279/large/ethereum.png' },
+    { id: 'ripple', name: 'Ripple', symbol: 'XRP', price: '0.5234', change: '-0.9', isUp: false, logo: 'https://assets.coingecko.com/coins/images/44/large/xrp.png' },
+    { id: 'cardano', name: 'Cardano', symbol: 'ADA', price: '0.4567', change: '+3.2', isUp: true, logo: 'https://assets.coingecko.com/coins/images/975/large/cardano.png' },
+    { id: 'solana', name: 'Solana', symbol: 'SOL', price: '98.75', change: '-1.2', isUp: false, logo: 'https://assets.coingecko.com/coins/images/4128/large/solana.png' },
+    { id: 'polkadot', name: 'Polkadot', symbol: 'DOT', price: '6.89', change: '+0.5', isUp: true, logo: 'https://assets.coingecko.com/coins/images/12171/large/polkadot.png' },
   ];
 
-  const features = [
-    {
-      icon: Zap,
-      title: 'Lightning Fast',
-      description: 'Execute trades in milliseconds with our high-speed trading platform',
-    },
-    {
-      icon: Shield,
-      title: 'Secure & Safe',
-      description: 'Military-grade encryption and 2FA protection for your account',
-    },
-    {
-      icon: Globe,
-      title: '24/7 Trading',
-      description: 'Trade crypto anytime, anywhere with 24/7 market access',
-    },
-    {
-      icon: Smartphone,
-      title: 'Mobile Ready',
-      description: 'Seamless experience across all devices and screen sizes',
-    },
-  ];
+  const { prices } = useCoinCapPrices(cryptoPrices.map((coin) => coin.id));
 
-  const stats = [
-    { label: 'Active Users', value: '50K+', icon: Users },
-    { label: 'Total Trades', value: '2.5M+', icon: BarChart3 },
-    { label: 'Trading Volume', value: '$5.2B+', icon: Target },
+  const livePrices = cryptoPrices.map((coin) => {
+    const live = prices[coin.id];
+    if (!live) return coin;
+    return {
+      ...coin,
+      price: formatPrice(live.priceUsd),
+      change: formatChange(live.changePercent24Hr),
+      isUp: live.changePercent24Hr >= 0,
+    };
+  });
+
+  const recentTransactions = [
+    { id: 1, type: 'Buy', coin: 'BTC', amount: '0.025', price: '$1,081.25', time: '2m ago', status: 'Completed' },
+    { id: 2, type: 'Sell', coin: 'ETH', amount: '1.5', price: '$3,420.75', time: '15m ago', status: 'Completed' },
+    { id: 3, type: 'Buy', coin: 'SOL', amount: '10', price: '$987.50', time: '1h ago', status: 'Pending' },
+    { id: 4, type: 'Sell', coin: 'ADA', amount: '500', price: '$228.35', time: '2h ago', status: 'Completed' },
   ];
 
   return (
-    <div className="min-h-screen bg-background overflow-hidden">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-40 glass border-b border-white/10 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-            CoinCapTrading
-          </h1>
-          <div className="flex items-center gap-4">
-            {isLoggedIn ? (
-              <>
-                <Link
-                  href="/dashboard"
-                  className="px-4 py-2 text-white hover:text-accent transition-colors"
-                >
-                  Dashboard
-                </Link>
-                <button
-                  onClick={() => router.push('/account')}
-                  className="px-4 py-2 rounded-lg bg-accent/20 hover:bg-accent/30 text-accent font-semibold transition-colors"
-                >
-                  Account
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => router.push('/login')}
-                  className="px-4 py-2 text-white hover:text-accent transition-colors"
-                >
-                  Login
-                </button>
-                <button
-                  onClick={() => router.push('/register')}
-                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 text-white font-semibold transition-all"
-                >
-                  Sign Up
-                </button>
-              </>
-            )}
+    <div className="min-h-screen p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Price Ticker */}
+      <div className="glass-card overflow-x-auto snap-x snap-mandatory">
+        <div className="flex gap-4 sm:gap-6 min-w-max">
+          {livePrices.slice(0, 4).map((crypto) => (
+            <div key={crypto.symbol} className="flex items-center gap-3 snap-start">
+              <div className="relative w-8 h-8 flex-shrink-0">
+                <Image
+                  src={crypto.logo}
+                  alt={crypto.name}
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 rounded-full object-cover"
+                  priority={false}
+                  loading="lazy"
+                />
+              </div>
+              <div>
+                <p className="text-xs text-gray-400">{crypto.symbol}</p>
+                <p className="text-sm font-semibold">${crypto.price}</p>
+              </div>
+              <span className={`text-xs flex items-center gap-1 ${crypto.isUp ? 'text-success' : 'text-danger'}`}>
+                {crypto.isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                {crypto.change}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="glass-card">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-gray-400">Total Balance</p>
+            <DollarSign size={16} className="text-accent" />
           </div>
+          <p className="text-xl md:text-2xl font-bold">$24,567.89</p>
+          <p className="text-xs text-success">+12.5% ($2,731.00)</p>
         </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="relative min-h-[600px] flex items-center overflow-hidden py-20">
-        {/* Background Elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-10 left-10 w-72 h-72 bg-accent/20 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"></div>
+        
+        <div className="glass-card">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-gray-400">24h Volume</p>
+            <BarChart3 size={16} className="text-purple-400" />
+          </div>
+          <p className="text-xl md:text-2xl font-bold">$8,429.12</p>
+          <p className="text-xs text-gray-400">15 Transactions</p>
         </div>
+        
+        <div className="glass-card">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-gray-400">Top Gainer</p>
+            <TrendingUp size={16} className="text-success" />
+          </div>
+          <p className="text-xl md:text-2xl font-bold">ADA</p>
+          <p className="text-xs text-success">+3.2%</p>
+        </div>
+        
+        <div className="glass-card">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-gray-400">Active Orders</p>
+            <Activity size={16} className="text-blue-400" />
+          </div>
+          <p className="text-xl md:text-2xl font-bold">7</p>
+          <p className="text-xs text-gray-400">3 Pending</p>
+        </div>
+      </div>
 
-        <div className="max-w-7xl mx-auto px-4 relative z-10">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            {/* Left Side - Content */}
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <h2 className="text-5xl md:text-6xl font-bold text-white leading-tight">
-                  Trade Crypto with
-                  <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                    {' '}Confidence
-                  </span>
-                </h2>
-                <p className="text-xl text-gray-400">
-                  Experience the fastest, most secure cryptocurrency trading platform. Start with $10,000 virtual capital and master trading strategies.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-4">
-                {isLoggedIn ? (
-                  <button
-                    onClick={() => router.push('/dashboard')}
-                    className="px-8 py-3 rounded-lg bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 text-white font-semibold transition-all flex items-center justify-center gap-2"
-                  >
-                    Go to Dashboard
-                    <ArrowRight size={20} />
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => router.push('/register')}
-                      className="px-8 py-3 rounded-lg bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 text-white font-semibold transition-all flex items-center justify-center gap-2"
-                    >
-                      Get Started Free
-                      <ArrowRight size={20} />
-                    </button>
-                    <button
-                      onClick={() => router.push('/login')}
-                      className="px-8 py-3 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold transition-all"
-                    >
-                      Sign In
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Trust Badges */}
-              <div className="flex items-center gap-4 pt-4">
-                <div className="flex items-center gap-2">
-                  <Shield size={20} className="text-accent" />
-                  <span className="text-sm text-gray-400">Bank-Level Security</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Check size={20} className="text-accent" />
-                  <span className="text-sm text-gray-400">Instant Verification</span>
-                </div>
+      {/* Main Content Grid */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Chart Section - Full width on mobile, 2/3 on desktop */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Trading Chart */}
+          <div className="glass-card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">BTC/USD</h2>
+              <div className="flex gap-2">
+                <button className="text-xs px-3 py-1 rounded bg-accent text-white min-h-[44px] md:min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">1H</button>
+                <button className="text-xs px-3 py-1 rounded bg-white/5 hover:bg-white/10 min-h-[44px] md:min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">24H</button>
+                <button className="text-xs px-3 py-1 rounded bg-white/5 hover:bg-white/10 min-h-[44px] md:min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">7D</button>
+                <button className="text-xs px-3 py-1 rounded bg-white/5 hover:bg-white/10 min-h-[44px] md:min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">1M</button>
               </div>
             </div>
+            
+            {/* TradingView Chart Placeholder */}
+            <div className="relative w-full h-[40vh] md:h-96 bg-black/20 rounded-lg border border-white/5 flex items-center justify-center">
+              <div className="text-center">
+                <BarChart3 size={48} className="mx-auto mb-2 text-gray-600" />
+                <p className="text-gray-500 text-sm">TradingView Chart</p>
+                <p className="text-xs text-gray-600 mt-1">Integrate with TradingView Widget</p>
+              </div>
+            </div>
+          </div>
 
-            {/* Right Side - Visual */}
-            <div className="relative h-96">
-              <div className="absolute inset-0 glass-card rounded-2xl overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-accent/20 to-purple-500/20"></div>
-                <div className="relative h-full flex flex-col justify-between p-6">
-                  {/* Chart Animation */}
-                  <div className="space-y-2">
-                    <p className="text-gray-400 text-sm">Portfolio Growth</p>
-                    <div className="flex items-end gap-1 h-24">
-                      {[40, 45, 35, 50, 55, 60, 65].map((height, i) => (
-                        <div
-                          key={i}
-                          className="flex-1 bg-gradient-to-t from-accent to-purple-500 rounded-t opacity-70 hover:opacity-100 transition-opacity"
-                          style={{ height: `${height}%` }}
-                        ></div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-white/5">
-                    <div>
-                      <p className="text-gray-400 text-xs">Portfolio Value</p>
-                      <p className="text-xl font-bold text-white">$15,240</p>
+          {/* Market Prices - 2 Column Grid on Mobile */}
+          <div className="glass-card">
+            <h2 className="text-lg font-semibold mb-4">Market Prices</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {livePrices.map((crypto) => (
+                <div
+                  key={crypto.symbol}
+                  className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-10 h-10 flex-shrink-0">
+                      <Image
+                        src={crypto.logo}
+                        alt={crypto.name}
+                        width={40}
+                        height={40}
+                        className="w-10 h-10 rounded-full object-cover"
+                        priority={false}
+                        loading="lazy"
+                      />
                     </div>
                     <div>
-                      <p className="text-gray-400 text-xs">24h Change</p>
-                      <p className="text-xl font-bold text-green-400">+5.2%</p>
+                      <p className="font-semibold">{crypto.symbol}</p>
+                      <p className="text-xs text-gray-400">{crypto.name}</p>
                     </div>
                   </div>
+                  <div className="text-right">
+                    <p className="font-semibold">${crypto.price}</p>
+                    <p className={`text-xs flex items-center gap-1 justify-end ${crypto.isUp ? 'text-success' : 'text-danger'}`}>
+                      {crypto.isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                      {crypto.change}%
+                    </p>
+                  </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Trade Section - Full width on mobile, 1/3 on desktop */}
+        <div className="space-y-6">
+          {/* Buy/Sell Form */}
+          <div className="glass-card">
+            <h2 className="text-lg font-semibold mb-4">Quick Trade</h2>
+            
+            <div className="flex gap-2 mb-4">
+              <button className="flex-1 py-2 rounded-lg bg-success text-white font-medium min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                Buy
+              </button>
+              <button className="flex-1 py-2 rounded-lg bg-white/5 hover:bg-white/10 font-medium min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                Sell
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-gray-400 block mb-2">Select Coin</label>
+                <select className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none min-h-[44px]">
+                  <option>Bitcoin (BTC)</option>
+                  <option>Ethereum (ETH)</option>
+                  <option>Ripple (XRP)</option>
+                  <option>Cardano (ADA)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 block mb-2">Amount</label>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none min-h-[44px]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 block mb-2">Price (USD)</label>
+                <input
+                  type="number"
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none min-h-[44px]"
+                />
+              </div>
+
+              <div className="flex items-center justify-between py-3 border-t border-white/10">
+                <p className="text-sm text-gray-400">Total</p>
+                <p className="text-lg font-bold">$0.00</p>
+              </div>
+
+              <button className="w-full py-3 rounded-lg bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 font-semibold transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                Place Buy Order
+              </button>
+            </div>
+          </div>
+
+          {/* Order Book Preview */}
+          <div className="glass-card hidden lg:block">
+            <h2 className="text-sm font-semibold mb-3">Order Book</h2>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between text-gray-400 pb-2 border-b border-white/10">
+                <span>Price</span>
+                <span>Amount</span>
+              </div>
+              <div className="flex justify-between text-danger">
+                <span>43,251.20</span>
+                <span>0.125</span>
+              </div>
+              <div className="flex justify-between text-danger">
+                <span>43,250.80</span>
+                <span>0.340</span>
+              </div>
+              <div className="flex justify-between text-danger">
+                <span>43,250.50</span>
+                <span>0.567</span>
+              </div>
+              <div className="py-2 border-y border-white/10 text-center font-bold">
+                43,250.00
+              </div>
+              <div className="flex justify-between text-success">
+                <span>43,249.50</span>
+                <span>0.234</span>
+              </div>
+              <div className="flex justify-between text-success">
+                <span>43,249.20</span>
+                <span>0.890</span>
+              </div>
+              <div className="flex justify-between text-success">
+                <span>43,248.80</span>
+                <span>0.456</span>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Live Markets Preview */}
-      <section className="py-16 px-4">
-        <div className="max-w-7xl mx-auto space-y-8">
-          <div className="text-center space-y-3">
-            <h3 className="text-3xl md:text-4xl font-bold text-white">Live Market Data</h3>
-            <p className="text-gray-400 text-lg">Monitor top cryptocurrencies in real-time</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {cryptoData.map((crypto) => (
-              <div key={crypto.symbol} className="glass-card p-4 hover:bg-white/10 transition-all">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-sm text-gray-400">{crypto.symbol}</p>
-                    <p className="text-lg font-semibold text-white">{crypto.name}</p>
-                  </div>
-                  {crypto.isPositive ? (
-                    <TrendingUp size={24} className="text-green-400" />
-                  ) : (
-                    <TrendingDown size={24} className="text-red-400" />
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-2xl font-bold text-white">{crypto.price}</p>
-                  <p
-                    className={`text-sm font-semibold ${
-                      crypto.isPositive ? 'text-green-400' : 'text-red-400'
-                    }`}
-                  >
-                    {crypto.change}
-                  </p>
-                </div>
+      {/* Recent Transactions - List View on Mobile, Table on Desktop */}
+      <div className="glass-card">
+        <h2 className="text-lg font-semibold mb-4">Recent Transactions</h2>
+        
+        {/* Mobile List View */}
+        <div className="md:hidden space-y-3">
+          {recentTransactions.map((tx) => (
+            <div key={tx.id} className="p-3 rounded-lg bg-white/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className={`text-sm font-semibold ${tx.type === 'Buy' ? 'text-success' : 'text-danger'}`}>
+                  {tx.type} {tx.coin}
+                </span>
+                <span className={`text-xs px-2 py-1 rounded ${tx.status === 'Completed' ? 'bg-success/20 text-success' : 'bg-yellow-500/20 text-yellow-500'}`}>
+                  {tx.status}
+                </span>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-20 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center space-y-3 mb-16">
-            <h3 className="text-3xl md:text-4xl font-bold text-white">Why Choose CoinCapTrading?</h3>
-            <p className="text-gray-400 text-lg">Everything you need for successful crypto trading</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((feature, index) => {
-              const Icon = feature.icon;
-              return (
-                <div key={index} className="glass-card p-6 space-y-4 hover:bg-white/10 transition-all">
-                  <div className="w-12 h-12 rounded-lg bg-accent/20 flex items-center justify-center">
-                    <Icon size={24} className="text-accent" />
-                  </div>
-                  <div>
-                    <h4 className="text-lg font-bold text-white mb-2">{feature.title}</h4>
-                    <p className="text-gray-400 text-sm">{feature.description}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Statistics Section */}
-      <section className="py-16 px-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="glass-card p-8 md:p-12">
-            <div className="grid md:grid-cols-3 gap-8">
-              {stats.map((stat, index) => {
-                const Icon = stat.icon;
-                return (
-                  <div key={index} className="text-center space-y-4">
-                    <div className="flex justify-center">
-                      <div className="w-16 h-16 rounded-lg bg-accent/20 flex items-center justify-center">
-                        <Icon size={32} className="text-accent" />
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                        {stat.value}
-                      </p>
-                      <p className="text-gray-400 text-lg">{stat.label}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 px-4">
-        <div className="max-w-4xl mx-auto glass-card p-12 text-center space-y-6">
-          <h3 className="text-3xl md:text-4xl font-bold text-white">Ready to Start Trading?</h3>
-          <p className="text-gray-400 text-lg">
-            Join thousands of traders and start your crypto journey with $10,000 virtual capital
-          </p>
-          {!isLoggedIn && (
-            <button
-              onClick={() => router.push('/register')}
-              className="px-8 py-3 rounded-lg bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 text-white font-semibold transition-all inline-flex items-center gap-2"
-            >
-              Create Free Account
-              <ArrowRight size={20} />
-            </button>
-          )}
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-white/10 px-4 py-8 mt-12">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div className="space-y-3">
-              <h4 className="text-white font-bold">CoinCapTrading</h4>
-              <p className="text-gray-400 text-sm">
-                Your trusted crypto trading platform with virtual capital learning.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <h5 className="text-white font-semibold">Product</h5>
-              <ul className="space-y-2 text-gray-400 text-sm">
-                <li><Link href="/dashboard" className="hover:text-accent transition-colors">Dashboard</Link></li>
-                <li><Link href="/trade" className="hover:text-accent transition-colors">Trade</Link></li>
-              </ul>
-            </div>
-            <div className="space-y-3">
-              <h5 className="text-white font-semibold">Account</h5>
-              <ul className="space-y-2 text-gray-400 text-sm">
-                <li><Link href="/login" className="hover:text-accent transition-colors">Login</Link></li>
-                <li><Link href="/register" className="hover:text-accent transition-colors">Sign Up</Link></li>
-              </ul>
-            </div>
-            <div className="space-y-3">
-              <h5 className="text-white font-semibold">Resources</h5>
-              <ul className="space-y-2 text-gray-400 text-sm">
-                <li><a href="#" className="hover:text-accent transition-colors">Docs</a></li>
-                <li><a href="#" className="hover:text-accent transition-colors">Support</a></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t border-white/10 pt-8">
-            <div className="flex flex-col md:flex-row items-center justify-between text-gray-400 text-sm">
-              <p>&copy; 2026 CoinCapTrading. All rights reserved.</p>
-              <div className="flex gap-6 mt-4 md:mt-0">
-                <a href="#" className="hover:text-accent transition-colors">Privacy Policy</a>
-                <a href="#" className="hover:text-accent transition-colors">Terms of Service</a>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-400">Amount:</span>
+                <span className="font-medium">{tx.amount}</span>
               </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-400">Price:</span>
+                <span className="font-medium">{tx.price}</span>
+              </div>
+              <div className="text-xs text-gray-400 text-right">{tx.time}</div>
             </div>
-          </div>
+          ))}
         </div>
-      </footer>
+
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-left text-sm text-gray-400 border-b border-white/10">
+                <th className="pb-3">Type</th>
+                <th className="pb-3">Coin</th>
+                <th className="pb-3">Amount</th>
+                <th className="pb-3">Price</th>
+                <th className="pb-3">Time</th>
+                <th className="pb-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentTransactions.map((tx) => (
+                <tr key={tx.id} className="border-b border-white/5 hover:bg-white/5">
+                  <td className={`py-3 font-semibold ${tx.type === 'Buy' ? 'text-success' : 'text-danger'}`}>
+                    {tx.type}
+                  </td>
+                  <td className="py-3">{tx.coin}</td>
+                  <td className="py-3">{tx.amount}</td>
+                  <td className="py-3">{tx.price}</td>
+                  <td className="py-3 text-gray-400">{tx.time}</td>
+                  <td className="py-3">
+                    <span className={`text-xs px-3 py-1 rounded ${tx.status === 'Completed' ? 'bg-success/20 text-success' : 'bg-yellow-500/20 text-yellow-500'}`}>
+                      {tx.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Floating Action Button for Mobile Quick Trade */}
+      <button className="md:hidden fixed bottom-[calc(96px+env(safe-area-inset-bottom))] right-4 w-14 h-14 rounded-full bg-gradient-to-r from-accent to-purple-500 shadow-lg flex items-center justify-center z-40 active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" aria-label="Quick trade">
+        <DollarSign size={24} />
+      </button>
     </div>
   );
 }
