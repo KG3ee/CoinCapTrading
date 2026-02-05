@@ -19,92 +19,94 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Map our IDs to CoinGecko IDs
-    const idMap: Record<string, string> = {
-      'bitcoin': 'bitcoin',
-      'ethereum': 'ethereum',
-      'ripple': 'ripple',
-      'cardano': 'cardano',
-      'solana': 'solana',
-      'polkadot': 'polkadot',
+    // Map our coin IDs to Binance trading pair symbols
+    const symbolMap: Record<string, string> = {
+      'bitcoin': 'BTCUSDT',
+      'ethereum': 'ETHUSDT',
+      'ripple': 'XRPUSDT',
+      'cardano': 'ADAUSDT',
+      'solana': 'SOLUSDT',
+      'polkadot': 'DOTUSDT',
     };
 
     const idsArray = ids.split(',').map(id => id.trim());
-    const geckoIds = idsArray.map(id => idMap[id] || id).join(',');
-
-    // Use CoinGecko simple/price API for real-time data
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${geckoIds}&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true&include_last_updated_at=true`,
-      {
-        cache: 'no-store',
-        headers: { 
-          'Accept': 'application/json',
-          'User-Agent': 'CoinCapTrading/1.0'
-        },
-        signal: AbortSignal.timeout(8000), // 8 second timeout
-      }
-    );
-
-    if (!response.ok) {
-      console.error(`CoinGecko API error: ${response.status}`);
-      return NextResponse.json({ data: [] }, { status: 200 });
-    }
-
-    const geckoData = await response.json();
-
-    // Fetch detailed data (including high/low) for each coin
-    const detailedDataPromises = idsArray.map(async (id) => {
-      const geckoId = idMap[id] || id;
+    
+    // Fetch 24hr ticker data from Binance for all coins
+    const binancePricesPromises = idsArray.map(async (id) => {
+      const binanceSymbol = symbolMap[id.toLowerCase()] || `${id.toUpperCase()}USDT`;
+      
       try {
-        const detailResponse = await fetch(
-          `https://api.coingecko.com/api/v3/coins/${geckoId}?localization=false`,
+        const response = await fetch(
+          `https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSymbol}`,
           {
             cache: 'no-store',
             headers: { 'Accept': 'application/json' },
             signal: AbortSignal.timeout(5000),
           }
         );
-        
-        if (detailResponse.ok) {
-          return await detailResponse.json();
+
+        if (!response.ok) {
+          console.warn(`Binance API error for ${binanceSymbol}: ${response.status}`);
+          return null;
         }
-      } catch (e) {
-        console.warn(`Failed to fetch details for ${geckoId}`);
-      }
-      return null;
-    });
 
-    const detailedDataArray = await Promise.all(detailedDataPromises);
-    const detailedDataMap = new Map();
-    detailedDataArray.forEach((coin) => {
-      if (coin) {
-        detailedDataMap.set(coin.id, coin);
-      }
-    });
-
-    // Transform CoinGecko response to match our expected format
-    const transformedData: CoinCapAsset[] = idsArray
-      .map((id) => {
-        const geckoId = idMap[id] || id;
-        const simpleData = geckoData[geckoId];
-        const detailData = detailedDataMap.get(geckoId);
-
-        if (!simpleData) return null;
-
-        const high24h = detailData?.market_data?.high_24h?.usd || 0;
-        const low24h = detailData?.market_data?.low_24h?.usd || 0;
-
+        const data = await response.json();
+        
         return {
           id,
-          priceUsd: String(simpleData.usd || 0),
-          changePercent24Hr: String(simpleData.usd_24h_change || 0),
-          high24Hr: String(high24h),
-          low24Hr: String(low24h),
-          volume24Hr: String(simpleData.usd_24h_vol || 0),
-          marketCap: String(simpleData.usd_market_cap || 0),
+          binanceSymbol,
+          price: parseFloat(data.lastPrice),
+          change24h: parseFloat(data.priceChangePercent),
+          high24h: parseFloat(data.highPrice),
+          low24h: parseFloat(data.lowPrice),
+          volume24h: parseFloat(data.quoteAssetVolume), // Volume in USD
         };
-      })
-      .filter((item): item is CoinCapAsset => item !== null);
+      } catch (error) {
+        console.warn(`Failed to fetch Binance data for ${id}:`, error);
+        return null;
+      }
+    });
+
+    const binancePrices = await Promise.all(binancePricesPromises);
+    
+    // Fetch market cap from CoinGecko (just for market cap, not price-critical)
+    const marketCapPromises = idsArray.map(async (id) => {
+      try {
+        const response = await fetch(
+          `https://api.coingecko.com/api/v3/simple/price?ids=${id.toLowerCase()}&vs_currencies=usd&include_market_cap=true`,
+          {
+            cache: 'force-cache', // Cache aggressively since this is just for market cap
+            headers: { 'Accept': 'application/json' },
+            signal: AbortSignal.timeout(3000),
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const marketCap = data[id.toLowerCase()]?.usd_market_cap;
+          return { id, marketCap };
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch market cap for ${id}`);
+      }
+      return { id, marketCap: null };
+    });
+
+    const marketCapData = await Promise.all(marketCapPromises);
+    const marketCapMap = new Map(marketCapData.map(d => [d.id, d.marketCap]));
+
+    // Transform and combine data
+    const transformedData: CoinCapAsset[] = binancePrices
+      .filter((item) => item !== null)
+      .map((item) => ({
+        id: item!.id,
+        priceUsd: String(item!.price),
+        changePercent24Hr: String(item!.change24h),
+        high24Hr: String(item!.high24h),
+        low24Hr: String(item!.low24h),
+        volume24Hr: String(item!.volume24h),
+        marketCap: marketCapMap.get(item!.id) ? String(marketCapMap.get(item!.id)) : '0',
+      }));
 
     return NextResponse.json({ data: transformedData }, { status: 200 });
   } catch (error) {
