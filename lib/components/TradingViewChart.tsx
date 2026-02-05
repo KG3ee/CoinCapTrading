@@ -7,10 +7,12 @@ interface TradingViewChartProps {
   coinId: string;
   coinName: string;
   height?: string;
+  showPrice?: boolean;
+  currentPrice?: number;
 }
 
 // Simple SVG-based fallback chart
-function SimpleChart({ data, height, coinName }: { data: { time: number; price: number }[]; height: string; coinName: string }) {
+function SimpleChart({ data, height, coinName, showPrice = true, currentPrice }: { data: { time: number; price: number }[]; height: string; coinName: string; showPrice?: boolean; currentPrice?: number }) {
   if (!data || data.length === 0) return null;
 
   const prices = data.map(d => d.price);
@@ -38,26 +40,28 @@ function SimpleChart({ data, height, coinName }: { data: { time: number; price: 
     pathData += ` L ${points[i].x} ${points[i].y}`;
   }
 
-  const currentPrice = data[data.length - 1].price;
+  const chartCurrentPrice = currentPrice !== undefined ? currentPrice : data[data.length - 1].price;
   const previousPrice = data[0].price;
-  const priceChange = currentPrice - previousPrice;
+  const priceChange = chartCurrentPrice - previousPrice;
   const isUp = priceChange >= 0;
   const color = isUp ? '#10b981' : '#ef4444';
 
   return (
     <div className={`${height} bg-gradient-to-br from-black/20 to-black/10 rounded-lg border border-white/5 p-4 flex flex-col justify-between`}>
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <p className="text-gray-400 text-xs">{coinName} (30D)</p>
-          <p className="text-xl font-bold">${currentPrice.toFixed(2)}</p>
+      {showPrice && (
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <p className="text-gray-400 text-xs">{coinName} (30D)</p>
+            <p className="text-xl font-bold">${chartCurrentPrice.toFixed(2)}</p>
+          </div>
+          <div className="text-right">
+            <p className={`text-sm font-semibold ${isUp ? 'text-success' : 'text-danger'} flex items-center gap-1 justify-end`}>
+              {isUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+              {((priceChange / previousPrice) * 100).toFixed(2)}%
+            </p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className={`text-sm font-semibold ${isUp ? 'text-success' : 'text-danger'} flex items-center gap-1 justify-end`}>
-            {isUp ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-            {((priceChange / previousPrice) * 100).toFixed(2)}%
-          </p>
-        </div>
-      </div>
+      )}
       <svg
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         className="w-full flex-1"
@@ -113,7 +117,7 @@ function SimpleChart({ data, height, coinName }: { data: { time: number; price: 
   );
 }
 
-export function TradingViewChart({ coinId, coinName, height = 'h-96' }: TradingViewChartProps) {
+export function TradingViewChart({ coinId, coinName, height = 'h-96', showPrice = true, currentPrice }: TradingViewChartProps) {
   const [chartData, setChartData] = useState<{ time: number; price: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -221,7 +225,7 @@ export function TradingViewChart({ coinId, coinName, height = 'h-96' }: TradingV
     );
   }
 
-  return <SimpleChart data={chartData} height={height} coinName={coinName} />;
+  return <SimpleChart data={chartData} height={height} coinName={coinName} showPrice={showPrice} currentPrice={currentPrice} />;
 }
 
 // Generate realistic mock data

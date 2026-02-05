@@ -99,7 +99,7 @@ export default function TradePage() {
               </div>
             </div>
             <div className="relative w-full h-[40vh] md:h-96 bg-black/20 rounded-lg border border-white/5 flex items-center justify-center">
-              <TradingViewChart coinId="bitcoin" coinName="Bitcoin" height="h-full" />
+              <TradingViewChart coinId="bitcoin" coinName="Bitcoin" height="h-full" showPrice={false} />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
               <div className="p-3 rounded-lg bg-white/5">
