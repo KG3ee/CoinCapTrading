@@ -95,6 +95,76 @@ export default function TradePage() {
     setAmount(calculatedAmount.toFixed(4));
   };
 
+  // Handle place order
+  const handlePlaceOrder = async () => {
+    // Validation
+    if (!amount || !price) {
+      setMessage({ type: 'error', text: 'Please enter amount and price' });
+      return;
+    }
+
+    if (parseFloat(amount) <= 0 || parseFloat(price) <= 0) {
+      setMessage({ type: 'error', text: 'Amount and price must be greater than 0' });
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      // Get auth token from localStorage
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      
+      if (!token) {
+        setMessage({ type: 'error', text: 'Please login to place trades' });
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/trades/place', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          type: tradeType,
+          cryptoSymbol: 'BTC',
+          amount: parseFloat(amount),
+          pricePerUnit: parseFloat(price),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage({ type: 'error', text: data.error || 'Failed to place order' });
+        return;
+      }
+
+      // Success
+      setMessage({ 
+        type: 'success', 
+        text: `${tradeType === 'buy' ? 'Buy' : 'Sell'} order placed! ID: ${data.trade.transactionId}` 
+      });
+
+      // Reset form
+      setAmount('');
+      setPrice(livePriceNum.toString());
+
+      // Optionally refresh data here
+      setTimeout(() => {
+        setMessage(null);
+      }, 5000);
+
+    } catch (error) {
+      console.error('Trade error:', error);
+      setMessage({ type: 'error', text: 'Network error. Please try again.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen p-3 md:p-4 space-y-2 max-w-7xl mx-auto flex flex-col">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -233,7 +303,7 @@ export default function TradePage() {
               </div>
               
               <button 
-                onClick={() => {/* To be implemented in next step */}}
+                onClick={handlePlaceOrder}
                 disabled={isLoading || !amount || !price}
                 className="w-full py-1.5 rounded-lg bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-all text-xs min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
