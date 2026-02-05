@@ -94,7 +94,7 @@ export default function HomePage() {
           <p className="text-xs text-success truncate mt-0.5">+12.5%</p>
         </div>
         
-        <div className="glass-card p-3 md:p-2">
+        <div className="glass-card p-3 md:p-2 hidden md:block">
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs text-gray-400 truncate">24h Volume</p>
             <BarChart3 size={14} className="text-purple-400 flex-shrink-0" />
@@ -103,7 +103,7 @@ export default function HomePage() {
           <p className="text-xs text-gray-400 truncate mt-0.5">15 TX</p>
         </div>
         
-        <div className="glass-card p-3 md:p-2">
+        <div className="glass-card p-3 md:p-2 hidden md:block">
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs text-gray-400 truncate">Top Gainer</p>
             <TrendingUp size={14} className="text-success flex-shrink-0" />
@@ -112,7 +112,7 @@ export default function HomePage() {
           <p className="text-xs text-success mt-0.5">+3.2%</p>
         </div>
         
-        <div className="glass-card p-3 md:p-2">
+        <div className="glass-card p-3 md:p-2 hidden md:block">
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs text-gray-400 truncate">Active Orders</p>
             <Activity size={14} className="text-blue-400 flex-shrink-0" />
@@ -264,6 +264,29 @@ export default function HomePage() {
                 <span>0.456</span>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Trust & Stats Section */}
+      <div className="glass-card p-4 md:p-5">
+        <h2 className="text-base md:text-lg font-bold mb-4">Why Choose CryptoTrade</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <div className="text-center p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <p className="text-2xl md:text-3xl font-bold text-accent mb-1">150K+</p>
+            <p className="text-xs md:text-sm text-gray-400">Active Users</p>
+          </div>
+          <div className="text-center p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <p className="text-2xl md:text-3xl font-bold text-success mb-1">$2.5B+</p>
+            <p className="text-xs md:text-sm text-gray-400">Trading Volume</p>
+          </div>
+          <div className="text-center p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <p className="text-2xl md:text-3xl font-bold text-blue-400 mb-1">24/7</p>
+            <p className="text-xs md:text-sm text-gray-400">Market Access</p>
+          </div>
+          <div className="text-center p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <p className="text-2xl md:text-3xl font-bold text-purple-400 mb-1">0.1%</p>
+            <p className="text-xs md:text-sm text-gray-400">Lowest Fees</p>
           </div>
         </div>
       </div>
