@@ -22,10 +22,8 @@ export async function GET(request: NextRequest) {
     // Verify and decode token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
 
-    // Fetch user from database using userId from token
-    const user = await User.findById(decoded.userId).select(
-      'fullName email uid referralCode isVerified isTwoFactorEnabled accountStatus language withdrawalAddress createdAt'
-    );
+    // Fetch user from database
+    const user = await User.findById(decoded.userId).select('isTwoFactorEnabled twoFactorBackupCodes');
 
     if (!user) {
       return NextResponse.json(
@@ -34,27 +32,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    if (!user.isTwoFactorEnabled) {
+      return NextResponse.json(
+        { error: '2FA is not enabled' },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       {
-        user: {
-          id: user._id,
-          fullName: user.fullName,
-          email: user.email,
-          uid: user.uid,
-          referralCode: user.referralCode,
-          isVerified: user.isVerified,
-          isTwoFactorEnabled: user.isTwoFactorEnabled,
-          hasPassword: !!user.password, // Whether user has password set (OAuth vs email/password)
-          accountStatus: user.accountStatus,
-          language: user.language,
-          withdrawalAddress: user.withdrawalAddress,
-          createdAt: user.createdAt,
-        },
+        backupCodes: user.twoFactorBackupCodes || [],
       },
       { status: 200 }
     );
   } catch (error: any) {
-    console.error('Get user error:', error);
+    console.error('Get backup codes error:', error);
 
     if (error.name === 'JsonWebTokenError') {
       return NextResponse.json(

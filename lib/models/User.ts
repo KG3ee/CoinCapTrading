@@ -98,9 +98,8 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-userSchema.index({ email: 1 });
-userSchema.index({ uid: 1 });
-userSchema.index({ referralCode: 1 });
+// Note: email, uid, and referralCode already have unique indexes from schema definition
+// Only add sparse indexes for optional fields used in queries
 userSchema.index({ resetToken: 1 }, { sparse: true });
 userSchema.index({ verificationToken: 1 }, { sparse: true });
 

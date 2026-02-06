@@ -57,6 +57,15 @@ export async function POST(request: NextRequest) {
     
     if (!emailResult.success) {
       log.warn({ email, error: emailResult.error }, 'Failed to send verification email');
+      
+      // In development: Auto-verify if email fails (Resend test domain restriction)
+      if (process.env.NODE_ENV === 'development' && emailResult.error?.includes('testing emails')) {
+        log.info({ email }, 'Auto-verifying user (dev mode - email restriction)');
+        user.isVerified = true;
+        user.verificationToken = null;
+        user.verificationTokenExpires = null;
+        await user.save();
+      }
     }
 
     log.info({ userId: user._id, email: user.email }, 'User registered successfully');

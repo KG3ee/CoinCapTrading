@@ -2,8 +2,21 @@ import { connectDB } from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
-export async function GET(request: NextRequest) {
+// Generate random backup codes
+function generateBackupCodes(count: number = 10): string[] {
+  const codes: string[] = [];
+  for (let i = 0; i < count; i++) {
+    // Generate 8-character alphanumeric code
+    const code = crypto.randomBytes(4).toString('hex').toUpperCase();
+    // Format as XXXX-XXXX
+    codes.push(`${code.substring(0, 4)}-${code.substring(4, 8)}`);
+  }
+  return codes;
+}
+
+export async function POST(request: NextRequest) {
   try {
     await connectDB();
 
@@ -22,10 +35,8 @@ export async function GET(request: NextRequest) {
     // Verify and decode token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
 
-    // Fetch user from database using userId from token
-    const user = await User.findById(decoded.userId).select(
-      'fullName email uid referralCode isVerified isTwoFactorEnabled accountStatus language withdrawalAddress createdAt'
-    );
+    // Fetch user from database
+    const user = await User.findById(decoded.userId);
 
     if (!user) {
       return NextResponse.json(
@@ -34,27 +45,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    if (!user.isTwoFactorEnabled) {
+      return NextResponse.json(
+        { error: '2FA is not enabled' },
+        { status: 400 }
+      );
+    }
+
+    // Generate new backup codes
+    const newBackupCodes = generateBackupCodes(10);
+    
+    // Update user with new backup codes
+    user.twoFactorBackupCodes = newBackupCodes;
+    await user.save();
+
     return NextResponse.json(
       {
-        user: {
-          id: user._id,
-          fullName: user.fullName,
-          email: user.email,
-          uid: user.uid,
-          referralCode: user.referralCode,
-          isVerified: user.isVerified,
-          isTwoFactorEnabled: user.isTwoFactorEnabled,
-          hasPassword: !!user.password, // Whether user has password set (OAuth vs email/password)
-          accountStatus: user.accountStatus,
-          language: user.language,
-          withdrawalAddress: user.withdrawalAddress,
-          createdAt: user.createdAt,
-        },
+        message: 'Backup codes regenerated successfully',
+        backupCodes: newBackupCodes,
       },
       { status: 200 }
     );
   } catch (error: any) {
-    console.error('Get user error:', error);
+    console.error('Regenerate backup codes error:', error);
 
     if (error.name === 'JsonWebTokenError') {
       return NextResponse.json(

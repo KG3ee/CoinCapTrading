@@ -71,50 +71,82 @@ export default function AccountPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Load user profile
+  const loadProfile = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch('/api/auth/me', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      // Handle authentication errors (401) and user not found (404)
+      if (response.status === 401 || response.status === 404) {
+        // Clear invalid token
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Show message if user was deleted
+        if (response.status === 404) {
+          alert('Your account was not found. Please register or log in again.');
+        }
+        
+        router.push('/login');
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to load profile');
+        return;
+      }
+
+      const data = await response.json();
+      setUser(data.user);
+      setFullName(data.user.fullName);
+      setLanguage(data.user.language || 'English');
+      setWithdrawalAddress(data.user.withdrawalAddress || '');
+      setProfilePicture(data.user.profilePicture || null);
+      setPreviewPicture(data.user.profilePicture || null);
+    } catch (error) {
+      console.error('Load profile error:', error);
+      setError('An error occurred while loading your profile');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          router.push('/login');
-          return;
-        }
+    loadProfile();
+  }, [router]);
 
-        const response = await fetch('/api/auth/me', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+  // Refresh profile when returning to the page (e.g., after 2FA setup)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadProfile();
+    };
 
-        if (response.status === 401) {
-          router.push('/login');
-          return;
-        }
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          setError(errorData.error || 'Failed to load profile');
-          return;
-        }
-
-        const data = await response.json();
-        setUser(data.user);
-        setFullName(data.user.fullName);
-        setLanguage(data.user.language || 'English');
-        setWithdrawalAddress(data.user.withdrawalAddress || '');
-        setProfilePicture(data.user.profilePicture || null);
-        setPreviewPicture(data.user.profilePicture || null);
-      } catch (error) {
-        console.error('Load profile error:', error);
-        setError('An error occurred while loading your profile');
-      } finally {
-        setIsLoading(false);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadProfile();
       }
     };
 
-    loadProfile();
-  }, [router]);
+    // Listen to window focus (when user comes back to this tab)
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const handleCopy = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
@@ -746,25 +778,50 @@ export default function AccountPage() {
 
             {/* Two-Factor Authentication */}
             <div className="glass-card p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold text-white">Two-Factor Authentication</h3>
-                  <p className="text-gray-400 text-sm">Add an extra layer of security to your account</p>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Shield size={20} className={user.isTwoFactorEnabled ? 'text-green-400' : 'text-gray-400'} />
+                    Two-Factor Authentication
+                  </h3>
+                  <p className="text-gray-400 text-sm mt-1">
+                    {user.isTwoFactorEnabled 
+                      ? 'Your account is protected with 2FA' 
+                      : 'Add an extra layer of security to your account'}
+                  </p>
                 </div>
-                {user.isTwoFactorEnabled && (
-                  <span className="px-3 py-1 rounded bg-green-500/20 text-green-300 text-xs font-semibold">
-                    Enabled
-                  </span>
-                )}
+                <span className={`px-3 py-1 rounded text-xs font-semibold whitespace-nowrap ${
+                  user.isTwoFactorEnabled 
+                    ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
+                    : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                }`}>
+                  {user.isTwoFactorEnabled ? '✓ Enabled' : 'Disabled'}
+                </span>
               </div>
 
-              <button
-                onClick={() => router.push(user.isTwoFactorEnabled ? '/2fa/manage' : '/2fa/setup')}
-                className="w-full py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold transition-colors flex items-center justify-center gap-2"
-              >
-                <Shield size={18} />
-                {user.isTwoFactorEnabled ? 'Manage 2FA' : 'Enable 2FA'}
-              </button>
+              {user.isTwoFactorEnabled ? (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => router.push('/2fa/manage')}
+                    className="w-full py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Shield size={18} />
+                    Manage 2FA Settings
+                  </button>
+                  <p className="text-xs text-gray-500 text-center">View backup codes, disable 2FA, or reset authenticator</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <button
+                    onClick={() => router.push('/2fa/setup')}
+                    className="w-full py-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold transition-all flex items-center justify-center gap-2"
+                  >
+                    <Shield size={18} />
+                    Enable 2FA Now
+                  </button>
+                  <p className="text-xs text-gray-500 text-center">Protect your account from unauthorized access</p>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -58,7 +58,17 @@ export default function ProfilePage() {
           },
         });
 
-        if (response.status === 401) {
+        // Handle authentication errors (401) and user not found (404)
+        if (response.status === 401 || response.status === 404) {
+          // Clear invalid token
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          
+          // Show message if user was deleted
+          if (response.status === 404) {
+            alert('Your account was not found. Please register or log in again.');
+          }
+          
           router.push('/login');
           return;
         }
