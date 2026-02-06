@@ -2,9 +2,16 @@ import { connectDB } from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import { sendPasswordResetEmail } from '@/lib/email';
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { generateSecureToken, hashToken } from '@/lib/auth';
+import { withStrictRateLimit } from '@/lib/middleware/rateLimit';
+import { logger } from '@/lib/utils/logger';
+
+const log = logger.child({ module: 'ForgotPasswordRoute' });
 
 export async function POST(request: NextRequest) {
+  const rateLimitResponse = await withStrictRateLimit(request, undefined, 3, '1 h');
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     await connectDB();
 
@@ -28,24 +35,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
+    // Generate secure reset token
+    const resetToken = generateSecureToken();
+    const hashedToken = hashToken(resetToken);
     const resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    user.resetToken = resetToken;
+    user.resetToken = hashedToken;
     user.resetTokenExpires = resetTokenExpires;
     await user.save();
 
-    // Send password reset email
+    // Send password reset email with plain token (user receives this)
     const emailResult = await sendPasswordResetEmail(email, resetToken);
 
     if (!emailResult.success) {
-      console.error('Failed to send password reset email:', emailResult.error);
-      // Still return success to avoid revealing if email exists, but log the error
-      return NextResponse.json(
-        { message: 'If an account with this email exists, a password reset link has been sent.' },
-        { status: 200 }
-      );
+      log.warn({ email, error: emailResult.error }, 'Failed to send password reset email');
+    } else {
+      log.info({ email }, 'Password reset email sent successfully');
     }
 
     return NextResponse.json(

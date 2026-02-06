@@ -12,6 +12,9 @@ export default function VerifyEmailPage() {
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
+  const [resendEmail, setResendEmail] = useState('');
+  const [isResending, setIsResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
 
   useEffect(() => {
     if (!token) {
@@ -50,6 +53,35 @@ export default function VerifyEmailPage() {
     verifyEmail();
   }, [token, router]);
 
+  const handleResendVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsResending(true);
+    setResendMessage('');
+
+    try {
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resendEmail }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setResendMessage(data.error || 'Failed to resend verification email');
+        setIsResending(false);
+        return;
+      }
+
+      setResendMessage('Verification email sent! Please check your inbox.');
+      setResendEmail('');
+    } catch (error) {
+      setResendMessage('An error occurred. Please try again.');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-md">
@@ -82,14 +114,44 @@ export default function VerifyEmailPage() {
               <AlertCircle size={48} className="mx-auto text-danger" />
               <h2 className="text-2xl font-bold text-white">Verification Failed</h2>
               <p className="text-gray-400">{message}</p>
-              <div className="space-y-2 mt-6">
-                <p className="text-sm text-gray-500">The link may have expired.</p>
-                <Link
-                  href="/register"
-                  className="inline-block bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 text-white font-semibold py-2 px-6 rounded-lg transition-all"
-                >
-                  Try Again
-                </Link>
+              <div className="space-y-4 mt-6">
+                <p className="text-sm text-gray-500">The link may have expired. Enter your email to resend the verification link.</p>
+                
+                <form onSubmit={handleResendVerification} className="space-y-3">
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                      type="email"
+                      placeholder="Enter your email"
+                      value={resendEmail}
+                      onChange={(e) => setResendEmail(e.target.value)}
+                      required
+                      className="w-full pl-12 pr-4 py-3 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none min-h-[44px]"
+                    />
+                  </div>
+                  
+                  {resendMessage && (
+                    <div className={`p-3 rounded-lg text-sm ${
+                      resendMessage.includes('sent') 
+                        ? 'bg-success/20 text-success border border-success/50' 
+                        : 'bg-danger/20 text-danger border border-danger/50'
+                    }`}>
+                      {resendMessage}
+                    </div>
+                  )}
+                  
+                  <button
+                    type="submit"
+                    disabled={isResending}
+                    className={`w-full py-3 rounded-lg font-semibold transition-all min-h-[44px] ${
+                      isResending
+                        ? 'bg-gray-600 cursor-not-allowed opacity-50'
+                        : 'bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80'
+                    }`}
+                  >
+                    {isResending ? 'Sending...' : 'Resend Verification Email'}
+                  </button>
+                </form>
               </div>
             </div>
           )}

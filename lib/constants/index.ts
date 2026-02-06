@@ -9,6 +9,13 @@ export const AVAILABLE_CRYPTOS = [
   { id: 'polkadot', symbol: 'DOT', name: 'Polkadot' },
 ] as const;
 
+// Type helper for crypto selection
+export type CryptoType = {
+  id: string;
+  symbol: string;
+  name: string;
+};
+
 export const ORDER_BOOK_DATA = {
   asks: [
     { price: '43,252.10', amount: '0.156', total: '6,747.33' },

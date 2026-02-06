@@ -1,7 +1,7 @@
 import { connectDB } from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { hashToken } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,9 +16,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find user by verification token and check if token hasn't expired
+    // Hash the token to match the stored hashed version
+    const hashedToken = hashToken(token);
+
+    // Find user by hashed verification token and check if token hasn't expired
     const user = await User.findOne({
-      verificationToken: token,
+      verificationToken: hashedToken,
       verificationTokenExpires: { $gt: new Date() },
     });
 

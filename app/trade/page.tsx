@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { ArrowDownUp, ChevronDown, TrendingDown, TrendingUp } from 'lucide-react';
 import { useCoinCapPrices } from '@/lib/hooks/useCoinCapPrices';
 import { TradingViewChart } from '@/lib/components/TradingViewChart';
-import { AVAILABLE_CRYPTOS, ORDER_BOOK_DATA, PERCENTAGE_OPTIONS } from '@/lib/constants';
+import { AVAILABLE_CRYPTOS, ORDER_BOOK_DATA, PERCENTAGE_OPTIONS, type CryptoType } from '@/lib/constants';
 
 const formatPrice = (value: number) => {
   if (Number.isNaN(value)) return '0.00';
@@ -43,7 +43,7 @@ const recentTrades = [
 ];
 
 export default function TradePage() {
-  const [selectedCrypto, setSelectedCrypto] = useState(AVAILABLE_CRYPTOS[0]);
+  const [selectedCrypto, setSelectedCrypto] = useState<CryptoType>(AVAILABLE_CRYPTOS[0]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   const { prices } = useCoinCapPrices([selectedCrypto.id]);
@@ -81,7 +81,7 @@ export default function TradePage() {
   }, [amount, price]);
 
   // Handle crypto selection with useCallback
-  const handleCryptoSelect = useCallback((crypto: typeof AVAILABLE_CRYPTOS[number]) => {
+  const handleCryptoSelect = useCallback((crypto: CryptoType) => {
     setSelectedCrypto(crypto);
     setIsDropdownOpen(false);
     setAmount('');

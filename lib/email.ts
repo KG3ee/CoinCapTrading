@@ -5,19 +5,23 @@ if (!process.env.RESEND_API_KEY) {
   console.warn('⚠️ RESEND_API_KEY is not configured. Email functionality will not work.');
 }
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Only initialize Resend if API key is available
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+// Use custom email sender if configured, otherwise use Resend test domain
+const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev';
 
 export async function sendVerificationEmail(email: string, token: string) {
   const verificationUrl = `${process.env.NEXT_PUBLIC_API_URL}/verify-email?token=${token}`;
 
   try {
-    if (!process.env.RESEND_API_KEY) {
+    if (!process.env.RESEND_API_KEY || !resend) {
       console.error('RESEND_API_KEY is not configured');
       return { success: false, error: 'Email service not configured' };
     }
 
     const response = await resend.emails.send({
-      from: 'onboarding@resend.dev', // Resend test domain - works without verification
+      from: EMAIL_FROM,
       to: email,
       subject: 'Verify your CoinCapTrading email',
       html: `
@@ -45,13 +49,13 @@ export async function sendPasswordResetEmail(email: string, token: string) {
   const resetUrl = `${process.env.NEXT_PUBLIC_API_URL}/reset-password?token=${token}`;
 
   try {
-    if (!process.env.RESEND_API_KEY) {
+    if (!process.env.RESEND_API_KEY || !resend) {
       console.error('RESEND_API_KEY is not configured');
       return { success: false, error: 'Email service not configured' };
     }
 
     const response = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: EMAIL_FROM,
       to: email,
       subject: 'Reset your CoinCapTrading password',
       html: `

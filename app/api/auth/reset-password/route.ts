@@ -1,8 +1,16 @@
 import { connectDB } from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import { NextRequest, NextResponse } from 'next/server';
+import { hashToken } from '@/lib/auth';
+import { withStrictRateLimit } from '@/lib/middleware/rateLimit';
+import { logger } from '@/lib/utils/logger';
+
+const log = logger.child({ module: 'ResetPasswordRoute' });
 
 export async function POST(request: NextRequest) {
+  const rateLimitResponse = await withStrictRateLimit(request, undefined, 5, '1 h');
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     await connectDB();
 
@@ -30,9 +38,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find user with matching reset token
+    // Hash the token to match the stored hashed version
+    const hashedToken = hashToken(token);
+
+    // Find user with matching hashed reset token
     const user = await User.findOne({
-      resetToken: token,
+      resetToken: hashedToken,
       resetTokenExpires: { $gt: new Date() },
     });
 
@@ -49,12 +60,14 @@ export async function POST(request: NextRequest) {
     user.resetTokenExpires = null;
     await user.save();
 
+    log.info({ userId: user._id, email: user.email }, 'Password reset successfully');
+
     return NextResponse.json(
       { message: 'Password reset successfully. Please login with your new password.' },
       { status: 200 }
     );
   } catch (error) {
-    console.error('Reset password error:', error);
+    log.error({ error }, 'Reset password error');
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
