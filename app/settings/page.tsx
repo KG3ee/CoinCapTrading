@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Copy, Lock, Globe, Home, HelpCircle, Bell, Info, Shield, Headphones, Loader2 } from 'lucide-react';
+import { ArrowLeft, Copy, Lock, Globe, Home, HelpCircle, Bell, Info, Shield, Headphones, Loader2, BadgeCheck } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 
 interface UserData {
@@ -11,6 +11,7 @@ interface UserData {
   referralCode: string;
   isTwoFactorEnabled: boolean;
   language: string;
+  kycStatus?: string;
 }
 
 export default function SettingsPage() {
@@ -151,6 +152,23 @@ export default function SettingsPage() {
                 </div>
                 <span className={`text-xs px-3 py-1 rounded-full font-semibold ${user?.isTwoFactorEnabled ? 'bg-success/20 text-success' : 'bg-yellow-500/20 text-yellow-400'}`}>
                   {user?.isTwoFactorEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </button>
+
+              <button onClick={() => router.push('/account')} className="w-full glass-card flex items-center justify-between hover:bg-white/10 transition-colors">
+                <div className="flex items-center gap-3">
+                  <BadgeCheck size={18} className="text-emerald-400" />
+                  <p className="text-white font-medium text-sm">Identity Verification</p>
+                </div>
+                <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
+                  user?.kycStatus === 'approved' ? 'bg-success/20 text-success' :
+                  user?.kycStatus === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                  user?.kycStatus === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                  'bg-gray-500/20 text-gray-400'
+                }`}>
+                  {user?.kycStatus === 'approved' ? 'Verified' :
+                   user?.kycStatus === 'pending' ? 'Pending' :
+                   user?.kycStatus === 'rejected' ? 'Rejected' : 'Unverified'}
                 </span>
               </button>
 

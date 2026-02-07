@@ -5,6 +5,7 @@ import {
   Shield, RefreshCw, Users, TrendingUp, Clock, AlertCircle, DollarSign,
   Plus, Minus, KeyRound, MessageCircle, Send, Paperclip, X as XIcon,
   Trash2, LogOut, Home, Bell, Settings, BarChart3, ChevronRight,
+  BadgeCheck, Eye, XCircle, CheckCircle2,
 } from 'lucide-react';
 
 interface TradeSettingsData {
@@ -62,13 +63,34 @@ interface Notification {
   name: string;
   timestamp: string;
 }
+interface KycSubmission {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userUid: string;
+  fullName: string;
+  dateOfBirth: string;
+  nationality: string;
+  address: string;
+  documentType: string;
+  documentNumber: string;
+  documentFrontImage: string;
+  documentBackImage: string | null;
+  selfieImage: string;
+  status: string;
+  rejectionReason: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+}
 
-type AdminTab = 'overview' | 'trades' | 'users' | 'chat' | 'settings';
+type AdminTab = 'overview' | 'trades' | 'users' | 'chat' | 'kyc' | 'settings';
 
 const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield }[] = [
   { key: 'overview', label: 'Overview', icon: BarChart3 },
   { key: 'trades', label: 'Trade Control', icon: TrendingUp },
   { key: 'users', label: 'User Management', icon: Users },
+  { key: 'kyc', label: 'KYC Verification', icon: BadgeCheck },
   { key: 'chat', label: 'Customer Chat', icon: MessageCircle },
   { key: 'settings', label: 'Settings', icon: Settings },
 ];
@@ -116,6 +138,15 @@ export default function AdminPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatFileRef = useRef<HTMLInputElement>(null);
 
+  // KYC state
+  const [kycSubmissions, setKycSubmissions] = useState<KycSubmission[]>([]);
+  const [kycCounts, setKycCounts] = useState({ pending: 0, approved: 0, rejected: 0 });
+  const [kycFilter, setKycFilter] = useState('pending');
+  const [kycViewingId, setKycViewingId] = useState<string | null>(null);
+  const [kycRejectReason, setKycRejectReason] = useState('');
+  const [kycShowRejectInput, setKycShowRejectInput] = useState<string | null>(null);
+  const [kycImageModal, setKycImageModal] = useState<string | null>(null);
+
   const headers = useCallback(() => ({
     'Content-Type': 'application/json',
     'x-admin-key': adminKey,
@@ -146,6 +177,14 @@ export default function AdminPage() {
       if (balRes.ok) { const d = await balRes.json(); setUserBalances(d.users); }
       if (chatRes.ok) { const d = await chatRes.json(); setChatConversations(d.conversations || []); }
       if (notifRes.ok) { const d = await notifRes.json(); setNotifications(d.notifications || []); }
+
+      // Fetch KYC
+      const kycRes = await fetch(`/api/admin/kyc?status=pending`, { headers: headers() });
+      if (kycRes.ok) {
+        const kd = await kycRes.json();
+        setKycSubmissions(kd.submissions || []);
+        setKycCounts(kd.counts || { pending: 0, approved: 0, rejected: 0 });
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load');
     } finally {
@@ -348,6 +387,37 @@ export default function AdminPage() {
     return () => clearInterval(interval);
   }, [activeChatUser, isAuthenticated, fetchChatMessages]);
 
+  // ── KYC ────────────────────────────────────────────────
+  const fetchKycSubmissions = useCallback(async (status?: string) => {
+    try {
+      const filter = status || kycFilter;
+      const r = await fetch(`/api/admin/kyc?status=${filter}`, { headers: headers() });
+      if (r.ok) {
+        const d = await r.json();
+        setKycSubmissions(d.submissions || []);
+        setKycCounts(d.counts || { pending: 0, approved: 0, rejected: 0 });
+      }
+    } catch { /* silent */ }
+  }, [headers, kycFilter]);
+
+  const handleKycAction = async (kycId: string, action: 'approve' | 'reject', reason?: string) => {
+    setError(''); setSuccess('');
+    try {
+      const r = await fetch('/api/admin/kyc', {
+        method: 'PUT', headers: headers(),
+        body: JSON.stringify({ kycId, action, rejectionReason: reason }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Failed');
+      setSuccess(d.message);
+      setKycViewingId(null);
+      setKycShowRejectInput(null);
+      setKycRejectReason('');
+      fetchKycSubmissions();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) { setError(err.message); }
+  };
+
   // ══════════════════════════════════════════════════════
   // LOGIN SCREEN
   // ══════════════════════════════════════════════════════
@@ -402,7 +472,8 @@ export default function AdminPage() {
           {NAV_ITEMS.map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.key;
-            const badge = item.key === 'chat' && chatUnread > 0 ? chatUnread : 0;
+            const badge = item.key === 'chat' && chatUnread > 0 ? chatUnread
+              : item.key === 'kyc' && kycCounts.pending > 0 ? kycCounts.pending : 0;
             return (
               <button
                 key={item.key}
@@ -524,6 +595,9 @@ export default function AdminPage() {
                   <Icon size={16} /> {item.label}
                   {item.key === 'chat' && chatUnread > 0 && (
                     <span className="ml-auto px-1.5 py-0.5 rounded-full bg-danger text-[9px] text-white font-bold">{chatUnread}</span>
+                  )}
+                  {item.key === 'kyc' && kycCounts.pending > 0 && (
+                    <span className="ml-auto px-1.5 py-0.5 rounded-full bg-orange-500 text-[9px] text-white font-bold">{kycCounts.pending}</span>
                   )}
                 </button>
               );
@@ -1132,6 +1206,194 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* ── TAB: KYC VERIFICATION ─────────────────── */}
+          {activeTab === 'kyc' && (
+            <>
+              {/* Filter Tabs */}
+              <div className="flex gap-2">
+                {(['pending', 'approved', 'rejected', 'all'] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => { setKycFilter(f); fetchKycSubmissions(f); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      kycFilter === f ? 'bg-accent/15 text-accent' : 'bg-white/5 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                    {f === 'pending' && kycCounts.pending > 0 && (
+                      <span className="ml-1 px-1 py-0.5 rounded-full bg-orange-500 text-[8px] text-white">{kycCounts.pending}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {kycSubmissions.length === 0 ? (
+                <div className="glass-card p-8 text-center">
+                  <BadgeCheck size={32} className="mx-auto text-gray-600 mb-2" />
+                  <p className="text-xs text-gray-500">No {kycFilter !== 'all' ? kycFilter : ''} submissions</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {kycSubmissions.map(kyc => {
+                    const isViewing = kycViewingId === kyc.id;
+                    return (
+                      <div key={kyc.id} className="glass-card p-4 space-y-3">
+                        {/* Header Row */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              kyc.status === 'pending' ? 'bg-yellow-400' : kyc.status === 'approved' ? 'bg-green-400' : 'bg-red-400'
+                            }`} />
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold truncate">{kyc.userName}</p>
+                              <p className="text-[10px] text-gray-400 truncate">{kyc.userEmail} &middot; UID: {kyc.userUid}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              kyc.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                              kyc.status === 'approved' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                            }`}>
+                              {kyc.status.toUpperCase()}
+                            </span>
+                            <button
+                              onClick={() => setKycViewingId(isViewing ? null : kyc.id)}
+                              className="p-1 rounded bg-white/5 hover:bg-white/10 text-gray-400"
+                              title={isViewing ? 'Collapse' : 'View details'}
+                            >
+                              <Eye size={12} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Summary Row */}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-gray-400">
+                          <span>Doc: <span className="text-white capitalize">{kyc.documentType.replace('_', ' ')}</span></span>
+                          <span>Name: <span className="text-white">{kyc.fullName}</span></span>
+                          <span>DOB: <span className="text-white">{kyc.dateOfBirth}</span></span>
+                          <span>Submitted: <span className="text-white">{new Date(kyc.submittedAt).toLocaleDateString()}</span></span>
+                        </div>
+
+                        {/* Expanded View */}
+                        {isViewing && (
+                          <div className="space-y-3 pt-2 border-t border-white/10">
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                              <div>
+                                <p className="text-[10px] text-gray-400 mb-0.5">Nationality</p>
+                                <p className="text-white">{kyc.nationality}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-gray-400 mb-0.5">Document #</p>
+                                <p className="text-white font-mono">{kyc.documentNumber}</p>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="text-[10px] text-gray-400 mb-0.5">Address</p>
+                                <p className="text-white">{kyc.address}</p>
+                              </div>
+                            </div>
+
+                            {/* Document Images */}
+                            <div>
+                              <p className="text-[10px] text-gray-400 mb-1.5 font-semibold">Uploaded Documents</p>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <p className="text-[9px] text-gray-500 mb-1">Front</p>
+                                  <img
+                                    src={kyc.documentFrontImage} alt="Front"
+                                    className="w-full h-20 object-cover rounded-lg border border-white/10 cursor-pointer hover:border-accent/50"
+                                    onClick={() => setKycImageModal(kyc.documentFrontImage)}
+                                  />
+                                </div>
+                                {kyc.documentBackImage && (
+                                  <div>
+                                    <p className="text-[9px] text-gray-500 mb-1">Back</p>
+                                    <img
+                                      src={kyc.documentBackImage} alt="Back"
+                                      className="w-full h-20 object-cover rounded-lg border border-white/10 cursor-pointer hover:border-accent/50"
+                                      onClick={() => setKycImageModal(kyc.documentBackImage!)}
+                                    />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="text-[9px] text-gray-500 mb-1">Selfie</p>
+                                  <img
+                                    src={kyc.selfieImage} alt="Selfie"
+                                    className="w-full h-20 object-cover rounded-lg border border-white/10 cursor-pointer hover:border-accent/50"
+                                    onClick={() => setKycImageModal(kyc.selfieImage)}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {kyc.rejectionReason && (
+                              <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                                <p className="text-[10px] text-red-400">Rejection Reason: {kyc.rejectionReason}</p>
+                              </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            {kyc.status === 'pending' && (
+                              <div className="flex gap-2 pt-1">
+                                <button
+                                  onClick={() => handleKycAction(kyc.id, 'approve')}
+                                  className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-xs font-bold flex items-center justify-center gap-1.5"
+                                >
+                                  <CheckCircle2 size={14} /> Approve
+                                </button>
+                                {kycShowRejectInput === kyc.id ? (
+                                  <div className="flex-1 flex gap-1">
+                                    <input
+                                      type="text"
+                                      value={kycRejectReason}
+                                      onChange={e => setKycRejectReason(e.target.value)}
+                                      placeholder="Reason (optional)"
+                                      className="flex-1 px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs"
+                                    />
+                                    <button
+                                      onClick={() => handleKycAction(kyc.id, 'reject', kycRejectReason)}
+                                      className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold"
+                                    >
+                                      Reject
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setKycShowRejectInput(kyc.id)}
+                                    className="flex-1 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs font-bold flex items-center justify-center gap-1.5 border border-red-600/30"
+                                  >
+                                    <XCircle size={14} /> Reject
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Image Preview Modal */}
+              {kycImageModal && (
+                <div
+                  className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+                  onClick={() => setKycImageModal(null)}
+                >
+                  <div className="relative max-w-2xl max-h-[85vh]" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => setKycImageModal(null)}
+                      className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-[#111] border border-white/20 flex items-center justify-center z-10 hover:bg-white/10"
+                    >
+                      <XIcon size={14} />
+                    </button>
+                    <img src={kycImageModal} alt="Document" className="max-w-full max-h-[85vh] rounded-xl object-contain" />
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* ── TAB: SETTINGS ─────────────────────────── */}

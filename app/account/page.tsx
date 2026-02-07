@@ -23,6 +23,11 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  BadgeCheck,
+  Upload,
+  FileText,
+  Camera,
+  Loader2,
 } from 'lucide-react';
 
 interface UserProfile {
@@ -37,8 +42,24 @@ interface UserProfile {
   withdrawalAddress: string;
   profilePicture: string | null;
   isTwoFactorEnabled: boolean;
+  kycStatus: 'none' | 'pending' | 'approved' | 'rejected';
   createdAt: string;
 }
+
+interface KycSubmission {
+  id: string;
+  status: string;
+  documentType: string;
+  rejectionReason: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+}
+
+const DOC_TYPES = [
+  { value: 'national_id', label: 'National ID Card' },
+  { value: 'drivers_license', label: "Driver's License" },
+  { value: 'passport', label: 'Passport' },
+];
 
 type TabType = 'profile' | 'settings' | 'security';
 
@@ -71,6 +92,22 @@ export default function AccountPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
+
+  // KYC verification states
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [kycSubmission, setKycSubmission] = useState<KycSubmission | null>(null);
+  const [kycLoading, setKycLoading] = useState(false);
+  const [kycForm, setKycForm] = useState({
+    fullName: '',
+    dateOfBirth: '',
+    nationality: '',
+    address: '',
+    documentType: 'national_id',
+    documentNumber: '',
+  });
+  const [kycDocFront, setKycDocFront] = useState<string | null>(null);
+  const [kycDocBack, setKycDocBack] = useState<string | null>(null);
+  const [kycSelfie, setKycSelfie] = useState<string | null>(null);
 
   // Load user profile
   const loadProfile = async () => {
@@ -150,6 +187,92 @@ export default function AccountPage() {
     navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
+  };
+
+  // ── KYC Verification ──────────────────────────────────
+  const loadKycStatus = async () => {
+    try {
+      const res = await fetch('/api/kyc/submit');
+      if (res.ok) {
+        const data = await res.json();
+        setKycSubmission(data.submission);
+      }
+    } catch { /* silent */ }
+  };
+
+  useEffect(() => {
+    if (status === 'authenticated') loadKycStatus();
+  }, [status]);
+
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      if (file.size > 5 * 1024 * 1024) return reject(new Error('File must be under 5MB'));
+      if (!file.type.startsWith('image/')) return reject(new Error('Only image files are allowed'));
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+
+  const handleKycFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (val: string | null) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const base64 = await readFileAsBase64(file);
+      setter(base64);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const openKycModal = () => {
+    if (user) {
+      setKycForm(prev => ({ ...prev, fullName: user.fullName }));
+    }
+    setKycDocFront(null);
+    setKycDocBack(null);
+    setKycSelfie(null);
+    setError('');
+    setSuccess('');
+    setShowKycModal(true);
+  };
+
+  const handleKycSubmit = async () => {
+    if (!kycForm.fullName.trim() || !kycForm.dateOfBirth || !kycForm.nationality.trim() || !kycForm.address.trim()) {
+      setError('Please fill in all personal details');
+      return;
+    }
+    if (!kycForm.documentNumber.trim()) { setError('Document number is required'); return; }
+    if (!kycDocFront) { setError('Please upload the front of your document'); return; }
+    if (!kycSelfie) { setError('Please upload a selfie holding your document'); return; }
+
+    setKycLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/kyc/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...kycForm,
+          documentFrontImage: kycDocFront,
+          documentBackImage: kycDocBack,
+          selfieImage: kycSelfie,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Submission failed');
+      setSuccess(data.message);
+      setShowKycModal(false);
+      loadProfile();
+      loadKycStatus();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setKycLoading(false);
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -472,6 +595,33 @@ export default function AccountPage() {
                         <Shield size={16} className={user.isTwoFactorEnabled ? 'text-green-400' : 'text-gray-400'} />
                         {user.isTwoFactorEnabled ? 'Enabled' : 'Disabled'}
                       </p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-gray-400 text-sm mb-1">Identity Verification</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-white font-semibold flex items-center gap-2">
+                          {user.kycStatus === 'approved' ? (
+                            <><BadgeCheck size={16} className="text-green-400" /><span className="text-green-400">Verified</span></>
+                          ) : user.kycStatus === 'pending' ? (
+                            <><Loader2 size={16} className="text-yellow-400 animate-spin" /><span className="text-yellow-400">Under Review</span></>
+                          ) : user.kycStatus === 'rejected' ? (
+                            <><AlertCircle size={16} className="text-red-400" /><span className="text-red-400">Rejected</span></>
+                          ) : (
+                            <><AlertCircle size={16} className="text-gray-400" /><span className="text-gray-400">Not Verified</span></>
+                          )}
+                        </p>
+                        {(user.kycStatus === 'none' || user.kycStatus === 'rejected') && (
+                          <button
+                            onClick={openKycModal}
+                            className="px-3 py-1.5 rounded-lg bg-accent/20 hover:bg-accent/30 text-accent text-xs font-semibold transition-colors"
+                          >
+                            {user.kycStatus === 'rejected' ? 'Resubmit' : 'Verify Now'}
+                          </button>
+                        )}
+                      </div>
+                      {user.kycStatus === 'rejected' && kycSubmission?.rejectionReason && (
+                        <p className="text-xs text-red-400 mt-1">Reason: {kycSubmission.rejectionReason}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -822,6 +972,184 @@ export default function AccountPage() {
         )}
 
       </div>
+
+      {/* KYC VERIFICATION MODAL */}
+      {showKycModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-white/10 sticky top-0 bg-[#111] rounded-t-2xl z-10">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <BadgeCheck size={20} className="text-accent" /> Identity Verification
+              </h2>
+              <button onClick={() => setShowKycModal(false)} className="p-1.5 rounded-lg hover:bg-white/10">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <p className="text-xs text-gray-400">
+                Submit your identity documents for verification. All information is securely stored and reviewed by our team.
+              </p>
+
+              {/* Personal Details */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-white">Personal Details</h4>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Full Legal Name</label>
+                  <input
+                    type="text" value={kycForm.fullName}
+                    onChange={e => setKycForm(p => ({ ...p, fullName: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-accent focus:outline-none"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">Date of Birth</label>
+                    <input
+                      type="date" value={kycForm.dateOfBirth}
+                      onChange={e => setKycForm(p => ({ ...p, dateOfBirth: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-accent focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">Nationality</label>
+                    <input
+                      type="text" value={kycForm.nationality}
+                      onChange={e => setKycForm(p => ({ ...p, nationality: e.target.value }))}
+                      placeholder="e.g. United States"
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-accent focus:outline-none placeholder-gray-600"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Residential Address</label>
+                  <input
+                    type="text" value={kycForm.address}
+                    onChange={e => setKycForm(p => ({ ...p, address: e.target.value }))}
+                    placeholder="Full address"
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-accent focus:outline-none placeholder-gray-600"
+                  />
+                </div>
+              </div>
+
+              {/* Document Info */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-white">Document Information</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">Document Type</label>
+                    <select
+                      value={kycForm.documentType}
+                      onChange={e => setKycForm(p => ({ ...p, documentType: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-accent focus:outline-none"
+                    >
+                      {DOC_TYPES.map(d => <option key={d.value} value={d.value} className="bg-gray-800">{d.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">Document Number</label>
+                    <input
+                      type="text" value={kycForm.documentNumber}
+                      onChange={e => setKycForm(p => ({ ...p, documentNumber: e.target.value }))}
+                      placeholder="ID number"
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:border-accent focus:outline-none placeholder-gray-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Document Uploads */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-white">Upload Documents</h4>
+
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">
+                    Front of Document <span className="text-red-400">*</span>
+                  </label>
+                  <label className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-white/20 hover:border-accent/50 cursor-pointer transition-colors bg-white/[0.02]">
+                    <input type="file" accept="image/*" className="hidden" onChange={e => handleKycFileChange(e, setKycDocFront)} />
+                    {kycDocFront ? (
+                      <img src={kycDocFront} alt="Front" className="w-16 h-10 object-cover rounded" />
+                    ) : (
+                      <div className="w-16 h-10 rounded bg-white/5 flex items-center justify-center">
+                        <Upload size={16} className="text-gray-500" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white">{kycDocFront ? 'Image uploaded' : 'Click to upload front image'}</p>
+                      <p className="text-[10px] text-gray-500">JPG, PNG &mdash; Max 5MB</p>
+                    </div>
+                    {kycDocFront && <CheckCircle size={14} className="text-green-400 flex-shrink-0" />}
+                  </label>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">
+                    Back of Document <span className="text-gray-600">(optional)</span>
+                  </label>
+                  <label className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-white/20 hover:border-accent/50 cursor-pointer transition-colors bg-white/[0.02]">
+                    <input type="file" accept="image/*" className="hidden" onChange={e => handleKycFileChange(e, setKycDocBack)} />
+                    {kycDocBack ? (
+                      <img src={kycDocBack} alt="Back" className="w-16 h-10 object-cover rounded" />
+                    ) : (
+                      <div className="w-16 h-10 rounded bg-white/5 flex items-center justify-center">
+                        <FileText size={16} className="text-gray-500" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white">{kycDocBack ? 'Image uploaded' : 'Click to upload back image'}</p>
+                      <p className="text-[10px] text-gray-500">Required for ID cards &amp; driver&apos;s licenses</p>
+                    </div>
+                    {kycDocBack && <CheckCircle size={14} className="text-green-400 flex-shrink-0" />}
+                  </label>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">
+                    Selfie with Document <span className="text-red-400">*</span>
+                  </label>
+                  <label className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-white/20 hover:border-accent/50 cursor-pointer transition-colors bg-white/[0.02]">
+                    <input type="file" accept="image/*" className="hidden" onChange={e => handleKycFileChange(e, setKycSelfie)} />
+                    {kycSelfie ? (
+                      <img src={kycSelfie} alt="Selfie" className="w-16 h-10 object-cover rounded" />
+                    ) : (
+                      <div className="w-16 h-10 rounded bg-white/5 flex items-center justify-center">
+                        <Camera size={16} className="text-gray-500" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white">{kycSelfie ? 'Image uploaded' : 'Take a selfie holding your document'}</p>
+                      <p className="text-[10px] text-gray-500">Face must be clearly visible</p>
+                    </div>
+                    {kycSelfie && <CheckCircle size={14} className="text-green-400 flex-shrink-0" />}
+                  </label>
+                </div>
+              </div>
+
+              {error && (
+                <div className="p-2.5 rounded-lg bg-red-500/20 text-red-300 text-xs flex items-center gap-1.5">
+                  <AlertCircle size={14} /> {error}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleKycSubmit}
+                  disabled={kycLoading}
+                  className="flex-1 py-2.5 rounded-lg bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 disabled:opacity-50 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                >
+                  {kycLoading ? <><Loader2 size={16} className="animate-spin" />Submitting...</> : <><BadgeCheck size={16} />Submit for Verification</>}
+                </button>
+                <button
+                  onClick={() => setShowKycModal(false)}
+                  className="px-4 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 font-semibold text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

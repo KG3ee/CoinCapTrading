@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch user from database - select password existence without loading hash
     const user = await User.findById(session.user.id).select(
-      'fullName email uid referralCode isVerified isTwoFactorEnabled accountStatus language withdrawalAddress profilePicture createdAt'
+      'fullName email uid referralCode isVerified isTwoFactorEnabled accountStatus language withdrawalAddress profilePicture kycStatus createdAt'
     );
 
     if (!user) {
@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
           language: user.language,
           withdrawalAddress: user.withdrawalAddress,
           profilePicture: user.profilePicture,
+          kycStatus: user.kycStatus || 'none',
           createdAt: user.createdAt,
         },
       },
