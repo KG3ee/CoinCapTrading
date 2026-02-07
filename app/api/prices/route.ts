@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { connectDB } from '@/lib/mongodb';
+import mongoose from 'mongoose';
+
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
@@ -25,8 +28,12 @@ type PriceResult = {
 // Common headers to avoid cloud-IP blocking
 const API_HEADERS: HeadersInit = {
   Accept: 'application/json',
-  'User-Agent': 'CoinCapTrading/1.0 (https://coin-cap-trading.vercel.app)',
+  'User-Agent': 'Mozilla/5.0 (compatible; CoinCapTrading/1.0)',
 };
+
+// MongoDB price cache collection name
+const PRICE_CACHE_COLLECTION = 'price_cache';
+const CACHE_TTL_MS = 30_000; // 30 seconds — shared between all instances
 
 // Map our coin IDs to Binance trading pair symbols
 const SYMBOL_MAP: Record<string, string> = {
@@ -42,9 +49,9 @@ const REVERSE_SYMBOL_MAP: Record<string, string> = Object.fromEntries(
   Object.entries(SYMBOL_MAP).map(([id, sym]) => [sym, id])
 );
 
-// Server-side price cache (survives across requests within same serverless instance)
-let priceCache: { data: CoinCapAsset[]; timestamp: number } | null = null;
-const CACHE_TTL_MS = 15000; // 15 seconds — reduces external API calls
+// In-memory cache (per-instance, short TTL)
+let memCache: { data: CoinCapAsset[]; ts: number } | null = null;
+const MEM_CACHE_TTL = 10_000; // 10 seconds
 
 function makeAbortController(ms: number): { controller: AbortController; clear: () => void } {
   const controller = new AbortController();
@@ -52,45 +59,55 @@ function makeAbortController(ms: number): { controller: AbortController; clear: 
   return { controller, clear: () => clearTimeout(timer) };
 }
 
-// --- Strategy 1: CoinGecko /coins/markets (most cloud-friendly) ---
-async function fetchFromCoinGecko(idsArray: string[]): Promise<PriceResult[]> {
-  const geckoIds = idsArray.map((id) => id.toLowerCase()).join(',');
-  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${geckoIds}&order=market_cap_desc&per_page=20&page=1&sparkline=false&price_change_percentage=24h`;
-
-  const { controller, clear } = makeAbortController(8000);
+// --- MongoDB cache operations ---
+async function getCachedPrices(): Promise<CoinCapAsset[] | null> {
   try {
-    const response = await fetch(url, {
-      headers: API_HEADERS,
-      signal: controller.signal,
-      next: { revalidate: 0 },
-    });
-    clear();
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      throw new Error(`CoinGecko ${response.status}: ${text.slice(0, 200)}`);
-    }
-
-    const data = await response.json();
-    if (!Array.isArray(data) || data.length === 0) {
-      throw new Error(`CoinGecko returned empty or non-array: ${JSON.stringify(data).slice(0, 200)}`);
-    }
-
-    return data.map((coin: Record<string, unknown>) => ({
-      id: String(coin.id),
-      price: Number(coin.current_price) || 0,
-      change24h: Number(coin.price_change_percentage_24h) || 0,
-      high24h: Number(coin.high_24h) || 0,
-      low24h: Number(coin.low_24h) || 0,
-      volume24h: Number(coin.total_volume) || 0,
-      marketCap: Number(coin.market_cap) || 0,
-    }));
-  } finally {
-    clear();
+    await connectDB();
+    const db = mongoose.connection.db;
+    if (!db) return null;
+    const collection = db.collection(PRICE_CACHE_COLLECTION);
+    const doc = await collection.findOne({ _id: 'latest_prices' as unknown as mongoose.Types.ObjectId });
+    if (!doc) return null;
+    const age = Date.now() - (doc.timestamp || 0);
+    if (age > CACHE_TTL_MS) return null; // Stale
+    return doc.prices as CoinCapAsset[];
+  } catch (err) {
+    console.warn('MongoDB cache read failed:', err instanceof Error ? err.message : err);
+    return null;
   }
 }
 
-// --- Strategy 2: CoinGecko /simple/price (lighter weight, different endpoint) ---
+async function setCachedPrices(prices: CoinCapAsset[]): Promise<void> {
+  try {
+    await connectDB();
+    const db = mongoose.connection.db;
+    if (!db) return;
+    const collection = db.collection(PRICE_CACHE_COLLECTION);
+    await collection.updateOne(
+      { _id: 'latest_prices' as unknown as mongoose.Types.ObjectId },
+      { $set: { prices, timestamp: Date.now() } },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.warn('MongoDB cache write failed:', err instanceof Error ? err.message : err);
+  }
+}
+
+async function getStalePrices(): Promise<CoinCapAsset[] | null> {
+  try {
+    await connectDB();
+    const db = mongoose.connection.db;
+    if (!db) return null;
+    const collection = db.collection(PRICE_CACHE_COLLECTION);
+    const doc = await collection.findOne({ _id: 'latest_prices' as unknown as mongoose.Types.ObjectId });
+    if (!doc || !doc.prices) return null;
+    return doc.prices as CoinCapAsset[];
+  } catch {
+    return null;
+  }
+}
+
+// --- Strategy 1: CoinGecko /simple/price (lightest, fastest) ---
 async function fetchFromCoinGeckoSimple(idsArray: string[]): Promise<PriceResult[]> {
   const geckoIds = idsArray.map((id) => id.toLowerCase()).join(',');
   const url = `https://api.coingecko.com/api/v3/simple/price?ids=${geckoIds}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`;
@@ -100,7 +117,6 @@ async function fetchFromCoinGeckoSimple(idsArray: string[]): Promise<PriceResult
     const response = await fetch(url, {
       headers: API_HEADERS,
       signal: controller.signal,
-      next: { revalidate: 0 },
     });
     clear();
 
@@ -134,6 +150,42 @@ async function fetchFromCoinGeckoSimple(idsArray: string[]): Promise<PriceResult
   }
 }
 
+// --- Strategy 2: CoinGecko /coins/markets (richer data) ---
+async function fetchFromCoinGecko(idsArray: string[]): Promise<PriceResult[]> {
+  const geckoIds = idsArray.map((id) => id.toLowerCase()).join(',');
+  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${geckoIds}&order=market_cap_desc&per_page=20&page=1&sparkline=false&price_change_percentage=24h`;
+
+  const { controller, clear } = makeAbortController(8000);
+  try {
+    const response = await fetch(url, {
+      headers: API_HEADERS,
+      signal: controller.signal,
+    });
+    clear();
+
+    if (!response.ok) {
+      throw new Error(`CoinGecko markets ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('CoinGecko markets returned empty');
+    }
+
+    return data.map((coin: Record<string, unknown>) => ({
+      id: String(coin.id),
+      price: Number(coin.current_price) || 0,
+      change24h: Number(coin.price_change_percentage_24h) || 0,
+      high24h: Number(coin.high_24h) || 0,
+      low24h: Number(coin.low_24h) || 0,
+      volume24h: Number(coin.total_volume) || 0,
+      marketCap: Number(coin.market_cap) || 0,
+    }));
+  } finally {
+    clear();
+  }
+}
+
 // --- Strategy 3: Binance BATCH endpoint ---
 async function fetchFromBinanceBatch(idsArray: string[]): Promise<PriceResult[]> {
   const symbols = idsArray.map((id) => SYMBOL_MAP[id.toLowerCase()]).filter(Boolean);
@@ -147,18 +199,13 @@ async function fetchFromBinanceBatch(idsArray: string[]): Promise<PriceResult[]>
     const response = await fetch(url, {
       headers: API_HEADERS,
       signal: controller.signal,
-      next: { revalidate: 0 },
     });
     clear();
 
-    if (!response.ok) {
-      throw new Error(`Binance ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Binance ${response.status}`);
 
     const data = await response.json();
-    if (!Array.isArray(data)) {
-      throw new Error('Binance returned non-array');
-    }
+    if (!Array.isArray(data)) throw new Error('Binance returned non-array');
 
     return data.map((ticker: Record<string, string>) => {
       const id = REVERSE_SYMBOL_MAP[ticker.symbol];
@@ -178,7 +225,7 @@ async function fetchFromBinanceBatch(idsArray: string[]): Promise<PriceResult[]>
   }
 }
 
-// --- Strategy 4: Kraken REST API (another major exchange, cloud-friendly) ---
+// --- Strategy 4: Kraken REST API ---
 async function fetchFromKraken(idsArray: string[]): Promise<PriceResult[]> {
   const krakenMap: Record<string, string> = {
     bitcoin: 'XXBTZUSD',
@@ -202,29 +249,23 @@ async function fetchFromKraken(idsArray: string[]): Promise<PriceResult[]> {
     const response = await fetch(url, {
       headers: API_HEADERS,
       signal: controller.signal,
-      next: { revalidate: 0 },
     });
     clear();
 
-    if (!response.ok) {
-      throw new Error(`Kraken ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Kraken ${response.status}`);
 
     const json = await response.json();
-    if (json.error && json.error.length > 0) {
-      throw new Error(`Kraken error: ${json.error.join(', ')}`);
-    }
+    if (json.error && json.error.length > 0) throw new Error(`Kraken: ${json.error.join(', ')}`);
 
     const results: PriceResult[] = [];
     for (const [pair, ticker] of Object.entries(json.result || {})) {
       const t = ticker as { c: string[]; p: string[]; h: string[]; l: string[]; v: string[] };
-      // Kraken returns pairs with slightly different names sometimes
       const id = reverseKrakenMap[pair] || reverseKrakenMap[pairs.find((p) => pair.includes(p.replace('Z', ''))) || ''];
       if (id && t.c) {
         results.push({
           id,
           price: parseFloat(t.c[0]) || 0,
-          change24h: 0, // Kraken doesn't give % change directly
+          change24h: 0,
           high24h: parseFloat(t.h?.[1]) || 0,
           low24h: parseFloat(t.l?.[1]) || 0,
           volume24h: parseFloat(t.v?.[1]) || 0,
@@ -259,84 +300,80 @@ export async function GET(request: Request) {
   }
 
   const idsArray = ids.split(',').map((id) => id.trim().toLowerCase());
+  const headers = { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0' };
 
-  // Return cache if still fresh
-  if (priceCache && Date.now() - priceCache.timestamp < CACHE_TTL_MS) {
-    const cached = priceCache.data.filter((a) => idsArray.includes(a.id));
-    if (cached.length > 0) {
-      return NextResponse.json({ data: cached, source: 'cache' }, {
-        status: 200,
-        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
-      });
+  // 1. Check in-memory cache (fastest)
+  if (memCache && Date.now() - memCache.ts < MEM_CACHE_TTL && memCache.data.length > 0) {
+    const filtered = memCache.data.filter((a) => idsArray.includes(a.id));
+    if (filtered.length >= idsArray.length * 0.5) {
+      return NextResponse.json({ data: filtered, source: 'mem-cache' }, { status: 200, headers });
     }
   }
 
-  const errors: string[] = [];
-
-  // Race ALL APIs in parallel — take whichever succeeds first
-  // This avoids sequential timeout chains that exceed Vercel's function limit
-  const apiRace = async (): Promise<{ results: PriceResult[]; source: string } | null> => {
-    const strategies = [
-      { fn: () => fetchFromCoinGecko(idsArray), name: 'coingecko' },
-      { fn: () => fetchFromCoinGeckoSimple(idsArray), name: 'coingecko-simple' },
-      { fn: () => fetchFromBinanceBatch(idsArray), name: 'binance' },
-      { fn: () => fetchFromKraken(idsArray), name: 'kraken' },
-    ];
-
-    // Wrap each strategy to catch errors and filter empty results
-    const promises = strategies.map(async ({ fn, name }) => {
-      try {
-        const results = await fn();
-        if (results.length > 0) {
-          return { results, source: name };
-        }
-        errors.push(`${name}: returned empty`);
-        throw new Error(`${name} returned empty`);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!errors.includes(`${name}: ${msg}`) && !msg.includes('returned empty')) {
-          errors.push(`${name}: ${msg}`);
-        }
-        console.warn(`${name} failed:`, msg);
-        throw err; // Re-throw so Promise.any skips it
+  // 2. Check MongoDB shared cache
+  try {
+    const mongoCached = await getCachedPrices();
+    if (mongoCached && mongoCached.length > 0) {
+      const filtered = mongoCached.filter((a) => idsArray.includes(a.id));
+      if (filtered.length >= idsArray.length * 0.5) {
+        // Update in-memory cache too
+        memCache = { data: mongoCached, ts: Date.now() };
+        return NextResponse.json({ data: filtered, source: 'db-cache' }, { status: 200, headers });
       }
-    });
+    }
+  } catch (err) {
+    console.warn('MongoDB cache check failed:', err instanceof Error ? err.message : err);
+  }
 
+  // 3. Fetch from external APIs — race them
+  const errors: string[] = [];
+  const allCoins = ['bitcoin', 'ethereum', 'ripple', 'cardano', 'solana', 'polkadot'];
+
+  const strategies = [
+    { fn: () => fetchFromCoinGeckoSimple(allCoins), name: 'coingecko-simple' },
+    { fn: () => fetchFromCoinGecko(allCoins), name: 'coingecko' },
+    { fn: () => fetchFromBinanceBatch(allCoins), name: 'binance' },
+    { fn: () => fetchFromKraken(allCoins), name: 'kraken' },
+  ];
+
+  const promises = strategies.map(async ({ fn, name }) => {
     try {
-      return await Promise.any(promises);
-    } catch {
-      // All promises rejected
-      return null;
+      const results = await fn();
+      if (results.length > 0) return { results, source: name };
+      throw new Error(`${name} returned empty`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${name}: ${msg}`);
+      throw err;
     }
-  };
-
-  const winner = await apiRace();
-
-  if (winner) {
-    const transformed = toAssetArray(winner.results);
-    priceCache = { data: transformed, timestamp: Date.now() };
-    return NextResponse.json({ data: transformed, source: winner.source }, {
-      status: 200,
-      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
-    });
-  }
-
-  // All live APIs failed — return stale cache if available (no age limit for stale)
-  if (priceCache && priceCache.data.length > 0) {
-    console.warn('All price APIs failed, returning stale cache. Errors:', errors);
-    const cached = priceCache.data.filter((a) => idsArray.includes(a.id));
-    if (cached.length > 0) {
-      return NextResponse.json({ data: cached, source: 'stale-cache', errors }, {
-        status: 200,
-        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
-      });
-    }
-  }
-
-  // Absolute last resort — return empty with debug info
-  console.error('All price APIs failed and no cache. Errors:', errors);
-  return NextResponse.json({ data: [], errors }, {
-    status: 200,
-    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
   });
+
+  try {
+    const winner = await Promise.any(promises);
+    const transformed = toAssetArray(winner.results);
+
+    // Update both caches
+    memCache = { data: transformed, ts: Date.now() };
+    setCachedPrices(transformed).catch(() => {}); // Fire and forget
+
+    const filtered = transformed.filter((a) => idsArray.includes(a.id));
+    return NextResponse.json({ data: filtered, source: winner.source }, { status: 200, headers });
+  } catch {
+    // All APIs failed
+    console.error('All price APIs failed. Errors:', errors);
+  }
+
+  // 4. Last resort: return stale MongoDB data (any age)
+  try {
+    const stale = await getStalePrices();
+    if (stale && stale.length > 0) {
+      const filtered = stale.filter((a) => idsArray.includes(a.id));
+      if (filtered.length > 0) {
+        memCache = { data: stale, ts: Date.now() - MEM_CACHE_TTL + 5000 }; // Keep for 5s
+        return NextResponse.json({ data: filtered, source: 'stale-db', errors }, { status: 200, headers });
+      }
+    }
+  } catch {}
+
+  return NextResponse.json({ data: [], errors }, { status: 200, headers });
 }
