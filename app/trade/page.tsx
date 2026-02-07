@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { ArrowDownUp, ChevronDown, TrendingDown, TrendingUp } from 'lucide-react';
+import { ChevronDown, TrendingDown, TrendingUp } from 'lucide-react';
 import { useCoinCapPrices } from '@/lib/hooks/useCoinCapPrices';
 import { TradingViewChart } from '@/lib/components/TradingViewChart';
-import { AVAILABLE_CRYPTOS, ORDER_BOOK_DATA, PERCENTAGE_OPTIONS, type CryptoType } from '@/lib/constants';
+import { AVAILABLE_CRYPTOS, ORDER_BOOK_DATA, type CryptoType } from '@/lib/constants';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import TradeModal from '@/lib/components/TradeModal';
+import CountdownPopup from '@/lib/components/CountdownPopup';
 
 const formatPrice = (value: number) => {
   if (Number.isNaN(value)) return '0.00';
@@ -45,6 +48,7 @@ const recentTrades = [
 
 export default function TradePage() {
   const { status } = useSession();
+  const router = useRouter();
   const [selectedCrypto, setSelectedCrypto] = useState<CryptoType>(AVAILABLE_CRYPTOS[0]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
@@ -63,124 +67,106 @@ export default function TradePage() {
   const volume24h = useMemo(() => cryptoLive?.volume24Hr ? formatVolume(cryptoLive.volume24Hr) : '$0', [cryptoLive]);
   const marketCap = useMemo(() => cryptoLive?.marketCap ? formatVolume(cryptoLive.marketCap) : '$0', [cryptoLive]);
 
-  // Form state
+  // Trade modal state
+  const [tradeModalOpen, setTradeModalOpen] = useState(false);
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
-  const [amount, setAmount] = useState<string>('');
-  const [price, setPrice] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Update price when crypto changes or live price updates
-  useEffect(() => {
-    if (livePriceNum > 0) {
-      setPrice(livePriceNum.toString());
-    }
-  }, [livePriceNum, selectedCrypto.id]);
+  // Countdown popup state
+  const [countdownOpen, setCountdownOpen] = useState(false);
+  const [activeTrade, setActiveTrade] = useState<{
+    tradeId: string;
+    period: number;
+    amount: number;
+    profitPercent: number;
+  } | null>(null);
 
+  // Redirect unauthenticated users
   useEffect(() => {
     if (status === 'unauthenticated') {
-      setMessage({ type: 'error', text: 'Please login to place trades' });
+      router.push('/login');
     }
-  }, [status]);
+  }, [status, router]);
 
-  // Calculate total with useMemo
-  const totalValue = useMemo(() => {
-    return amount && price ? (parseFloat(amount) * parseFloat(price)).toFixed(2) : '0.00';
-  }, [amount, price]);
+  // Fetch wallet balance
+  const fetchBalance = useCallback(async () => {
+    try {
+      const res = await fetch('/api/dashboard');
+      if (res.ok) {
+        const data = await res.json();
+        setWalletBalance(data.portfolio?.accountBalance ?? 0);
+      }
+    } catch {}
+  }, []);
 
-  // Handle crypto selection with useCallback
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchBalance();
+    }
+  }, [status, fetchBalance]);
+
+  // Handle crypto selection
   const handleCryptoSelect = useCallback((crypto: CryptoType) => {
     setSelectedCrypto(crypto);
     setIsDropdownOpen(false);
-    setAmount('');
   }, []);
 
-  // Handle amount change with useCallback
-  const handleAmountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setAmount(e.target.value);
-  }, []);
+  // Open trade modal
+  const openTradeModal = (type: 'buy' | 'sell') => {
+    setTradeType(type);
+    setTradeModalOpen(true);
+  };
 
-  // Handle price change with useCallback
-  const handlePriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setPrice(e.target.value);
-  }, []);
-
-  // Handle percentage quick selection with useCallback
-  const handlePercentageClick = useCallback((percentage: number) => {
-    const maxAmount = 1;
-    const calculatedAmount = (maxAmount * percentage) / 100;
-    setAmount(calculatedAmount.toFixed(4));
-  }, []);
-
-  // Handle swap (toggle buy/sell) with useCallback
-  const handleSwap = useCallback(() => {
-    setTradeType(prevType => prevType === 'buy' ? 'sell' : 'buy');
-  }, []);
-
-  // Handle place order
-  const handlePlaceOrder = async () => {
-    // Validation
-    if (!amount || !price) {
-      setMessage({ type: 'error', text: 'Please enter amount and price' });
-      return;
-    }
-
-    if (parseFloat(amount) <= 0 || parseFloat(price) <= 0) {
-      setMessage({ type: 'error', text: 'Amount and price must be greater than 0' });
-      return;
-    }
-
-    setIsLoading(true);
-    setMessage(null);
+  // Handle trade confirmation from modal
+  const handleTradeConfirm = async (period: number, amount: number, profitPercent: number) => {
+    setTradeModalOpen(false);
 
     try {
-      if (status !== 'authenticated') {
-        setMessage({ type: 'error', text: 'Please login to place trades' });
-        setIsLoading(false);
-        return;
-      }
-
-      const response = await fetch('/api/trades/place', {
+      const res = await fetch('/api/trades/timed', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: tradeType,
           cryptoSymbol: selectedCrypto.symbol,
-          amount: parseFloat(amount),
-          pricePerUnit: parseFloat(price),
+          amount,
+          period,
         }),
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (!response.ok) {
-        setMessage({ type: 'error', text: data.error || 'Failed to place order' });
+      if (!res.ok) {
+        setMessage({ type: 'error', text: data.error || 'Trade failed' });
         return;
       }
 
-      // Success
-      setMessage({ 
-        type: 'success', 
-        text: `${tradeType === 'buy' ? 'Buy' : 'Sell'} order for ${selectedCrypto.symbol} placed! ID: ${data.trade.transactionId}` 
+      // Update balance immediately
+      setWalletBalance(data.newBalance);
+
+      // Open countdown
+      setActiveTrade({
+        tradeId: data.trade.id,
+        period,
+        amount,
+        profitPercent,
       });
-
-      // Reset form
-      setAmount('');
-      setPrice(livePriceNum.toString());
-
-      // Optionally refresh data here
-      setTimeout(() => {
-        setMessage(null);
-      }, 5000);
-
-    } catch (error) {
-      console.error('Trade error:', error);
+      setCountdownOpen(true);
+    } catch {
       setMessage({ type: 'error', text: 'Network error. Please try again.' });
-    } finally {
-      setIsLoading(false);
     }
+  };
+
+  // Handle countdown complete
+  const handleCountdownComplete = (result: { result: 'win' | 'lose'; profitAmount: number; newBalance: number }) => {
+    setWalletBalance(result.newBalance);
+  };
+
+  // Handle countdown close
+  const handleCountdownClose = () => {
+    setCountdownOpen(false);
+    setActiveTrade(null);
+    fetchBalance(); // Refresh balance
   };
 
   return (
@@ -225,14 +211,6 @@ export default function TradePage() {
               </>
             )}
           </div>
-          
-          <button 
-            onClick={handleSwap}
-            className="px-2.5 py-1.5 rounded-lg bg-accent text-white text-[11px] min-h-[32px] flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent hover:bg-accent/90 transition-colors"
-          >
-            <ArrowDownUp size={12} />
-            Swap
-          </button>
         </div>
       </div>
 
@@ -282,85 +260,34 @@ export default function TradePage() {
               </div>
             )}
 
-            {/* Buy/Sell Toggle */}
-            <div className="flex gap-1 mb-1.5">
-              <button 
-                onClick={() => setTradeType('buy')}
-                className={`flex-1 py-1.5 rounded-lg font-medium text-[10px] min-h-[32px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                  tradeType === 'buy' 
-                    ? 'bg-success text-white' 
-                    : 'bg-white/5 hover:bg-white/10'
-                }`}
+            {/* Wallet Balance */}
+            <div className="mb-3 p-2 rounded-lg bg-white/5 border border-white/10">
+              <p className="text-[10px] text-gray-400">Wallet Balance</p>
+              <p className="text-base font-bold">{walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })} <span className="text-xs text-gray-400">USDT</span></p>
+            </div>
+
+            {/* Buy/Sell Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => openTradeModal('buy')}
+                className="flex-1 py-3 rounded-lg bg-success hover:bg-success/80 text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success"
               >
+                <TrendingUp size={16} />
                 Buy
               </button>
-              <button 
-                onClick={() => setTradeType('sell')}
-                className={`flex-1 py-1.5 rounded-lg font-medium text-[10px] min-h-[32px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                  tradeType === 'sell' 
-                    ? 'bg-danger text-white' 
-                    : 'bg-white/5 hover:bg-white/10'
-                }`}
+              <button
+                onClick={() => openTradeModal('sell')}
+                className="flex-1 py-3 rounded-lg bg-danger hover:bg-danger/80 text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger"
               >
+                <TrendingDown size={16} />
                 Sell
               </button>
             </div>
 
-            <div className="space-y-1.5">
-              <div>
-                <label className="text-[10px] text-gray-400 block mb-0.5">Order Type</label>
-                <button className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[10px] min-h-[32px] flex items-center justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                  Limit
-                  <ChevronDown size={12} className="text-gray-400" />
-                </button>
-              </div>
-              
-              <div>
-                <label className="text-[10px] text-gray-400 block mb-0.5">Price (USDT)</label>
-                <input
-                  type="number"
-                  placeholder="0.00"
-                  value={price}
-                  onChange={handlePriceChange}
-                  className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-[10px] min-h-[32px]"
-                />
-              </div>
-              
-              <div>
-                <label className="text-[10px] text-gray-400 block mb-0.5">Amount ({selectedCrypto.symbol})</label>
-                <input
-                  type="number"
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={handleAmountChange}
-                  className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-[10px] min-h-[32px]"
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 gap-1 text-[10px]">
-                {PERCENTAGE_OPTIONS.map((pct) => (
-                  <button 
-                    key={pct}
-                    onClick={() => handlePercentageClick(pct)}
-                    className="py-1 rounded bg-white/5 hover:bg-white/10 text-[10px] min-h-[28px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                  >
-                    {pct}%
-                  </button>
-                ))}
-              </div>
-              
-              <div className="flex items-center justify-between text-[10px] border-t border-white/10 pt-1.5">
-                <span className="text-gray-400">Est. Total</span>
-                <span className="font-semibold">${totalValue}</span>
-              </div>
-              
-              <button 
-                onClick={handlePlaceOrder}
-                disabled={isLoading || !amount || !price}
-                className="w-full py-1.5 rounded-lg bg-gradient-to-r from-accent to-purple-500 hover:from-accent/80 hover:to-purple-500/80 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-all text-[10px] min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                {isLoading ? 'Processing...' : `${tradeType === 'buy' ? 'Buy' : 'Sell'} ${selectedCrypto.symbol}`}
-              </button>
+            {/* Info */}
+            <div className="mt-3 space-y-1 text-[10px] text-gray-400">
+              <p>Select Buy or Sell to open a timed trade.</p>
+              <p>Choose a period and amount, then confirm your order.</p>
             </div>
           </div>
 
@@ -391,6 +318,31 @@ export default function TradePage() {
           </div>
         </div>
       </div>
+
+      {/* Trade Modal */}
+      <TradeModal
+        isOpen={tradeModalOpen}
+        onClose={() => setTradeModalOpen(false)}
+        tradeType={tradeType}
+        cryptoSymbol={selectedCrypto.symbol}
+        walletBalance={walletBalance}
+        onConfirm={handleTradeConfirm}
+      />
+
+      {/* Countdown Popup */}
+      {activeTrade && (
+        <CountdownPopup
+          isOpen={countdownOpen}
+          tradeId={activeTrade.tradeId}
+          period={activeTrade.period}
+          amount={activeTrade.amount}
+          profitPercent={activeTrade.profitPercent}
+          tradeType={tradeType}
+          cryptoSymbol={selectedCrypto.symbol}
+          onComplete={handleCountdownComplete}
+          onClose={handleCountdownClose}
+        />
+      )}
     </div>
   );
 }
