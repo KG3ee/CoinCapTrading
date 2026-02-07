@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, RefreshCw, Users, TrendingUp, TrendingDown, Clock, Loader2, AlertCircle } from 'lucide-react';
+import { Shield, RefreshCw, Users, TrendingUp, TrendingDown, Clock, Loader2, AlertCircle, DollarSign, Plus, Minus } from 'lucide-react';
 
 interface TradeSettingsData {
   globalMode: 'random' | 'all_win' | 'all_lose';
@@ -37,6 +37,13 @@ interface UserItem {
   name: string;
 }
 
+interface UserBalance {
+  id: string;
+  name: string;
+  email: string;
+  balance: number;
+}
+
 export default function AdminPage() {
   const [adminKey, setAdminKey] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -54,6 +61,12 @@ export default function AdminPage() {
   const [winRate, setWinRate] = useState<number>(50);
   const [selectedUser, setSelectedUser] = useState('');
   const [userOverride, setUserOverride] = useState<string>('');
+
+  // Balance management state
+  const [userBalances, setUserBalances] = useState<UserBalance[]>([]);
+  const [balanceUserId, setBalanceUserId] = useState('');
+  const [balanceAction, setBalanceAction] = useState<string>('increase');
+  const [balanceAmount, setBalanceAmount] = useState('');
 
   const headers = useCallback(() => ({
     'Content-Type': 'application/json',
@@ -79,6 +92,13 @@ export default function AdminPage() {
       setGlobalMode(data.settings.globalMode);
       setWinRate(data.settings.winRatePercent);
       setIsAuthenticated(true);
+
+      // Also fetch balances
+      const balRes = await fetch('/api/admin/balance', { headers: headers() });
+      if (balRes.ok) {
+        const balData = await balRes.json();
+        setUserBalances(balData.users);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load');
     } finally {
@@ -128,6 +148,36 @@ export default function AdminPage() {
       setSelectedUser('');
       setUserOverride('');
       setSuccess('User override saved');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleAdjustBalance = async () => {
+    if (!balanceUserId || !balanceAmount) return;
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch('/api/admin/balance', {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({
+          userId: balanceUserId,
+          action: balanceAction,
+          amount: Number(balanceAmount),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      setSuccess(`Balance updated: ${data.oldBalance.toLocaleString()} → ${data.newBalance.toLocaleString()} USDT`);
+      setBalanceAmount('');
+      // Refresh balances
+      const balRes = await fetch('/api/admin/balance', { headers: headers() });
+      if (balRes.ok) {
+        const balData = await balRes.json();
+        setUserBalances(balData.users);
+      }
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.message);
@@ -371,6 +421,103 @@ export default function AdminPage() {
             <p className="text-[10px] text-gray-500 italic">No user overrides active</p>
           )}
         </div>
+      </div>
+
+      {/* Balance Management */}
+      <div className="glass-card p-4 space-y-3">
+        <h2 className="text-sm font-bold flex items-center gap-1.5">
+          <DollarSign size={14} className="text-accent" /> User Balance Management
+        </h2>
+
+        {/* Adjust Balance */}
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="flex-1 min-w-[120px]">
+            <label className="block text-[10px] text-gray-400 mb-0.5">User</label>
+            <select
+              value={balanceUserId}
+              onChange={(e) => setBalanceUserId(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+            >
+              <option value="">Select user</option>
+              {userBalances.map((u) => (
+                <option key={u.id} value={u.id}>{u.name || u.email}</option>
+              ))}
+            </select>
+          </div>
+          <div className="w-[100px]">
+            <label className="block text-[10px] text-gray-400 mb-0.5">Action</label>
+            <select
+              value={balanceAction}
+              onChange={(e) => setBalanceAction(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+            >
+              <option value="increase">+ Increase</option>
+              <option value="decrease">- Decrease</option>
+              <option value="set">= Set to</option>
+            </select>
+          </div>
+          <div className="w-[120px]">
+            <label className="block text-[10px] text-gray-400 mb-0.5">Amount (USDT)</label>
+            <input
+              type="number"
+              min="0"
+              value={balanceAmount}
+              onChange={(e) => setBalanceAmount(e.target.value)}
+              placeholder="0.00"
+              className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+            />
+          </div>
+          <button
+            onClick={handleAdjustBalance}
+            disabled={!balanceUserId || !balanceAmount}
+            className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded disabled:opacity-40"
+          >
+            Apply
+          </button>
+        </div>
+
+        {/* User Balance Table */}
+        {userBalances.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="text-gray-400 border-b border-gray-800">
+                  <th className="text-left py-1 pr-2">User</th>
+                  <th className="text-left py-1 pr-2">Email</th>
+                  <th className="text-right py-1 pr-2">Balance (USDT)</th>
+                  <th className="text-center py-1">Quick</th>
+                </tr>
+              </thead>
+              <tbody>
+                {userBalances.map((u) => (
+                  <tr key={u.id} className="border-b border-gray-800/50">
+                    <td className="py-1.5 pr-2 font-medium">{u.name || '—'}</td>
+                    <td className="py-1.5 pr-2 text-gray-400">{u.email}</td>
+                    <td className="py-1.5 pr-2 text-right font-mono text-accent">{u.balance.toLocaleString()}</td>
+                    <td className="py-1.5 text-center">
+                      <div className="flex gap-1 justify-center">
+                        <button
+                          onClick={() => { setBalanceUserId(u.id); setBalanceAction('increase'); setBalanceAmount('1000'); }}
+                          className="p-0.5 rounded bg-green-900/40 text-green-400 hover:bg-green-900/70"
+                          title="Quick +1000"
+                        >
+                          <Plus size={12} />
+                        </button>
+                        <button
+                          onClick={() => { setBalanceUserId(u.id); setBalanceAction('decrease'); setBalanceAmount('1000'); }}
+                          className="p-0.5 rounded bg-red-900/40 text-red-400 hover:bg-red-900/70"
+                          title="Quick -1000"
+                        >
+                          <Minus size={12} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Recent Trades */}
