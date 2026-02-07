@@ -1,6 +1,7 @@
 import { connectDB } from '@/lib/mongodb';
 import Portfolio from '@/lib/models/Portfolio';
 import TimedTrade from '@/lib/models/TimedTrade';
+import TradeSettings from '@/lib/models/TradeSettings';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/nextAuth';
 import { withRateLimit } from '@/lib/middleware/rateLimit';
@@ -9,6 +10,35 @@ import { logger } from '@/lib/utils/logger';
 export const dynamic = 'force-dynamic';
 
 const log = logger.child({ module: 'TimedTradeResolve' });
+
+// Determine win/lose based on settings hierarchy:
+// 1. Trade-level forcedResult (highest priority)
+// 2. Per-user override
+// 3. Global mode (all_win / all_lose / random with winRatePercent)
+async function determineResult(trade: any): Promise<'win' | 'lose'> {
+  // 1. Check trade-level forced result
+  if (trade.forcedResult === 'win' || trade.forcedResult === 'lose') {
+    return trade.forcedResult;
+  }
+
+  // 2 & 3. Check settings
+  const settings = await TradeSettings.getSettings();
+
+  // 2. Check per-user override
+  const userId = trade.userId.toString();
+  const userOverride = settings.userOverrides?.get(userId);
+  if (userOverride === 'win' || userOverride === 'lose') {
+    return userOverride;
+  }
+
+  // 3. Check global mode
+  if (settings.globalMode === 'all_win') return 'win';
+  if (settings.globalMode === 'all_lose') return 'lose';
+
+  // Random with configurable win rate
+  const winRate = (settings.winRatePercent ?? 50) / 100;
+  return Math.random() < winRate ? 'win' : 'lose';
+}
 
 // POST /api/trades/timed/resolve — resolve a timed trade (called when countdown ends)
 export async function POST(request: NextRequest) {
@@ -40,17 +70,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Trade not found or already resolved' }, { status: 404 });
     }
 
-    // Determine result:
-    // 1. If forcedResult is set by admin, use it
-    // 2. Otherwise random 50/50 (can be changed later to any logic)
-    let result: 'win' | 'lose';
-
-    if (trade.forcedResult === 'win' || trade.forcedResult === 'lose') {
-      result = trade.forcedResult;
-    } else {
-      // Default: 50/50 random — backend can override this logic later
-      result = Math.random() < 0.5 ? 'win' : 'lose';
-    }
+    // Determine result using settings hierarchy
+    const result = await determineResult(trade);
 
     trade.result = result;
     trade.resolvedAt = new Date();
