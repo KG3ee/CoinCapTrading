@@ -60,7 +60,8 @@ const markets = [
   { id: 'render-token', name: 'Render', symbol: 'RNDR', price: '--', change: '--', cap: '--', volume: '--', spark: [11, 22, 33, 44, 55, 66], isUp: true, logo: 'https://assets.coingecko.com/coins/images/11636/large/rndr.png' },
   { id: 'sui', name: 'Sui', symbol: 'SUI', price: '--', change: '--', cap: '--', volume: '--', spark: [12, 24, 36, 48, 60, 72], isUp: true, logo: 'https://assets.coingecko.com/coins/images/26375/large/sui_asset.jpeg' },
   { id: 'pepe', name: 'Pepe', symbol: 'PEPE', price: '--', change: '--', cap: '--', volume: '--', spark: [13, 26, 39, 52, 65, 78], isUp: true, logo: 'https://assets.coingecko.com/coins/images/29850/large/pepe-token.jpeg' },
-  { id: 'pax-gold', name: 'Pax Gold (Gold)', symbol: 'PAXG', price: '--', change: '--', cap: '--', volume: '--', spark: [14, 28, 42, 56, 70, 84], isUp: true, logo: 'https://assets.coingecko.com/coins/images/9519/large/paxgold.png' },
+  { id: 'pax-gold', name: 'Pax Gold (Gold)', symbol: 'PAXG', price: '--', change: '--', cap: '--', volume: '--', spark: [14, 28, 42, 56, 70, 84], isUp: true, logo: 'https://assets.coingecko.com/coins/images/9519/large/paxgold.png' }
+];
 
 export default function MarketsPage() {
   const [filter, setFilter] = useState<'all' | 'gainers' | 'losers'>('all');
