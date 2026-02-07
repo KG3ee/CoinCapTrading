@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, RefreshCw, Users, TrendingUp, TrendingDown, Clock, Loader2, AlertCircle, DollarSign, Plus, Minus } from 'lucide-react';
+import { Shield, RefreshCw, Users, TrendingUp, TrendingDown, Clock, Loader2, AlertCircle, DollarSign, Plus, Minus, KeyRound } from 'lucide-react';
 
 interface TradeSettingsData {
   globalMode: 'random' | 'all_win' | 'all_lose';
@@ -67,6 +67,11 @@ export default function AdminPage() {
   const [balanceUserId, setBalanceUserId] = useState('');
   const [balanceAction, setBalanceAction] = useState<string>('increase');
   const [balanceAmount, setBalanceAmount] = useState('');
+
+  // Password reset state
+  const [resetUserId, setResetUserId] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const headers = useCallback(() => ({
     'Content-Type': 'application/json',
@@ -179,6 +184,31 @@ export default function AdminPage() {
         setUserBalances(balData.users);
       }
       setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetUserId || !newPassword) return;
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch('/api/admin/reset-password', {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({ userId: resetUserId, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      setSuccess(data.message);
+      setNewPassword('');
+      setResetUserId('');
+      setTimeout(() => setSuccess(''), 4000);
     } catch (err: any) {
       setError(err.message);
     }
@@ -518,6 +548,56 @@ export default function AdminPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Password Reset */}
+      <div className="glass-card p-4 space-y-3">
+        <h2 className="text-sm font-bold flex items-center gap-1.5">
+          <KeyRound size={14} className="text-accent" /> Reset User Password
+        </h2>
+        <p className="text-[10px] text-gray-400">Reset password for users who forgot their password or can&apos;t access their email.</p>
+
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="flex-1 min-w-[140px]">
+            <label className="block text-[10px] text-gray-400 mb-0.5">User</label>
+            <select
+              value={resetUserId}
+              onChange={(e) => setResetUserId(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+            >
+              <option value="">Select user</option>
+              {userBalances.map((u) => (
+                <option key={u.id} value={u.id}>{u.name || u.email} ({u.email})</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1 min-w-[140px]">
+            <label className="block text-[10px] text-gray-400 mb-0.5">New Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Min 6 characters"
+                className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 pr-14"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400 hover:text-white"
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
+          </div>
+          <button
+            onClick={handleResetPassword}
+            disabled={!resetUserId || newPassword.length < 6}
+            className="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded disabled:opacity-40 transition-colors"
+          >
+            Reset Password
+          </button>
+        </div>
       </div>
 
       {/* Recent Trades */}
