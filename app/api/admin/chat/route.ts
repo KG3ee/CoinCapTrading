@@ -138,3 +138,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+// DELETE /api/admin/chat — delete a message or entire conversation
+export async function DELETE(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    await connectDB();
+
+    const { searchParams } = new URL(request.url);
+    const messageId = searchParams.get('messageId');
+    const userId = searchParams.get('userId');
+
+    if (messageId) {
+      // Delete a single message
+      const result = await ChatMessage.findByIdAndDelete(messageId);
+      if (!result) {
+        return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+      }
+      return NextResponse.json({ success: true, deleted: 'message' });
+    }
+
+    if (userId) {
+      // Delete entire conversation
+      const result = await ChatMessage.deleteMany({ conversationId: userId });
+      return NextResponse.json({ success: true, deleted: 'conversation', count: result.deletedCount });
+    }
+
+    return NextResponse.json({ error: 'messageId or userId required' }, { status: 400 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

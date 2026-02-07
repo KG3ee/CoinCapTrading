@@ -302,6 +302,32 @@ export default function AdminPage() {
     setChatSending(false);
   };
 
+  const deleteChatMessage = async (messageId: string) => {
+    try {
+      const res = await fetch(`/api/admin/chat?messageId=${messageId}`, {
+        method: 'DELETE',
+        headers: headers(),
+      });
+      if (res.ok) {
+        setChatMessages((prev) => prev.filter((m) => m._id !== messageId));
+      }
+    } catch {}
+  };
+
+  const deleteConversation = async (userId: string) => {
+    if (!confirm('Delete entire conversation? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/admin/chat?userId=${userId}`, {
+        method: 'DELETE',
+        headers: headers(),
+      });
+      if (res.ok) {
+        setActiveChatUser(null);
+        fetchConversations();
+      }
+    } catch {}
+  };
+
   const handleChatFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -799,12 +825,20 @@ export default function AdminPage() {
                   {chatConversations.find((c) => c.userId === activeChatUser)?.userEmail}
                 </p>
               </div>
-              <button
-                onClick={() => { setActiveChatUser(null); fetchConversations(); }}
-                className="text-[10px] text-gray-400 hover:text-white px-2 py-1 rounded bg-white/5"
-              >
-                ← Back
-              </button>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => deleteConversation(activeChatUser!)}
+                  className="text-[10px] text-danger hover:text-red-300 px-2 py-1 rounded bg-danger/10"
+                >
+                  Delete All
+                </button>
+                <button
+                  onClick={() => { setActiveChatUser(null); fetchConversations(); }}
+                  className="text-[10px] text-gray-400 hover:text-white px-2 py-1 rounded bg-white/5"
+                >
+                  ← Back
+                </button>
+              </div>
             </div>
 
             {/* Messages */}
@@ -813,10 +847,17 @@ export default function AdminPage() {
                 <p className="text-[10px] text-gray-500 text-center mt-8">No messages</p>
               ) : (
                 chatMessages.map((msg) => (
-                  <div key={msg._id} className={`flex ${msg.sender === 'admin' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[75%] rounded-lg px-2.5 py-1.5 space-y-1 ${
+                  <div key={msg._id} className={`group flex ${msg.sender === 'admin' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`relative max-w-[75%] rounded-lg px-2.5 py-1.5 space-y-1 ${
                       msg.sender === 'admin' ? 'bg-accent/20 rounded-br-sm' : 'bg-white/10 rounded-bl-sm'
                     }`}>
+                      <button
+                        onClick={() => deleteChatMessage(msg._id)}
+                        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-danger/80 text-white items-center justify-center text-[8px] hidden group-hover:flex hover:bg-danger"
+                        title="Delete message"
+                      >
+                        ×
+                      </button>
                       <p className="text-[9px] text-gray-400 font-medium">{msg.senderName}</p>
                       {msg.attachments?.map((att, i) => (
                         <div key={i}>
