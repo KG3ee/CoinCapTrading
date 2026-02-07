@@ -44,7 +44,7 @@ const REVERSE_SYMBOL_MAP: Record<string, string> = Object.fromEntries(
 
 // Server-side price cache (survives across requests within same serverless instance)
 let priceCache: { data: CoinCapAsset[]; timestamp: number } | null = null;
-const CACHE_TTL_MS = 5000; // 5 seconds
+const CACHE_TTL_MS = 15000; // 15 seconds — reduces external API calls
 
 function makeAbortController(ms: number): { controller: AbortController; clear: () => void } {
   const controller = new AbortController();
@@ -273,84 +273,60 @@ export async function GET(request: Request) {
 
   const errors: string[] = [];
 
-  // Strategy 1: CoinGecko /coins/markets (primary — most cloud-friendly)
-  try {
-    const results = await fetchFromCoinGecko(idsArray);
-    if (results.length > 0) {
-      const transformed = toAssetArray(results);
-      priceCache = { data: transformed, timestamp: Date.now() };
-      return NextResponse.json({ data: transformed, source: 'coingecko' }, {
-        status: 200,
-        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
-      });
+  // Race ALL APIs in parallel — take whichever succeeds first
+  // This avoids sequential timeout chains that exceed Vercel's function limit
+  const apiRace = async (): Promise<{ results: PriceResult[]; source: string } | null> => {
+    const strategies = [
+      { fn: () => fetchFromCoinGecko(idsArray), name: 'coingecko' },
+      { fn: () => fetchFromCoinGeckoSimple(idsArray), name: 'coingecko-simple' },
+      { fn: () => fetchFromBinanceBatch(idsArray), name: 'binance' },
+      { fn: () => fetchFromKraken(idsArray), name: 'kraken' },
+    ];
+
+    // Wrap each strategy to catch errors and filter empty results
+    const promises = strategies.map(async ({ fn, name }) => {
+      try {
+        const results = await fn();
+        if (results.length > 0) {
+          return { results, source: name };
+        }
+        errors.push(`${name}: returned empty`);
+        throw new Error(`${name} returned empty`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!errors.includes(`${name}: ${msg}`) && !msg.includes('returned empty')) {
+          errors.push(`${name}: ${msg}`);
+        }
+        console.warn(`${name} failed:`, msg);
+        throw err; // Re-throw so Promise.any skips it
+      }
+    });
+
+    try {
+      return await Promise.any(promises);
+    } catch {
+      // All promises rejected
+      return null;
     }
-    errors.push('CoinGecko markets returned empty');
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    errors.push(`CoinGecko markets: ${msg}`);
-    console.warn('CoinGecko markets failed:', msg);
+  };
+
+  const winner = await apiRace();
+
+  if (winner) {
+    const transformed = toAssetArray(winner.results);
+    priceCache = { data: transformed, timestamp: Date.now() };
+    return NextResponse.json({ data: transformed, source: winner.source }, {
+      status: 200,
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    });
   }
 
-  // Strategy 2: CoinGecko /simple/price (different rate-limit bucket)
-  try {
-    const results = await fetchFromCoinGeckoSimple(idsArray);
-    if (results.length > 0) {
-      const transformed = toAssetArray(results);
-      priceCache = { data: transformed, timestamp: Date.now() };
-      return NextResponse.json({ data: transformed, source: 'coingecko-simple' }, {
-        status: 200,
-        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
-      });
-    }
-    errors.push('CoinGecko simple returned empty');
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    errors.push(`CoinGecko simple: ${msg}`);
-    console.warn('CoinGecko simple failed:', msg);
-  }
-
-  // Strategy 3: Binance batch
-  try {
-    const results = await fetchFromBinanceBatch(idsArray);
-    if (results.length > 0) {
-      const transformed = toAssetArray(results);
-      priceCache = { data: transformed, timestamp: Date.now() };
-      return NextResponse.json({ data: transformed, source: 'binance' }, {
-        status: 200,
-        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
-      });
-    }
-    errors.push('Binance returned empty');
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    errors.push(`Binance: ${msg}`);
-    console.warn('Binance failed:', msg);
-  }
-
-  // Strategy 4: Kraken
-  try {
-    const results = await fetchFromKraken(idsArray);
-    if (results.length > 0) {
-      const transformed = toAssetArray(results);
-      priceCache = { data: transformed, timestamp: Date.now() };
-      return NextResponse.json({ data: transformed, source: 'kraken' }, {
-        status: 200,
-        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
-      });
-    }
-    errors.push('Kraken returned empty');
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    errors.push(`Kraken: ${msg}`);
-    console.warn('Kraken failed:', msg);
-  }
-
-  // All live APIs failed — return stale cache if available
+  // All live APIs failed — return stale cache if available (no age limit for stale)
   if (priceCache && priceCache.data.length > 0) {
     console.warn('All price APIs failed, returning stale cache. Errors:', errors);
     const cached = priceCache.data.filter((a) => idsArray.includes(a.id));
     if (cached.length > 0) {
-      return NextResponse.json({ data: cached, source: 'stale-cache' }, {
+      return NextResponse.json({ data: cached, source: 'stale-cache', errors }, {
         status: 200,
         headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
       });
