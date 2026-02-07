@@ -38,8 +38,9 @@ function RootLayoutContent({
         .catch(() => {});
     }
   }, [status]);
-  // Check if current page is auth page
+  // Check if current page is auth page or admin page (these get their own layout)
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/verify-email';
+  const isAdminPage = pathname.startsWith('/admin');
 
   const navItems = [
     { name: 'Home', icon: Home, href: '/' },
@@ -50,7 +51,7 @@ function RootLayoutContent({
 
   const accountLink = { name: 'Account', icon: User, href: '/account' };
 
-  if (isAuthPage) {
+  if (isAuthPage || isAdminPage) {
     return <>{children}</>;
   }
 

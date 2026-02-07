@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Shield, RefreshCw, Users, TrendingUp, TrendingDown, Clock, Loader2, AlertCircle, DollarSign, Plus, Minus, KeyRound, MessageCircle, Send, Paperclip, X as XIcon } from 'lucide-react';
+import { Shield, RefreshCw, Users, TrendingUp, TrendingDown, Clock, Loader2, AlertCircle, DollarSign, Plus, Minus, KeyRound, MessageCircle, Send, Paperclip, X as XIcon, Trash2, LogOut, Home } from 'lucide-react';
 
 interface TradeSettingsData {
   globalMode: 'random' | 'all_win' | 'all_lose';
@@ -72,6 +72,9 @@ export default function AdminPage() {
   const [resetUserId, setResetUserId] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Delete user state
+  const [deleteConfirmUserId, setDeleteConfirmUserId] = useState<string | null>(null);
 
   // Chat state
   interface ChatConversation {
@@ -249,6 +252,26 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteUser = async (userId: string) => {
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`/api/admin/users?userId=${userId}`, {
+        method: 'DELETE',
+        headers: headers(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete user');
+      setSuccess(data.message);
+      setDeleteConfirmUserId(null);
+      // Refresh all data
+      fetchData();
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   // Chat functions
   const fetchConversations = useCallback(async () => {
     try {
@@ -420,13 +443,30 @@ export default function AdminPage() {
           <Shield className="text-accent" size={24} />
           <h1 className="text-lg font-bold">Trade Control Panel</h1>
         </div>
-        <button
-          onClick={fetchData}
-          className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href="/"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <Home size={14} />
+            <span className="hidden sm:inline">Back to Site</span>
+          </a>
+          <button
+            onClick={() => { setIsAuthenticated(false); setAdminKey(''); }}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-gray-400 hover:text-danger hover:bg-danger/10 transition-colors"
+            title="Logout"
+          >
+            <LogOut size={14} />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+          <button
+            onClick={fetchData}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -658,6 +698,7 @@ export default function AdminPage() {
                   <th className="text-left py-1 pr-2">Email</th>
                   <th className="text-right py-1 pr-2">Balance (USDT)</th>
                   <th className="text-center py-1">Quick</th>
+                  <th className="text-center py-1">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -683,6 +724,32 @@ export default function AdminPage() {
                           <Minus size={12} />
                         </button>
                       </div>
+                    </td>
+                    <td className="py-1.5 text-center">
+                      {deleteConfirmUserId === u.id ? (
+                        <div className="flex items-center gap-1 justify-center">
+                          <button
+                            onClick={() => handleDeleteUser(u.id)}
+                            className="px-2 py-0.5 rounded bg-danger text-white text-[10px] font-bold hover:bg-red-500 transition-colors"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmUserId(null)}
+                            className="px-2 py-0.5 rounded bg-white/10 text-gray-400 text-[10px] hover:text-white transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setDeleteConfirmUserId(u.id)}
+                          className="p-0.5 rounded bg-red-900/30 text-red-400 hover:bg-red-900/60 hover:text-red-300 transition-colors"
+                          title={`Delete ${u.name || u.email}`}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
