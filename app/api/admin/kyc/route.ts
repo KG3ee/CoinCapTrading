@@ -105,6 +105,7 @@ export async function PUT(request: NextRequest) {
     if (kyc.status !== 'pending') {
       return NextResponse.json({ error: 'This submission has already been reviewed' }, { status: 400 });
     }
+    const user = await User.findById(kyc.userId, 'fullName email');
 
     const newStatus = action === 'approve' ? 'approved' : 'rejected';
 
@@ -123,8 +124,8 @@ export async function PUT(request: NextRequest) {
       actionType: 'kyc_review',
       action: newStatus,
       userId: kyc.userId,
-      userName: '',
-      userEmail: '',
+      userName: user?.fullName || '',
+      userEmail: user?.email || '',
       reason: action === 'reject' ? (rejectionReason || 'KYC rejected') : 'KYC approved',
       actor: context.admin._id.toString(),
       actorName: context.admin.name,

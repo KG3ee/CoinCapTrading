@@ -101,6 +101,38 @@ html {
   color: var(--admin-muted);
 }
 
+.admin-theme .text-white {
+  color: var(--admin-text) !important;
+}
+
+.admin-theme .bg-gray-800 {
+  background-color: var(--admin-input) !important;
+}
+
+.admin-theme .border-gray-700 {
+  border-color: var(--admin-input-border) !important;
+}
+
+.admin-theme .border-gray-800\\/50 {
+  border-color: var(--admin-border) !important;
+}
+
+.admin-theme .border-white\\/10 {
+  border-color: var(--admin-border) !important;
+}
+
+.admin-theme .border-white\\/20 {
+  border-color: var(--admin-border) !important;
+}
+
+.admin-theme .bg-white\\/5 {
+  background-color: var(--admin-card) !important;
+}
+
+.admin-theme .bg-white\\/10 {
+  background-color: var(--admin-card-strong) !important;
+}
+
 @layer components {
   .glass {
     background: var(--admin-card);

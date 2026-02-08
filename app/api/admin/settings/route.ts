@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import AdminSettings from '@/lib/models/AdminSettings';
+import AdminAuditLog from '@/lib/models/AdminAuditLog';
 import { logger } from '@/lib/utils/logger';
 import crypto from 'crypto';
 import { getAdminContext, hasPermission } from '@/lib/adminAuth';
@@ -79,6 +80,17 @@ export async function PUT(request: NextRequest) {
     }
 
     await settings.save();
+    await AdminAuditLog.create({
+      actionType: 'settings_update',
+      action: 'update',
+      reason: 'Admin settings updated',
+      actor: context.admin._id.toString(),
+      actorName: context.admin.name,
+      actorRole: context.admin.role,
+      targetType: 'admin_settings',
+      targetId: settings._id.toString(),
+      ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
+    });
     return NextResponse.json({ message: 'Settings updated' });
   } catch (error: any) {
     log.error({ error }, 'Failed to update admin settings');

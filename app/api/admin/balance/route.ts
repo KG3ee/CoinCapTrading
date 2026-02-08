@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     const users = await User.find(
       {},
-      'fullName email uid accountStatus isVerified isTwoFactorEnabled kycStatus lastActiveAt'
+      'fullName email uid accountStatus isVerified isTwoFactorEnabled kycStatus lastActiveAt createdAt'
     ).sort({ fullName: 1 });
     const inactiveCutoff = new Date(Date.now() - 183 * 24 * 60 * 60 * 1000);
 
@@ -38,9 +38,10 @@ export async function GET(request: NextRequest) {
       users.map(async (user: any) => {
         const portfolio = await Portfolio.findOne({ userId: user._id });
         const lastActiveAt = user.lastActiveAt || null;
+        const referenceDate = lastActiveAt || user.createdAt || null;
         let accountStatus = user.accountStatus;
         if (accountStatus !== 'banned') {
-          const isInactive = !lastActiveAt || new Date(lastActiveAt) < inactiveCutoff;
+          const isInactive = referenceDate ? new Date(referenceDate) < inactiveCutoff : true;
           if (isInactive) accountStatus = 'inactive';
         }
         return {

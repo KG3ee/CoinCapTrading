@@ -166,13 +166,13 @@ interface AdminUserItem {
 
 type AdminTab = 'overview' | 'trades' | 'users' | 'chat' | 'kyc' | 'settings';
 
-const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield; permission: AdminPermission }[] = [
-  { key: 'overview', label: 'Overview', icon: BarChart3, permission: 'view_dashboard' },
-  { key: 'trades', label: 'Trade Control', icon: TrendingUp, permission: 'manage_trades' },
-  { key: 'users', label: 'Accounts', icon: Users, permission: 'manage_users' },
-  { key: 'kyc', label: 'KYC Verification', icon: BadgeCheck, permission: 'manage_kyc' },
-  { key: 'chat', label: 'Customer Chat', icon: MessageCircle, permission: 'manage_support' },
-  { key: 'settings', label: 'Settings', icon: Settings, permission: 'manage_settings' },
+const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield; permissions: AdminPermission[] }[] = [
+  { key: 'overview', label: 'Overview', icon: BarChart3, permissions: ['view_dashboard'] },
+  { key: 'trades', label: 'Trade Control', icon: TrendingUp, permissions: ['manage_trades'] },
+  { key: 'users', label: 'Accounts', icon: Users, permissions: ['manage_users'] },
+  { key: 'kyc', label: 'KYC Verification', icon: BadgeCheck, permissions: ['manage_kyc'] },
+  { key: 'chat', label: 'Customer Chat', icon: MessageCircle, permissions: ['manage_support'] },
+  { key: 'settings', label: 'Settings', icon: Settings, permissions: ['manage_settings', 'manage_admins', 'view_logs'] },
 ];
 
 export default function AdminPage() {
@@ -276,7 +276,7 @@ export default function AdminPage() {
   ), [adminPermissions]);
 
   const visibleNavItems = adminPermissions.length > 0
-    ? NAV_ITEMS.filter(item => can(item.permission))
+    ? NAV_ITEMS.filter(item => item.permissions.some(permission => can(permission)))
     : NAV_ITEMS;
 
   // ── Data Fetching ──────────────────────────────────────
@@ -384,6 +384,15 @@ export default function AdminPage() {
     }
   }, [adminPermissions.length, activeTab, visibleNavItems]);
 
+  useEffect(() => {
+    if (accountActionType === 'balance' && !canBalanceAction && canBanAction) {
+      setAccountActionType('ban');
+    }
+    if (accountActionType === 'ban' && !canBanAction && canBalanceAction) {
+      setAccountActionType('balance');
+    }
+  }, [accountActionType, canBalanceAction, canBanAction]);
+
   const unreadNotifCount = notifications.filter(
     n => !lastSeenNotifTime || new Date(n.timestamp) > new Date(lastSeenNotifTime)
   ).length;
@@ -426,6 +435,32 @@ export default function AdminPage() {
   });
   const previewMoreCount = Math.max(0, previewTargets.length - previewRows.length);
   const hasFilters = filterStatus !== 'all' || filterVerified !== 'all' || filterTwoFactor !== 'all' || filterKyc !== 'all';
+  const normalizedAuditQuery = auditLogQuery.trim().toLowerCase();
+  const filteredAuditLogs = auditLogs.filter(log => {
+    if (!normalizedAuditQuery) return true;
+    const haystack = [
+      log.actorName,
+      log.actorRole,
+      log.actionType,
+      log.action,
+      log.reason,
+      log.userName,
+      log.userEmail,
+      log.userId,
+      log.targetType,
+      log.targetId,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(normalizedAuditQuery);
+  });
+  const showSettingsControls = can('manage_settings');
+  const showAdminManagement = can('manage_admins');
+  const showAuditLogs = can('view_logs');
+  const canBalanceAction = can('manage_financials');
+  const canBanAction = can('manage_users');
+  const canAccountAction = canBalanceAction || canBanAction;
 
   const handleMarkNotificationsRead = () => {
     if (notifications.length > 0) setLastSeenNotifTime(notifications[0].timestamp);
@@ -599,6 +634,7 @@ export default function AdminPage() {
 
   const handleThemeChange = async (theme: 'dark' | 'light') => {
     setAdminTheme(theme);
+    setAdminProfile(prev => prev ? { ...prev, uiTheme: theme } : prev);
     try {
       await fetch('/api/admin/session', {
         method: 'PUT',
@@ -609,6 +645,10 @@ export default function AdminPage() {
   };
 
   const handleSaveAdminSettings = async () => {
+    if (!can('manage_settings')) {
+      setError('You do not have permission to update settings');
+      return;
+    }
     if (!adminSettings) return;
     setError(''); setSuccess('');
     try {
@@ -755,7 +795,7 @@ export default function AdminPage() {
       setShowAccountActionModal(false);
       const balRes = await fetch('/api/admin/balance', { headers: headers() });
       if (balRes.ok) { const d = await balRes.json(); setUserBalances(d.users); }
-      if (auditLogsOpen) fetchAuditLogs('balance');
+      if (auditLogsOpen) fetchAuditLogs('all');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) { setError(err.message); }
   };
@@ -798,13 +838,15 @@ export default function AdminPage() {
 
   // ── Chat ───────────────────────────────────────────────
   const fetchConversations = useCallback(async () => {
+    if (!can('manage_support')) return;
     try {
       const r = await fetch('/api/admin/chat', { headers: headers() });
       if (r.ok) { const d = await r.json(); setChatConversations(d.conversations || []); }
     } catch { /* silent */ }
-  }, [headers]);
+  }, [headers, can]);
 
   const fetchChatMessages = useCallback(async (userId: string) => {
+    if (!can('manage_support')) return;
     try {
       const r = await fetch(`/api/admin/chat?userId=${userId}`, { headers: headers() });
       if (r.ok) {
@@ -813,7 +855,7 @@ export default function AdminPage() {
         setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
       }
     } catch { /* silent */ }
-  }, [headers]);
+  }, [headers, can]);
 
   const openChat = (userId: string) => {
     setActiveChatUser(userId);
@@ -822,6 +864,10 @@ export default function AdminPage() {
   };
 
   const sendAdminMessage = async () => {
+    if (!can('manage_support')) {
+      setError('You do not have permission to manage support');
+      return;
+    }
     if (!activeChatUser || (!chatInput.trim() && chatAttachments.length === 0) || chatSending) return;
     setChatSending(true);
     try {
@@ -835,6 +881,7 @@ export default function AdminPage() {
   };
 
   const deleteChatMessage = async (messageId: string) => {
+    if (!can('manage_support')) return;
     try {
       const r = await fetch(`/api/admin/chat?messageId=${messageId}`, { method: 'DELETE', headers: headers() });
       if (r.ok) setChatMessages(prev => prev.filter(m => m._id !== messageId));
@@ -842,6 +889,7 @@ export default function AdminPage() {
   };
 
   const deleteConversation = async (userId: string) => {
+    if (!can('manage_support')) return;
     if (!confirm('Delete entire conversation?')) return;
     try {
       const r = await fetch(`/api/admin/chat?userId=${userId}`, { method: 'DELETE', headers: headers() });
@@ -876,6 +924,7 @@ export default function AdminPage() {
 
   // ── KYC ────────────────────────────────────────────────
   const fetchKycSubmissions = useCallback(async (status?: string) => {
+    if (!can('manage_kyc')) return;
     try {
       const filter = status || kycFilter;
       const r = await fetch(`/api/admin/kyc?status=${filter}`, { headers: headers() });
@@ -885,9 +934,13 @@ export default function AdminPage() {
         setKycCounts(d.counts || { pending: 0, approved: 0, rejected: 0 });
       }
     } catch { /* silent */ }
-  }, [headers, kycFilter]);
+  }, [headers, kycFilter, can]);
 
   const handleKycAction = async (kycId: string, action: 'approve' | 'reject', reason?: string) => {
+    if (!can('manage_kyc')) {
+      setError('You do not have permission to manage KYC');
+      return;
+    }
     setError(''); setSuccess('');
     try {
       const r = await fetch('/api/admin/kyc', {
@@ -1570,8 +1623,17 @@ export default function AdminPage() {
                   </h3>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => { setBalanceAction('increase'); setBalanceReason(''); setShowAccountActionModal(true); }}
-                      className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold"
+                      onClick={() => {
+                        setAccountActionType(canBalanceAction ? 'balance' : 'ban');
+                        setBalanceAction('increase');
+                        setBalanceReason('');
+                        setBanReason('');
+                        setShowAccountActionModal(true);
+                      }}
+                      disabled={!canAccountAction}
+                      className={`px-2 py-1 rounded text-[10px] font-semibold ${
+                        canAccountAction ? 'bg-accent/20 text-accent' : 'bg-white/5 text-gray-500 cursor-not-allowed'
+                      }`}
                     >
                       Account Action
                     </button>
@@ -1693,7 +1755,12 @@ export default function AdminPage() {
                         </thead>
                         <tbody>
                           {filteredUsers.map(u => (
-                            <tr key={u.id} className="border-b border-gray-800/50 hover:bg-white/5">
+                            <tr
+                              key={u.id}
+                              className={`border-b border-gray-800/50 hover:bg-white/5 ${
+                                u.accountStatus === 'banned' ? 'bg-red-500/10' : ''
+                              }`}
+                            >
                               <td className="py-2 pr-2">
                                 <input
                                   type="checkbox"
@@ -1740,29 +1807,51 @@ export default function AdminPage() {
                                 <div className="flex gap-1 justify-center">
                                   <button
                                     onClick={() => {
+                                      setAccountActionType('balance');
                                       setSelectedUserIds([]);
                                       setBalanceUserId(u.id);
                                       setBalanceAction('increase');
                                       setBalanceAmount('1000');
                                       setBalanceReason('');
+                                      setBanReason('');
                                       setShowAccountActionModal(true);
                                     }}
-                                    className="p-1 rounded bg-green-900/40 text-green-400 hover:bg-green-900/70" title="+1000"
+                                    disabled={!canBalanceAction}
+                                    className="p-1 rounded bg-green-900/40 text-green-400 hover:bg-green-900/70 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="+1000"
                                   >
                                     <Plus size={12} />
                                   </button>
                                   <button
                                     onClick={() => {
+                                      setAccountActionType('balance');
                                       setSelectedUserIds([]);
                                       setBalanceUserId(u.id);
                                       setBalanceAction('decrease');
                                       setBalanceAmount('1000');
                                       setBalanceReason('');
+                                      setBanReason('');
                                       setShowAccountActionModal(true);
                                     }}
-                                    className="p-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/70" title="-1000"
+                                    disabled={!canBalanceAction}
+                                    className="p-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/70 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="-1000"
                                   >
                                     <Minus size={12} />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setAccountActionType('ban');
+                                      setSelectedUserIds([]);
+                                      setBalanceUserId(u.id);
+                                      setBanReason('');
+                                      setShowAccountActionModal(true);
+                                    }}
+                                    disabled={!canBanAction}
+                                    className="p-1 rounded bg-red-900/20 text-red-300 hover:bg-red-900/40 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="Ban user"
+                                  >
+                                    <XCircle size={12} />
                                   </button>
                                 </div>
                               </td>
@@ -2195,144 +2284,278 @@ export default function AdminPage() {
             <div className="h-full flex flex-col gap-3">
               <div className="flex items-center justify-between flex-shrink-0">
                 <h3 className="text-sm font-bold">Admin Settings</h3>
-                <button
-                  onClick={handleSaveAdminSettings}
-                  className="px-3 py-1.5 rounded bg-accent text-black text-xs font-semibold"
-                >
-                  Save Changes
-                </button>
+                {showSettingsControls && (
+                  <button
+                    onClick={handleSaveAdminSettings}
+                    className="px-3 py-1.5 rounded bg-accent text-black text-xs font-semibold"
+                  >
+                    Save Changes
+                  </button>
+                )}
               </div>
 
-              {settingsLoading || !adminSettings ? (
+              {showSettingsControls && (settingsLoading || !adminSettings) ? (
                 <div className="glass-card p-4 text-xs text-gray-500">Loading settings...</div>
               ) : (
                 <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3">
                   <div className="grid lg:grid-cols-2 gap-3">
                     {/* RBAC */}
-                    <div className="glass-card p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold">Role-Based Access Control</p>
-                        <label className="flex items-center gap-2 text-[10px] text-gray-400">
-                          <input
-                            type="checkbox"
-                            checked={adminSettings.rbacEnabled}
-                            onChange={(e) => setAdminSettings(s => s ? { ...s, rbacEnabled: e.target.checked } : s)}
-                            className="accent-accent"
-                          />
-                          Enable RBAC
-                        </label>
+                    {showSettingsControls && adminSettings && (
+                      <div className="glass-card p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold">Role-Based Access Control</p>
+                          <label className="flex items-center gap-2 text-[10px] text-gray-400">
+                            <input
+                              type="checkbox"
+                              checked={adminSettings.rbacEnabled}
+                              onChange={(e) => setAdminSettings(s => s ? { ...s, rbacEnabled: e.target.checked } : s)}
+                              className="accent-accent"
+                            />
+                            Enable RBAC
+                          </label>
+                        </div>
+                        <div className="space-y-1 text-[10px]">
+                          {adminSettings.roles.map(role => (
+                            <div key={role.name} className="p-2 rounded bg-white/5">
+                              <p className="font-semibold">{role.name}</p>
+                              <p className="text-gray-400">{role.permissions.join(', ')}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-1 text-[10px]">
-                        {adminSettings.roles.map(role => (
-                          <div key={role.name} className="p-2 rounded bg-white/5">
-                            <p className="font-semibold">{role.name}</p>
-                            <p className="text-gray-400">{role.permissions.join(', ')}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    )}
 
                     {/* Security */}
-                    <div className="glass-card p-3 space-y-2">
-                      <p className="text-xs font-semibold">Security Settings</p>
-                      <label className="flex items-center gap-2 text-[10px] text-gray-400">
-                        <input
-                          type="checkbox"
-                          checked={adminSettings.security.require2fa}
-                          onChange={(e) => setAdminSettings(s => s ? { ...s, security: { ...s.security, require2fa: e.target.checked } } : s)}
-                          className="accent-accent"
-                        />
-                        Require 2FA for admins
-                      </label>
-                      <div>
-                        <label className="block text-[10px] text-gray-400 mb-0.5">IP Whitelist (one per line)</label>
-                        <textarea
-                          value={ipWhitelistInput}
-                          onChange={(e) => setIpWhitelistInput(e.target.value)}
-                          className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 min-h-[70px]"
-                        />
-                      </div>
-                    </div>
-
-                    {/* System Notifications */}
-                    <div className="glass-card p-3 space-y-2">
-                      <p className="text-xs font-semibold">System Notifications</p>
-                      {(['newUsers', 'largeWithdrawals', 'flaggedTrades'] as const).map(key => (
-                        <label key={key} className="flex items-center gap-2 text-[10px] text-gray-400">
-                          <input
-                            type="checkbox"
-                            checked={adminSettings.notifications[key]}
-                            onChange={(e) => setAdminSettings(s => s ? { ...s, notifications: { ...s.notifications, [key]: e.target.checked } } : s)}
-                            className="accent-accent"
-                          />
-                          {key === 'newUsers' ? 'New users' : key === 'largeWithdrawals' ? 'Large withdrawals' : 'Flagged trades'}
-                        </label>
-                      ))}
-                      <div className="pt-1">
-                        <label className="block text-[10px] text-gray-400 mb-0.5">Theme</label>
-                        <select
-                          value={adminTheme}
-                          onChange={(e) => handleThemeChange(e.target.value as 'dark' | 'light')}
-                          className="w-full text-xs rounded px-2 py-1.5 border"
-                        >
-                          <option value="dark">Dark</option>
-                          <option value="light">Light</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Maintenance Mode */}
-                    <div className="glass-card p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold">Maintenance Mode</p>
+                    {showSettingsControls && adminSettings && (
+                      <div className="glass-card p-3 space-y-2">
+                        <p className="text-xs font-semibold">Security Settings</p>
                         <label className="flex items-center gap-2 text-[10px] text-gray-400">
                           <input
                             type="checkbox"
-                            checked={adminSettings.maintenance.enabled}
-                            onChange={(e) => setAdminSettings(s => s ? { ...s, maintenance: { ...s.maintenance, enabled: e.target.checked } } : s)}
+                            checked={adminSettings.security.require2fa}
+                            onChange={(e) => setAdminSettings(s => s ? { ...s, security: { ...s.security, require2fa: e.target.checked } } : s)}
                             className="accent-accent"
                           />
-                          Enabled
+                          Require 2FA for admins
                         </label>
+                        <div>
+                          <label className="block text-[10px] text-gray-400 mb-0.5">IP Whitelist (one per line)</label>
+                          <textarea
+                            value={ipWhitelistInput}
+                            onChange={(e) => setIpWhitelistInput(e.target.value)}
+                            className="w-full text-xs rounded px-2 py-1.5 border min-h-[70px]"
+                          />
+                        </div>
                       </div>
-                      <input
-                        value={adminSettings.maintenance.message}
-                        onChange={(e) => setAdminSettings(s => s ? { ...s, maintenance: { ...s.maintenance, message: e.target.value } } : s)}
-                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                        placeholder="Maintenance message"
-                      />
-                    </div>
+                    )}
 
-                    {/* Activity Logs */}
-                    <div className="glass-card p-3 space-y-2 lg:col-span-2">
-                      <p className="text-xs font-semibold">Activity Logs</p>
-                      <div className="max-h-40 overflow-y-auto pr-1 text-[10px]">
-                        {auditLogsLoading ? (
-                          <p className="text-gray-500">Loading logs...</p>
-                        ) : auditLogs.length === 0 ? (
-                          <p className="text-gray-500">No recent activity</p>
-                        ) : (
-                          <div className="space-y-1">
-                            {auditLogs.slice(0, 15).map(log => (
-                              <div key={log.id} className="flex items-center justify-between p-2 rounded bg-white/5">
-                                <div className="min-w-0">
-                                  <p className="font-semibold truncate">
-                                    {log.userName || log.userEmail || log.userId}
-                                  </p>
-                                  <p className="text-gray-400 truncate">
-                                    {(log.actionType || 'action').split('_').join(' ')} · {log.action.toUpperCase()} {Number(log.amount || 0).toLocaleString()} · {log.reason}
-                                  </p>
-                                </div>
-                                <div className="text-[9px] text-gray-500 text-right flex-shrink-0">
-                                  <div>{new Date(log.createdAt).toLocaleDateString()}</div>
-                                  <div>{new Date(log.createdAt).toLocaleTimeString()}</div>
-                                </div>
-                              </div>
-                            ))}
+                    {/* System Notifications */}
+                    {showSettingsControls && adminSettings && (
+                      <div className="glass-card p-3 space-y-2">
+                        <p className="text-xs font-semibold">System Notifications</p>
+                        {(['newUsers', 'largeWithdrawals', 'flaggedTrades'] as const).map(key => (
+                          <label key={key} className="flex items-center gap-2 text-[10px] text-gray-400">
+                            <input
+                              type="checkbox"
+                              checked={adminSettings.notifications[key]}
+                              onChange={(e) => setAdminSettings(s => s ? { ...s, notifications: { ...s.notifications, [key]: e.target.checked } } : s)}
+                              className="accent-accent"
+                            />
+                            {key === 'newUsers' ? 'New users' : key === 'largeWithdrawals' ? 'Large withdrawals' : 'Flagged trades'}
+                          </label>
+                        ))}
+                        <div className="pt-1">
+                          <label className="block text-[10px] text-gray-400 mb-0.5">Theme</label>
+                          <select
+                            value={adminTheme}
+                            onChange={(e) => handleThemeChange(e.target.value as 'dark' | 'light')}
+                            className="w-full text-xs rounded px-2 py-1.5 border"
+                          >
+                            <option value="dark">Dark</option>
+                            <option value="light">Light</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Maintenance Mode */}
+                    {showSettingsControls && adminSettings && (
+                      <div className="glass-card p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold">Maintenance Mode</p>
+                          <label className="flex items-center gap-2 text-[10px] text-gray-400">
+                            <input
+                              type="checkbox"
+                              checked={adminSettings.maintenance.enabled}
+                              onChange={(e) => setAdminSettings(s => s ? { ...s, maintenance: { ...s.maintenance, enabled: e.target.checked } } : s)}
+                              className="accent-accent"
+                            />
+                            Enabled
+                          </label>
+                        </div>
+                        <input
+                          value={adminSettings.maintenance.message}
+                          onChange={(e) => setAdminSettings(s => s ? { ...s, maintenance: { ...s.maintenance, message: e.target.value } } : s)}
+                          className="w-full text-xs rounded px-2 py-1.5 border"
+                          placeholder="Maintenance message"
+                        />
+                      </div>
+                    )}
+
+                    {/* Admin Management */}
+                    {showAdminManagement && (
+                      <div className="glass-card p-3 space-y-2 lg:col-span-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold">Admin Accounts</p>
+                          <span className="text-[10px] text-gray-500">{adminUsers.length} total</span>
+                        </div>
+
+                        {newAdminKey && (
+                          <div className="p-2 rounded bg-white/5 text-[10px] flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-gray-400 mb-0.5">New admin key (copy once)</p>
+                              <p className="font-mono text-accent break-all">{newAdminKey}</p>
+                            </div>
+                            <button
+                              onClick={() => setNewAdminKey(null)}
+                              className="text-[10px] text-gray-400 hover:text-white"
+                            >
+                              Dismiss
+                            </button>
                           </div>
                         )}
+
+                        {adminProfile?.role === 'superadmin' ? (
+                          <div className="grid md:grid-cols-4 gap-2 items-end">
+                            <div className="md:col-span-1">
+                              <label className="block text-[10px] text-gray-400 mb-0.5">Name</label>
+                              <input
+                                value={newAdminName}
+                                onChange={(e) => setNewAdminName(e.target.value)}
+                                className="w-full text-xs rounded px-2 py-1.5 border"
+                                placeholder="Admin name"
+                              />
+                            </div>
+                            <div className="md:col-span-2">
+                              <label className="block text-[10px] text-gray-400 mb-0.5">Email</label>
+                              <input
+                                value={newAdminEmail}
+                                onChange={(e) => setNewAdminEmail(e.target.value)}
+                                className="w-full text-xs rounded px-2 py-1.5 border"
+                                placeholder="admin@email.com"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-gray-400 mb-0.5">Role</label>
+                              <select
+                                value={newAdminRole}
+                                onChange={(e) => setNewAdminRole(e.target.value as 'admin' | 'moderator')}
+                                className="w-full text-xs rounded px-2 py-1.5 border"
+                              >
+                                <option value="admin">Admin</option>
+                                <option value="moderator">Moderator</option>
+                              </select>
+                            </div>
+                            <div className="md:col-span-4">
+                              <button
+                                onClick={handleCreateAdmin}
+                                className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded"
+                              >
+                                Create Admin
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-gray-500">Only Super Admin can create new admin accounts.</p>
+                        )}
+
+                        <div className="max-h-40 overflow-y-auto pr-1 text-[10px]">
+                          {adminUsersLoading ? (
+                            <p className="text-gray-500">Loading admins...</p>
+                          ) : adminUsers.length === 0 ? (
+                            <p className="text-gray-500">No admins found</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {adminUsers.map(admin => {
+                                const cannotDelete = admin.isRoot || (admin.role === 'superadmin' && adminProfile?.role !== 'superadmin');
+                                return (
+                                  <div key={admin.id} className="flex items-center justify-between p-2 rounded bg-white/5">
+                                    <div className="min-w-0">
+                                      <p className="font-semibold truncate">{admin.name} ({admin.roleLabel})</p>
+                                      <p className="text-gray-400 truncate">{admin.email} · •••• {admin.keyLast4}</p>
+                                      {admin.createdByName && (
+                                        <p className="text-[9px] text-gray-500 truncate">Created by {admin.createdByName}</p>
+                                      )}
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        if (cannotDelete) return;
+                                        if (!confirm(`Delete ${admin.name}?`)) return;
+                                        handleDeleteAdmin(admin.id);
+                                      }}
+                                      disabled={cannotDelete}
+                                      className="text-[10px] text-danger hover:underline disabled:opacity-40"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
+
+                    {/* Activity Logs */}
+                    {showAuditLogs && (
+                      <div className="glass-card p-3 space-y-2 lg:col-span-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold">Activity Logs</p>
+                          <input
+                            value={auditLogQuery}
+                            onChange={(e) => setAuditLogQuery(e.target.value)}
+                            placeholder="Search logs"
+                            className="w-36 text-[10px] rounded px-2 py-1 border"
+                          />
+                        </div>
+                        <div className="max-h-40 overflow-y-auto pr-1 text-[10px]">
+                          {auditLogsLoading ? (
+                            <p className="text-gray-500">Loading logs...</p>
+                          ) : filteredAuditLogs.length === 0 ? (
+                            <p className="text-gray-500">No recent activity</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {filteredAuditLogs.slice(0, 15).map(log => {
+                                const actorLabel = log.actorName || log.actorRole || 'Admin';
+                                const targetLabel = log.userName || log.userEmail || log.targetId || '—';
+                                const actionLabel = (log.actionType || 'action').split('_').join(' ');
+                                const amountLabel = Number(log.amount || 0) > 0 ? ` · ${Number(log.amount || 0).toLocaleString()}` : '';
+                                return (
+                                  <div key={log.id} className="flex items-center justify-between p-2 rounded bg-white/5">
+                                    <div className="min-w-0">
+                                      <p className="font-semibold truncate">
+                                        {actorLabel} {log.actorRole ? `(${log.actorRole})` : ''}
+                                      </p>
+                                      <p className="text-gray-400 truncate">
+                                        {actionLabel} · {log.action?.toUpperCase()}{amountLabel} · {targetLabel}
+                                      </p>
+                                      {log.reason && (
+                                        <p className="text-[9px] text-gray-500 truncate">Reason: {log.reason}</p>
+                                      )}
+                                    </div>
+                                    <div className="text-[9px] text-gray-500 text-right flex-shrink-0">
+                                      <div>{new Date(log.createdAt).toLocaleDateString()}</div>
+                                      <div>{new Date(log.createdAt).toLocaleTimeString()}</div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                   </div>
                 </div>
@@ -2366,90 +2589,160 @@ export default function AdminPage() {
                     : 'Select a user to apply action'}
                 </div>
 
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setAccountActionType('balance')}
+                    disabled={!canBalanceAction}
+                    className={`px-2.5 py-1 rounded text-[10px] font-semibold ${
+                      accountActionType === 'balance'
+                        ? 'bg-accent/20 text-accent'
+                        : 'bg-white/5 text-gray-400 hover:text-white'
+                    } ${!canBalanceAction ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  >
+                    Balance
+                  </button>
+                  <button
+                    onClick={() => setAccountActionType('ban')}
+                    disabled={!canBanAction}
+                    className={`px-2.5 py-1 rounded text-[10px] font-semibold ${
+                      accountActionType === 'ban'
+                        ? 'bg-danger/20 text-danger'
+                        : 'bg-white/5 text-gray-400 hover:text-white'
+                    } ${!canBanAction ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  >
+                    Ban User
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
+                  <div className="col-span-2">
                     <label className="block text-[10px] text-gray-400 mb-0.5">User</label>
                     <select
                       value={balanceUserId} onChange={e => setBalanceUserId(e.target.value)}
                       disabled={selectedUserIds.length > 0}
-                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 disabled:opacity-50"
+                      className="w-full text-xs rounded px-2 py-1.5 border disabled:opacity-50"
                     >
                       <option value="">Select user</option>
                       {filteredUsers.map(u => (
-                          <option key={u.id} value={u.id}>
-                            {u.name || u.email} {u.uid ? `(${u.uid})` : ''}
-                          </option>
-                        ))}
+                        <option key={u.id} value={u.id}>
+                          {u.name || u.email} {u.uid ? `(${u.uid})` : ''}
+                        </option>
+                      ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Action</label>
-                    <select
-                      value={balanceAction} onChange={e => setBalanceAction(e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                    >
-                      <option value="increase">+ Increase</option>
-                      <option value="decrease">- Decrease</option>
-                    </select>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Amount (USDT)</label>
-                    <input
-                      type="number" min="0" value={balanceAmount}
-                      onChange={e => setBalanceAmount(e.target.value)}
-                      placeholder="0.00"
-                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                    />
-                  </div>
-                </div>
 
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-0.5">Reason (required)</label>
-                  <textarea
-                    value={balanceReason}
-                    onChange={e => setBalanceReason(e.target.value)}
-                    placeholder="Audit reason for this change"
-                    className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 min-h-[70px]"
-                  />
-                </div>
-
-                <div className="text-[10px] text-gray-400 space-y-1">
-                  <div className="font-semibold text-gray-300">Preview</div>
-                  {!previewTargets.length && (
-                    <div>Select user(s) and enter amount to preview.</div>
+                  {accountActionType === 'balance' && (
+                    <>
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-0.5">Action</label>
+                        <select
+                          value={balanceAction} onChange={e => setBalanceAction(e.target.value)}
+                          className="w-full text-xs rounded px-2 py-1.5 border"
+                        >
+                          <option value="increase">+ Increase</option>
+                          <option value="decrease">- Decrease</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-0.5">Amount (USDT)</label>
+                        <input
+                          type="number" min="0" value={balanceAmount}
+                          onChange={e => setBalanceAmount(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full text-xs rounded px-2 py-1.5 border"
+                        />
+                      </div>
+                    </>
                   )}
-                  {previewRows.map(row => (
-                    <div key={row.id} className="flex items-center justify-between gap-2">
-                      <span className="truncate">{row.name}</span>
-                      <span className="font-mono">
-                        {row.oldBalance.toLocaleString()} → {row.newBalance.toLocaleString()}
-                      </span>
+                </div>
+
+                {accountActionType === 'balance' ? (
+                  <>
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-0.5">Reason (required)</label>
+                      <textarea
+                        value={balanceReason}
+                        onChange={e => setBalanceReason(e.target.value)}
+                        placeholder="Audit reason for this change"
+                        className="w-full text-xs rounded px-2 py-1.5 border min-h-[70px]"
+                      />
                     </div>
-                  ))}
-                  {previewMoreCount > 0 && (
-                    <div className="text-[10px] text-gray-500">+ {previewMoreCount} more</div>
-                  )}
-                </div>
+
+                    <div className="text-[10px] text-gray-400 space-y-1">
+                      <div className="font-semibold text-gray-300">Preview</div>
+                      {!previewTargets.length && (
+                        <div>Select user(s) and enter amount to preview.</div>
+                      )}
+                      {previewRows.map(row => (
+                        <div key={row.id} className="flex items-center justify-between gap-2">
+                          <span className="truncate">{row.name}</span>
+                          <span className="font-mono">
+                            {row.oldBalance.toLocaleString()} → {row.newBalance.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                      {previewMoreCount > 0 && (
+                        <div className="text-[10px] text-gray-500">+ {previewMoreCount} more</div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="rounded border border-danger/30 bg-danger/10 p-2 text-[10px] text-danger">
+                      Banned users will be unable to log in. This action is recorded in the audit log.
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-0.5">Ban reason (required)</label>
+                      <textarea
+                        value={banReason}
+                        onChange={e => setBanReason(e.target.value)}
+                        placeholder="Reason for banning this user"
+                        className="w-full text-xs rounded px-2 py-1.5 border min-h-[70px]"
+                      />
+                    </div>
+                    {previewTargets.length > 0 && (
+                      <div className="text-[10px] text-gray-400 space-y-1">
+                        <div className="font-semibold text-gray-300">Targets</div>
+                        {previewTargets.slice(0, 3).map(u => (
+                          <div key={u.id} className="truncate">{u.name || u.email}</div>
+                        ))}
+                        {previewTargets.length > 3 && (
+                          <div className="text-[10px] text-gray-500">+ {previewTargets.length - 3} more</div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
 
                 <div className="flex items-center justify-end gap-2">
                   <button
-                    onClick={() => { setBalanceReason(''); setShowAccountActionModal(false); }}
+                    onClick={() => {
+                      setBalanceReason('');
+                      setBanReason('');
+                      setShowAccountActionModal(false);
+                    }}
                     className="px-3 py-1.5 rounded bg-white/5 text-gray-400 text-xs"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleAdjustBalance}
-                    disabled={
-                      (!selectedUserIds.length && !balanceUserId) ||
-                      !balanceAmount ||
-                      Number.isNaN(parsedBalanceAmount) ||
-                      parsedBalanceAmount <= 0 ||
-                      balanceReason.trim().length < 3
+                    onClick={accountActionType === 'balance' ? handleAdjustBalance : handleBanUsers}
+                    disabled={accountActionType === 'balance'
+                      ? (
+                        (!selectedUserIds.length && !balanceUserId) ||
+                        !balanceAmount ||
+                        Number.isNaN(parsedBalanceAmount) ||
+                        parsedBalanceAmount <= 0 ||
+                        balanceReason.trim().length < 3
+                      )
+                      : (
+                        (!selectedUserIds.length && !balanceUserId) ||
+                        banReason.trim().length < 3
+                      )
                     }
                     className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded disabled:opacity-40"
                   >
-                    Apply
+                    {accountActionType === 'balance' ? 'Apply' : 'Ban'}
                   </button>
                 </div>
               </div>
