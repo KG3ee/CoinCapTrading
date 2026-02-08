@@ -35,7 +35,17 @@ interface RecentTrade {
   createdAt: string;
 }
 interface UserItem { id: string; name: string; }
-interface UserBalance { id: string; name: string; email: string; uid: string; balance: number; }
+interface UserBalance {
+  id: string;
+  name: string;
+  email: string;
+  uid: string;
+  balance: number;
+  accountStatus: 'active' | 'inactive' | 'banned';
+  isVerified: boolean;
+  isTwoFactorEnabled: boolean;
+  kycStatus: 'none' | 'pending' | 'approved' | 'rejected';
+}
 interface ChatConversation {
   userId: string;
   userName: string;
@@ -124,6 +134,12 @@ export default function AdminPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const [userSearch, setUserSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'banned'>('all');
+  const [filterVerified, setFilterVerified] = useState<'all' | 'verified' | 'unverified'>('all');
+  const [filterTwoFactor, setFilterTwoFactor] = useState<'all' | 'enabled' | 'disabled'>('all');
+  const [filterKyc, setFilterKyc] = useState<'all' | 'none' | 'pending' | 'approved' | 'rejected'>('all');
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [balanceReason, setBalanceReason] = useState('');
 
   const [createFullName, setCreateFullName] = useState('');
   const [createEmail, setCreateEmail] = useState('');
@@ -212,19 +228,48 @@ export default function AdminPage() {
     return () => clearInterval(interval);
   }, [isAuthenticated, headers]);
 
+  useEffect(() => {
+    setSelectedUserIds(prev => prev.filter(id => userBalances.some(u => u.id === id)));
+  }, [userBalances]);
+
   const unreadNotifCount = notifications.filter(
     n => !lastSeenNotifTime || new Date(n.timestamp) > new Date(lastSeenNotifTime)
   ).length;
 
   const normalizedUserSearch = userSearch.trim().toLowerCase();
-  const filteredUsers = normalizedUserSearch
-    ? userBalances.filter(u => (
-        (u.name || '').toLowerCase().includes(normalizedUserSearch) ||
-        (u.email || '').toLowerCase().includes(normalizedUserSearch) ||
-        (u.uid || '').toLowerCase().includes(normalizedUserSearch) ||
-        (u.id || '').toLowerCase().includes(normalizedUserSearch)
-      ))
-    : userBalances;
+  const filteredUsers = userBalances.filter(u => {
+    if (normalizedUserSearch) {
+      const haystack = `${u.name || ''} ${u.email || ''} ${u.uid || ''} ${u.id || ''}`.toLowerCase();
+      if (!haystack.includes(normalizedUserSearch)) {
+        return false;
+      }
+    }
+    if (filterStatus !== 'all' && u.accountStatus !== filterStatus) return false;
+    if (filterVerified !== 'all' && u.isVerified !== (filterVerified === 'verified')) return false;
+    if (filterTwoFactor !== 'all' && u.isTwoFactorEnabled !== (filterTwoFactor === 'enabled')) return false;
+    if (filterKyc !== 'all' && u.kycStatus !== filterKyc) return false;
+    return true;
+  });
+
+  const selectedUsers = userBalances.filter(u => selectedUserIds.includes(u.id));
+  const allFilteredSelected = filteredUsers.length > 0 && filteredUsers.every(u => selectedUserIds.includes(u.id));
+  const parsedBalanceAmount = Number(balanceAmount);
+  const previewTargets = selectedUserIds.length
+    ? selectedUsers
+    : balanceUserId
+      ? userBalances.filter(u => u.id === balanceUserId)
+      : [];
+  const previewRows = previewTargets.slice(0, 3).map(u => {
+    let newBalance = u.balance;
+    if (!Number.isNaN(parsedBalanceAmount) && parsedBalanceAmount > 0) {
+      if (balanceAction === 'increase') newBalance = u.balance + parsedBalanceAmount;
+      if (balanceAction === 'decrease') newBalance = Math.max(0, u.balance - parsedBalanceAmount);
+      if (balanceAction === 'set') newBalance = parsedBalanceAmount;
+    }
+    return { id: u.id, name: u.name || u.email, oldBalance: u.balance, newBalance };
+  });
+  const previewMoreCount = Math.max(0, previewTargets.length - previewRows.length);
+  const hasFilters = filterStatus !== 'all' || filterVerified !== 'all' || filterTwoFactor !== 'all' || filterKyc !== 'all';
 
   const handleMarkNotificationsRead = () => {
     if (notifications.length > 0) setLastSeenNotifTime(notifications[0].timestamp);
@@ -303,18 +348,60 @@ export default function AdminPage() {
     setCreatingUser(false);
   };
 
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      const filteredIds = new Set(filteredUsers.map(u => u.id));
+      setSelectedUserIds(prev => prev.filter(id => !filteredIds.has(id)));
+      return;
+    }
+    setSelectedUserIds(prev => {
+      const next = new Set(prev);
+      filteredUsers.forEach(u => next.add(u.id));
+      return Array.from(next);
+    });
+  };
+
+  const toggleSelectUser = (userId: string) => {
+    setSelectedUserIds(prev => (
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    ));
+  };
+
+  const clearFilters = () => {
+    setFilterStatus('all');
+    setFilterVerified('all');
+    setFilterTwoFactor('all');
+    setFilterKyc('all');
+  };
+
   const handleAdjustBalance = async () => {
-    if (!balanceUserId || !balanceAmount) return;
+    const targetIds = selectedUserIds.length > 0 ? selectedUserIds : (balanceUserId ? [balanceUserId] : []);
+    if (!targetIds.length || !balanceAmount || !balanceReason.trim()) return;
     setError(''); setSuccess('');
     try {
       const res = await fetch('/api/admin/balance', {
         method: 'PUT', headers: headers(),
-        body: JSON.stringify({ userId: balanceUserId, action: balanceAction, amount: Number(balanceAmount) }),
+        body: JSON.stringify({
+          userId: selectedUserIds.length ? undefined : balanceUserId,
+          userIds: selectedUserIds.length ? selectedUserIds : undefined,
+          action: balanceAction,
+          amount: Number(balanceAmount),
+          reason: balanceReason.trim(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed');
-      setSuccess(`Balance: ${data.oldBalance.toLocaleString()} \u2192 ${data.newBalance.toLocaleString()} USDT`);
+      if (data.updated && data.updated.length === 1) {
+        setSuccess(`Balance: ${data.updated[0].oldBalance.toLocaleString()} \u2192 ${data.updated[0].newBalance.toLocaleString()} USDT`);
+      } else {
+        setSuccess(data.message || `Balance updated for ${data.updated?.length || 0} users`);
+      }
       setBalanceAmount('');
+      setBalanceReason('');
+      if (selectedUserIds.length) {
+        setSelectedUserIds([]);
+      }
+      setBalanceUserId('');
       const balRes = await fetch('/api/admin/balance', { headers: headers() });
       if (balRes.ok) { const d = await balRes.json(); setUserBalances(d.users); }
       setTimeout(() => setSuccess(''), 3000);
@@ -995,144 +1082,325 @@ export default function AdminPage() {
               </div>
 
               {/* Accounts & Balances */}
-              <div className="glass-card p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold flex items-center gap-1.5">
-                    <Users size={14} className="text-accent" /> Accounts & Balances
-                  </h3>
-                  {userSearch && (
-                    <button
-                      onClick={() => setUserSearch('')}
-                      className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
-                    >
-                      <XIcon size={10} /> Clear
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <label className="block text-[10px] text-gray-400 mb-0.5">Search users</label>
-                  <input
-                    value={userSearch}
-                    onChange={e => setUserSearch(e.target.value)}
-                    placeholder="Search by name, email, or UID"
-                    className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                  />
-                  {userSearch && (
-                    <p className="text-[10px] text-gray-500">
-                      Matching users: {filteredUsers.length}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2 items-end">
-                  <div className="flex-1 min-w-[120px]">
-                    <label className="block text-[10px] text-gray-400 mb-0.5">User</label>
-                    <select
-                      value={balanceUserId} onChange={e => setBalanceUserId(e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                    >
-                      <option value="">Select user</option>
-                      {filteredUsers.map(u => (
-                          <option key={u.id} value={u.id}>
-                            {u.name || u.email} {u.uid ? `(${u.uid})` : ''}
-                          </option>
-                        ))}
-                    </select>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {/* Account Search */}
+                <div className="glass-card p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold flex items-center gap-1.5">
+                      <Users size={14} className="text-accent" /> Account Search
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      {hasFilters && (
+                        <button
+                          onClick={clearFilters}
+                          className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
+                        >
+                          <XIcon size={10} /> Clear Filters
+                        </button>
+                      )}
+                      {userSearch && (
+                        <button
+                          onClick={() => setUserSearch('')}
+                          className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
+                        >
+                          <XIcon size={10} /> Clear Search
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="w-[100px]">
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Action</label>
-                    <select
-                      value={balanceAction} onChange={e => setBalanceAction(e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                    >
-                      <option value="increase">+ Increase</option>
-                      <option value="decrease">- Decrease</option>
-                      <option value="set">= Set to</option>
-                    </select>
-                  </div>
-                  <div className="w-[120px]">
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Amount (USDT)</label>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Search users</label>
                     <input
-                      type="number" min="0" value={balanceAmount}
-                      onChange={e => setBalanceAmount(e.target.value)}
-                      placeholder="0.00"
+                      value={userSearch}
+                      onChange={e => setUserSearch(e.target.value)}
+                      placeholder="Search by name, email, or UID"
                       className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
                     />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-0.5">Status</label>
+                        <select
+                          value={filterStatus}
+                          onChange={e => setFilterStatus(e.target.value as any)}
+                          className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                        >
+                          <option value="all">All</option>
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                          <option value="banned">Banned</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-0.5">Verified</label>
+                        <select
+                          value={filterVerified}
+                          onChange={e => setFilterVerified(e.target.value as any)}
+                          className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                        >
+                          <option value="all">All</option>
+                          <option value="verified">Verified</option>
+                          <option value="unverified">Unverified</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-0.5">2FA</label>
+                        <select
+                          value={filterTwoFactor}
+                          onChange={e => setFilterTwoFactor(e.target.value as any)}
+                          className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                        >
+                          <option value="all">All</option>
+                          <option value="enabled">Enabled</option>
+                          <option value="disabled">Disabled</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-0.5">KYC</label>
+                        <select
+                          value={filterKyc}
+                          onChange={e => setFilterKyc(e.target.value as any)}
+                          className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                        >
+                          <option value="all">All</option>
+                          <option value="none">None</option>
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+                      </div>
+                    </div>
+                    {(userSearch || hasFilters) && (
+                      <p className="text-[10px] text-gray-500">
+                        Matching users: {filteredUsers.length}
+                      </p>
+                    )}
+                    {selectedUserIds.length > 0 && (
+                      <p className="text-[10px] text-gray-500">
+                        Selected: {selectedUserIds.length}
+                      </p>
+                    )}
                   </div>
+
+                  {userBalances.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px]">
+                        <thead>
+                          <tr className="text-gray-400 border-b border-gray-800">
+                            <th className="text-left py-1.5 pr-2">
+                              <input
+                                type="checkbox"
+                                aria-label="Select all filtered users"
+                                checked={allFilteredSelected}
+                                onChange={toggleSelectAll}
+                                className="h-3 w-3"
+                              />
+                            </th>
+                            <th className="text-left py-1.5 pr-2">User</th>
+                            <th className="text-left py-1.5 pr-2">Email</th>
+                            <th className="text-left py-1.5 pr-2">UID</th>
+                            <th className="text-left py-1.5 pr-2">Status</th>
+                            <th className="text-right py-1.5 pr-2">Balance</th>
+                            <th className="text-center py-1.5">Quick</th>
+                            <th className="text-center py-1.5">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredUsers.map(u => (
+                            <tr key={u.id} className="border-b border-gray-800/50 hover:bg-white/5">
+                              <td className="py-2 pr-2">
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Select ${u.name || u.email}`}
+                                  checked={selectedUserIds.includes(u.id)}
+                                  onChange={() => toggleSelectUser(u.id)}
+                                  className="h-3 w-3"
+                                />
+                              </td>
+                              <td className="py-2 pr-2 font-medium">{u.name || '\u2014'}</td>
+                              <td className="py-2 pr-2 text-gray-400">{u.email}</td>
+                              <td className="py-2 pr-2 text-gray-400 font-mono">{u.uid || '\u2014'}</td>
+                              <td className="py-2 pr-2">
+                                <div className="flex flex-wrap gap-1">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] ${
+                                    u.accountStatus === 'active' ? 'bg-green-500/20 text-green-400' :
+                                    u.accountStatus === 'inactive' ? 'bg-yellow-500/20 text-yellow-400' :
+                                    'bg-red-500/20 text-red-400'
+                                  }`}>
+                                    {u.accountStatus}
+                                  </span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] ${
+                                    u.isVerified ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-500/20 text-gray-300'
+                                  }`}>
+                                    {u.isVerified ? 'Verified' : 'Unverified'}
+                                  </span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] ${
+                                    u.isTwoFactorEnabled ? 'bg-purple-500/20 text-purple-300' : 'bg-gray-500/20 text-gray-300'
+                                  }`}>
+                                    {u.isTwoFactorEnabled ? '2FA' : 'No 2FA'}
+                                  </span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] ${
+                                    u.kycStatus === 'approved' ? 'bg-green-500/20 text-green-400' :
+                                    u.kycStatus === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                                    u.kycStatus === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                                    'bg-gray-500/20 text-gray-300'
+                                  }`}>
+                                    {u.kycStatus.toUpperCase()}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-2 pr-2 text-right font-mono text-accent">{u.balance.toLocaleString()}</td>
+                              <td className="py-2 text-center">
+                                <div className="flex gap-1 justify-center">
+                                  <button
+                                    onClick={() => { setSelectedUserIds([]); setBalanceUserId(u.id); setBalanceAction('increase'); setBalanceAmount('1000'); }}
+                                    className="p-1 rounded bg-green-900/40 text-green-400 hover:bg-green-900/70" title="+1000"
+                                  >
+                                    <Plus size={12} />
+                                  </button>
+                                  <button
+                                    onClick={() => { setSelectedUserIds([]); setBalanceUserId(u.id); setBalanceAction('decrease'); setBalanceAmount('1000'); }}
+                                    className="p-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/70" title="-1000"
+                                  >
+                                    <Minus size={12} />
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="py-2 text-center">
+                                {deleteConfirmUserId === u.id ? (
+                                  <div className="flex items-center gap-1 justify-center">
+                                    <button
+                                      onClick={() => handleDeleteUser(u.id)}
+                                      className="px-2 py-0.5 rounded bg-danger text-white text-[10px] font-bold hover:bg-red-500"
+                                    >
+                                      Confirm
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteConfirmUserId(null)}
+                                      className="px-2 py-0.5 rounded bg-white/10 text-gray-400 text-[10px]"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setDeleteConfirmUserId(u.id)}
+                                    className="p-1 rounded bg-red-900/30 text-red-400 hover:bg-red-900/60" title="Delete"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Balance Actions */}
+                <div className="glass-card p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold flex items-center gap-1.5">
+                      <Plus size={14} className="text-accent" /> Balance Actions
+                    </h3>
+                    {selectedUserIds.length > 0 && (
+                      <button
+                        onClick={() => setSelectedUserIds([])}
+                        className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
+                      >
+                        <XIcon size={10} /> Clear Selection
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="text-[10px] text-gray-500">
+                    {selectedUserIds.length > 0
+                      ? `Applying to ${selectedUserIds.length} selected users`
+                      : 'Applying to a single user'}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 items-end">
+                    <div className="flex-1 min-w-[120px]">
+                      <label className="block text-[10px] text-gray-400 mb-0.5">User</label>
+                      <select
+                        value={balanceUserId} onChange={e => setBalanceUserId(e.target.value)}
+                        disabled={selectedUserIds.length > 0}
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 disabled:opacity-50"
+                      >
+                        <option value="">Select user</option>
+                        {filteredUsers.map(u => (
+                            <option key={u.id} value={u.id}>
+                              {u.name || u.email} {u.uid ? `(${u.uid})` : ''}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div className="w-[100px]">
+                      <label className="block text-[10px] text-gray-400 mb-0.5">Action</label>
+                      <select
+                        value={balanceAction} onChange={e => setBalanceAction(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                      >
+                        <option value="increase">+ Increase</option>
+                        <option value="decrease">- Decrease</option>
+                        <option value="set">= Set to</option>
+                      </select>
+                    </div>
+                    <div className="w-[120px]">
+                      <label className="block text-[10px] text-gray-400 mb-0.5">Amount (USDT)</label>
+                      <input
+                        type="number" min="0" value={balanceAmount}
+                        onChange={e => setBalanceAmount(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Reason (required)</label>
+                    <textarea
+                      value={balanceReason}
+                      onChange={e => setBalanceReason(e.target.value)}
+                      placeholder="Audit reason for this change"
+                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 min-h-[60px]"
+                    />
+                  </div>
+
+                  <div className="text-[10px] text-gray-400 space-y-1">
+                    <div className="font-semibold text-gray-300">Preview</div>
+                    {!previewTargets.length && (
+                      <div>Select user(s) and enter amount to preview.</div>
+                    )}
+                    {previewRows.map(row => (
+                      <div key={row.id} className="flex items-center justify-between gap-2">
+                        <span className="truncate">{row.name}</span>
+                        <span className="font-mono">
+                          {row.oldBalance.toLocaleString()} → {row.newBalance.toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                    {previewMoreCount > 0 && (
+                      <div className="text-[10px] text-gray-500">+ {previewMoreCount} more</div>
+                    )}
+                  </div>
+
                   <button
                     onClick={handleAdjustBalance}
-                    disabled={!balanceUserId || !balanceAmount}
+                    disabled={
+                      (!selectedUserIds.length && !balanceUserId) ||
+                      !balanceAmount ||
+                      Number.isNaN(parsedBalanceAmount) ||
+                      parsedBalanceAmount <= 0 ||
+                      balanceReason.trim().length < 3
+                    }
                     className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded disabled:opacity-40"
                   >
                     Apply
                   </button>
                 </div>
-                {userBalances.length > 0 && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-[11px]">
-                      <thead>
-                        <tr className="text-gray-400 border-b border-gray-800">
-                          <th className="text-left py-1.5 pr-2">User</th>
-                          <th className="text-left py-1.5 pr-2">Email</th>
-                          <th className="text-left py-1.5 pr-2">UID</th>
-                          <th className="text-right py-1.5 pr-2">Balance</th>
-                          <th className="text-center py-1.5">Quick</th>
-                          <th className="text-center py-1.5">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredUsers.map(u => (
-                          <tr key={u.id} className="border-b border-gray-800/50 hover:bg-white/5">
-                            <td className="py-2 pr-2 font-medium">{u.name || '\u2014'}</td>
-                            <td className="py-2 pr-2 text-gray-400">{u.email}</td>
-                            <td className="py-2 pr-2 text-gray-400 font-mono">{u.uid || '\u2014'}</td>
-                            <td className="py-2 pr-2 text-right font-mono text-accent">{u.balance.toLocaleString()}</td>
-                            <td className="py-2 text-center">
-                              <div className="flex gap-1 justify-center">
-                                <button
-                                  onClick={() => { setBalanceUserId(u.id); setBalanceAction('increase'); setBalanceAmount('1000'); }}
-                                  className="p-1 rounded bg-green-900/40 text-green-400 hover:bg-green-900/70" title="+1000"
-                                >
-                                  <Plus size={12} />
-                                </button>
-                                <button
-                                  onClick={() => { setBalanceUserId(u.id); setBalanceAction('decrease'); setBalanceAmount('1000'); }}
-                                  className="p-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/70" title="-1000"
-                                >
-                                  <Minus size={12} />
-                                </button>
-                              </div>
-                            </td>
-                            <td className="py-2 text-center">
-                              {deleteConfirmUserId === u.id ? (
-                                <div className="flex items-center gap-1 justify-center">
-                                  <button
-                                    onClick={() => handleDeleteUser(u.id)}
-                                    className="px-2 py-0.5 rounded bg-danger text-white text-[10px] font-bold hover:bg-red-500"
-                                  >
-                                    Confirm
-                                  </button>
-                                  <button
-                                    onClick={() => setDeleteConfirmUserId(null)}
-                                    className="px-2 py-0.5 rounded bg-white/10 text-gray-400 text-[10px]"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => setDeleteConfirmUserId(u.id)}
-                                  className="p-1 rounded bg-red-900/30 text-red-400 hover:bg-red-900/60" title="Delete"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
               </div>
 
               {/* Password Reset */}

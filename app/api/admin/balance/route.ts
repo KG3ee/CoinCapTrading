@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB();
 
-    const users = await User.find({}, 'fullName email uid').sort({ fullName: 1 });
+    const users = await User.find({}, 'fullName email uid accountStatus isVerified isTwoFactorEnabled kycStatus').sort({ fullName: 1 });
 
     const usersWithBalance = await Promise.all(
       users.map(async (user: any) => {
@@ -35,6 +35,10 @@ export async function GET(request: NextRequest) {
           name: user.fullName || user.email,
           email: user.email,
           uid: user.uid,
+          accountStatus: user.accountStatus,
+          isVerified: !!user.isVerified,
+          isTwoFactorEnabled: !!user.isTwoFactorEnabled,
+          kycStatus: user.kycStatus || 'none',
           balance: portfolio?.accountBalance ?? config.app.defaultBalance,
         };
       })
@@ -57,10 +61,16 @@ export async function PUT(request: NextRequest) {
     await connectDB();
 
     const body = await request.json();
-    const { userId, action, amount } = body;
+    const { userId, userIds, action, amount, reason } = body;
 
-    if (!userId || !action || !amount) {
-      return NextResponse.json({ error: 'userId, action, and amount are required' }, { status: 400 });
+    const targetIds: string[] = Array.isArray(userIds) && userIds.length > 0
+      ? userIds
+      : userId
+        ? [userId]
+        : [];
+
+    if (!targetIds.length || !action || !amount) {
+      return NextResponse.json({ error: 'userId(s), action, and amount are required' }, { status: 400 });
     }
 
     const parsedAmount = Math.abs(Number(amount));
@@ -72,45 +82,68 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Action must be increase, decrease, or set' }, { status: 400 });
     }
 
-    // Verify user exists
-    const user = await User.findById(userId, 'fullName email');
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!reason || typeof reason !== 'string' || reason.trim().length < 3) {
+      return NextResponse.json({ error: 'Reason is required' }, { status: 400 });
     }
 
-    let portfolio = await Portfolio.findOne({ userId });
-    if (!portfolio) {
-      portfolio = new Portfolio({
-        userId,
-        accountBalance: config.app.defaultBalance,
-        totalInvested: 0,
-        totalReturns: 0,
-        holdings: [],
-      });
+    const updated: Array<{ userId: string; name: string; oldBalance: number; newBalance: number }> = [];
+    const failed: Array<{ userId: string; error: string }> = [];
+
+    for (const id of targetIds) {
+      try {
+        const user = await User.findById(id, 'fullName email');
+        if (!user) {
+          failed.push({ userId: id, error: 'User not found' });
+          continue;
+        }
+
+        let portfolio = await Portfolio.findOne({ userId: id });
+        if (!portfolio) {
+          portfolio = new Portfolio({
+            userId: id,
+            accountBalance: config.app.defaultBalance,
+            totalInvested: 0,
+            totalReturns: 0,
+            holdings: [],
+          });
+        }
+
+        const oldBalance = portfolio.accountBalance;
+
+        if (action === 'increase') {
+          portfolio.accountBalance += parsedAmount;
+        } else if (action === 'decrease') {
+          portfolio.accountBalance = Math.max(0, portfolio.accountBalance - parsedAmount);
+        } else if (action === 'set') {
+          portfolio.accountBalance = parsedAmount;
+        }
+
+        await portfolio.save();
+
+        log.info(
+          { userId: id, action, amount: parsedAmount, oldBalance, newBalance: portfolio.accountBalance, reason: reason.trim() },
+          'Admin adjusted user balance'
+        );
+
+        updated.push({
+          userId: id,
+          name: user.fullName || user.email,
+          oldBalance,
+          newBalance: portfolio.accountBalance,
+        });
+      } catch (err: any) {
+        failed.push({ userId: id, error: err?.message || 'Failed to update' });
+      }
     }
 
-    const oldBalance = portfolio.accountBalance;
-
-    if (action === 'increase') {
-      portfolio.accountBalance += parsedAmount;
-    } else if (action === 'decrease') {
-      portfolio.accountBalance = Math.max(0, portfolio.accountBalance - parsedAmount);
-    } else if (action === 'set') {
-      portfolio.accountBalance = parsedAmount;
+    if (!updated.length) {
+      return NextResponse.json({ error: failed[0]?.error || 'No balances updated', failed }, { status: 400 });
     }
-
-    await portfolio.save();
-
-    log.info(
-      { userId, action, amount: parsedAmount, oldBalance, newBalance: portfolio.accountBalance },
-      'Admin adjusted user balance'
-    );
 
     return NextResponse.json({
-      message: 'Balance updated',
-      user: { id: userId, name: user.fullName || user.email },
-      oldBalance,
-      newBalance: portfolio.accountBalance,
+      message: updated.length > 1 ? `Balance updated for ${updated.length} users` : 'Balance updated',
+      updated,
+      failed,
     });
   } catch (error: any) {
     log.error({ error }, 'Failed to adjust balance');
