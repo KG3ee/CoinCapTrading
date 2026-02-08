@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Shield, RefreshCw, Users, TrendingUp, Clock, AlertCircle, DollarSign,
+  Shield, RefreshCw, Users, TrendingUp, Clock, AlertCircle,
   Plus, Minus, KeyRound, MessageCircle, Send, Paperclip, X as XIcon,
   Trash2, LogOut, Home, Bell, Settings, BarChart3, ChevronRight,
   BadgeCheck, Eye, XCircle, CheckCircle2,
@@ -89,7 +89,7 @@ type AdminTab = 'overview' | 'trades' | 'users' | 'chat' | 'kyc' | 'settings';
 const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield }[] = [
   { key: 'overview', label: 'Overview', icon: BarChart3 },
   { key: 'trades', label: 'Trade Control', icon: TrendingUp },
-  { key: 'users', label: 'User Management', icon: Users },
+  { key: 'users', label: 'Accounts', icon: Users },
   { key: 'kyc', label: 'KYC Verification', icon: BadgeCheck },
   { key: 'chat', label: 'Customer Chat', icon: MessageCircle },
   { key: 'settings', label: 'Settings', icon: Settings },
@@ -936,34 +936,6 @@ export default function AdminPage() {
           {/* ── TAB: USER MANAGEMENT ──────────────────── */}
           {activeTab === 'users' && (
             <>
-              {/* User Search */}
-              <div className="glass-card p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold flex items-center gap-1.5">
-                    <Users size={14} className="text-accent" /> Search Users
-                  </h3>
-                  {userSearch && (
-                    <button
-                      onClick={() => setUserSearch('')}
-                      className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
-                    >
-                      <XIcon size={10} /> Clear
-                    </button>
-                  )}
-                </div>
-                <input
-                  value={userSearch}
-                  onChange={e => setUserSearch(e.target.value)}
-                  placeholder="Search by name, email, or UID"
-                  className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                />
-                {userSearch && (
-                  <p className="text-[10px] text-gray-500">
-                    Matching users: {filteredUsers.length}
-                  </p>
-                )}
-              </div>
-
               {/* Create User */}
               <div className="glass-card p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -1022,11 +994,35 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Balance Management */}
+              {/* Accounts & Balances */}
               <div className="glass-card p-4 space-y-3">
-                <h3 className="text-sm font-bold flex items-center gap-1.5">
-                  <DollarSign size={14} className="text-accent" /> Balance Management
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold flex items-center gap-1.5">
+                    <Users size={14} className="text-accent" /> Accounts & Balances
+                  </h3>
+                  {userSearch && (
+                    <button
+                      onClick={() => setUserSearch('')}
+                      className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
+                    >
+                      <XIcon size={10} /> Clear
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-[10px] text-gray-400 mb-0.5">Search users</label>
+                  <input
+                    value={userSearch}
+                    onChange={e => setUserSearch(e.target.value)}
+                    placeholder="Search by name, email, or UID"
+                    className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                  />
+                  {userSearch && (
+                    <p className="text-[10px] text-gray-500">
+                      Matching users: {filteredUsers.length}
+                    </p>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2 items-end">
                   <div className="flex-1 min-w-[120px]">
                     <label className="block text-[10px] text-gray-400 mb-0.5">User</label>
