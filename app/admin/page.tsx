@@ -123,6 +123,12 @@ export default function AdminPage() {
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  const [createFullName, setCreateFullName] = useState('');
+  const [createEmail, setCreateEmail] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
+
   const [deleteConfirmUserId, setDeleteConfirmUserId] = useState<string | null>(null);
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -261,6 +267,28 @@ export default function AdminPage() {
       const data = await res.json();
       setSettings(data.settings);
     } catch (err: any) { setError(err.message); }
+  };
+
+  const handleCreateUser = async () => {
+    if (!createFullName.trim() || !createEmail.trim() || createPassword.length < 6) return;
+    setError(''); setSuccess(''); setCreatingUser(true);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({
+          fullName: createFullName.trim(),
+          email: createEmail.trim(),
+          password: createPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      setSuccess(`User created: ${data.user?.email || createEmail.trim()}`);
+      setCreateFullName(''); setCreateEmail(''); setCreatePassword(''); setShowCreatePassword(false);
+      fetchData();
+      setTimeout(() => setSuccess(''), 4000);
+    } catch (err: any) { setError(err.message); }
+    setCreatingUser(false);
   };
 
   const handleAdjustBalance = async () => {
@@ -896,6 +924,64 @@ export default function AdminPage() {
           {/* ── TAB: USER MANAGEMENT ──────────────────── */}
           {activeTab === 'users' && (
             <>
+              {/* Create User */}
+              <div className="glass-card p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold flex items-center gap-1.5">
+                    <Users size={14} className="text-accent" /> Create User
+                  </h3>
+                  <span className="text-[10px] text-gray-500">Auto-verified</span>
+                </div>
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div className="flex-1 min-w-[140px]">
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Full Name</label>
+                    <input
+                      type="text"
+                      value={createFullName}
+                      onChange={e => setCreateFullName(e.target.value)}
+                      placeholder="Jane Doe"
+                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[160px]">
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Email</label>
+                    <input
+                      type="email"
+                      value={createEmail}
+                      onChange={e => setCreateEmail(e.target.value)}
+                      placeholder="jane@example.com"
+                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[140px]">
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Password</label>
+                    <div className="relative">
+                      <input
+                        type={showCreatePassword ? 'text' : 'password'}
+                        value={createPassword}
+                        onChange={e => setCreatePassword(e.target.value)}
+                        placeholder="Min 6 chars"
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 pr-14"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCreatePassword(!showCreatePassword)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400 hover:text-white"
+                      >
+                        {showCreatePassword ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCreateUser}
+                    disabled={creatingUser || !createFullName.trim() || !createEmail.trim() || createPassword.length < 6}
+                    className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded disabled:opacity-40"
+                  >
+                    {creatingUser ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+              </div>
+
               {/* Balance Management */}
               <div className="glass-card p-4 space-y-3">
                 <h3 className="text-sm font-bold flex items-center gap-1.5">

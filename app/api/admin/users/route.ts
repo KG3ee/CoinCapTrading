@@ -4,6 +4,7 @@ import Portfolio from '@/lib/models/Portfolio';
 import Trade from '@/lib/models/Trade';
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
+import { registerSchema } from '@/lib/validation/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,77 @@ function isAuthorized(request: NextRequest): boolean {
   const expected = process.env.ADMIN_SECRET_KEY;
   if (!expected) return false;
   return adminKey === expected;
+}
+
+// POST /api/admin/users — create a new user
+export async function POST(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    await connectDB();
+
+    const body = await request.json();
+    const emailCandidate =
+      typeof body?.email === 'string' ? body.email.trim().toLowerCase() : body?.email;
+
+    const validationResult = registerSchema.safeParse({
+      fullName: body?.fullName,
+      email: emailCandidate,
+      password: body?.password,
+      passwordConfirm: body?.password,
+    });
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: validationResult.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+
+    const { fullName, email, password } = validationResult.data;
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return NextResponse.json({ error: 'Email already registered' }, { status: 400 });
+    }
+
+    const user = await User.create({
+      fullName,
+      email,
+      password,
+      isVerified: body?.isVerified === false ? false : true,
+      verificationToken: null,
+      verificationTokenExpires: null,
+    });
+
+    log.info({ userId: user._id, email: user.email, isVerified: user.isVerified }, 'Admin created user');
+
+    return NextResponse.json(
+      {
+        message: 'User created successfully',
+        user: {
+          id: user._id,
+          fullName: user.fullName,
+          email: user.email,
+          uid: user.uid,
+          isVerified: user.isVerified,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    if (error?.code === 11000) {
+      return NextResponse.json(
+        { error: 'Email, user ID, or referral code already exists' },
+        { status: 409 }
+      );
+    }
+
+    log.error({ error }, 'Failed to create user');
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
 
 // DELETE /api/admin/users?userId=xxx — delete a user and all their data
