@@ -266,13 +266,6 @@ export default function AdminPage() {
   }, [isAuthenticated, headers]);
 
   useEffect(() => {
-    if (activeTab === 'settings') {
-      fetchAdminSettings();
-      fetchAuditLogs('all');
-    }
-  }, [activeTab, fetchAdminSettings, fetchAuditLogs]);
-
-  useEffect(() => {
     setSelectedUserIds(prev => prev.filter(id => userBalances.some(u => u.id === id)));
   }, [userBalances]);
 
@@ -487,6 +480,13 @@ export default function AdminPage() {
       setError(err.message);
     }
   };
+
+  useEffect(() => {
+    if (activeTab === 'settings') {
+      fetchAdminSettings();
+      fetchAuditLogs('all');
+    }
+  }, [activeTab, fetchAdminSettings, fetchAuditLogs]);
 
   const toggleSelectAll = () => {
     if (allFilteredSelected) {
