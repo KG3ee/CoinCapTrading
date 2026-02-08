@@ -75,6 +75,9 @@ export async function PUT(request: NextRequest) {
   if (!hasPermission(context.permissions, 'manage_financials')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+  if (context.admin.role === 'moderator') {
+    return NextResponse.json({ error: 'Moderators have view-only user access' }, { status: 403 });
+  }
 
   try {
     await connectDB();

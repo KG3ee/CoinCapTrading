@@ -113,23 +113,23 @@ html {
   border-color: var(--admin-input-border) !important;
 }
 
-.admin-theme .border-gray-800\/50 {
+.admin-theme [class~='border-gray-800/50'] {
   border-color: var(--admin-border) !important;
 }
 
-.admin-theme .border-white\/10 {
+.admin-theme [class~='border-white/10'] {
   border-color: var(--admin-border) !important;
 }
 
-.admin-theme .border-white\/20 {
+.admin-theme [class~='border-white/20'] {
   border-color: var(--admin-border) !important;
 }
 
-.admin-theme .bg-white\/5 {
+.admin-theme [class~='bg-white/5'] {
   background-color: var(--admin-card) !important;
 }
 
-.admin-theme .bg-white\/10 {
+.admin-theme [class~='bg-white/10'] {
   background-color: var(--admin-card-strong) !important;
 }
 

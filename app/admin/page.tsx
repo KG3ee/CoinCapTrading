@@ -5,7 +5,7 @@ import {
   Shield, RefreshCw, Users, TrendingUp, Clock, AlertCircle,
   Plus, Minus, MessageCircle, Send, Paperclip, X as XIcon,
   Trash2, LogOut, Home, Bell, Settings, BarChart3, ChevronRight,
-  BadgeCheck, Eye, XCircle, CheckCircle2,
+  BadgeCheck, Eye, XCircle, CheckCircle2, Sun, Moon,
 } from 'lucide-react';
 
 interface TradeSettingsData {
@@ -169,7 +169,7 @@ type AdminTab = 'overview' | 'trades' | 'users' | 'chat' | 'kyc' | 'settings';
 const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield; permissions: AdminPermission[] }[] = [
   { key: 'overview', label: 'Overview', icon: BarChart3, permissions: ['view_dashboard'] },
   { key: 'trades', label: 'Trade Control', icon: TrendingUp, permissions: ['manage_trades'] },
-  { key: 'users', label: 'Accounts', icon: Users, permissions: ['manage_users'] },
+  { key: 'users', label: 'Accounts', icon: Users, permissions: ['manage_users', 'view_dashboard'] },
   { key: 'kyc', label: 'KYC Verification', icon: BadgeCheck, permissions: ['manage_kyc'] },
   { key: 'chat', label: 'Customer Chat', icon: MessageCircle, permissions: ['manage_support'] },
   { key: 'settings', label: 'Settings', icon: Settings, permissions: ['manage_settings', 'manage_admins', 'view_logs'] },
@@ -246,7 +246,8 @@ export default function AdminPage() {
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [lastSeenNotifTime, setLastSeenNotifTime] = useState<string>('');
+  const [notificationsUnread, setNotificationsUnread] = useState(0);
+  const [notificationsSeenAt, setNotificationsSeenAt] = useState('');
 
   const [chatConversations, setChatConversations] = useState<ChatConversation[]>([]);
   const [activeChatUser, setActiveChatUser] = useState<string | null>(null);
@@ -278,6 +279,13 @@ export default function AdminPage() {
   const visibleNavItems = adminPermissions.length > 0
     ? NAV_ITEMS.filter(item => item.permissions.some(permission => can(permission)))
     : NAV_ITEMS;
+
+  const applyNotificationPayload = useCallback((payload: any) => {
+    const nextNotifications: Notification[] = payload?.notifications || [];
+    setNotifications(nextNotifications);
+    setNotificationsUnread(typeof payload?.unreadCount === 'number' ? payload.unreadCount : nextNotifications.length);
+    setNotificationsSeenAt(typeof payload?.lastSeenAt === 'string' ? payload.lastSeenAt : '');
+  }, []);
 
   // ── Data Fetching ──────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -331,7 +339,7 @@ export default function AdminPage() {
         tasks.push(
           fetch('/api/admin/notifications', { headers: headers() })
             .then(r => r.ok ? r.json() : null)
-            .then(d => { if (d?.notifications) setNotifications(d.notifications || []); })
+            .then(d => { if (d) applyNotificationPayload(d); })
         );
         tasks.push(
           fetch('/api/admin/presence', { headers: headers() })
@@ -359,7 +367,7 @@ export default function AdminPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [headers]);
+  }, [headers, applyNotificationPayload]);
 
   // Poll notifications every 15s
   useEffect(() => {
@@ -367,11 +375,11 @@ export default function AdminPage() {
     const interval = setInterval(async () => {
       try {
         const res = await fetch('/api/admin/notifications', { headers: headers() });
-        if (res.ok) { const d = await res.json(); setNotifications(d.notifications || []); }
+        if (res.ok) { const d = await res.json(); applyNotificationPayload(d); }
       } catch { /* silent */ }
     }, 15000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, headers, can]);
+  }, [isAuthenticated, headers, can, applyNotificationPayload]);
 
   useEffect(() => {
     setSelectedUserIds(prev => prev.filter(id => userBalances.some(u => u.id === id)));
@@ -384,9 +392,7 @@ export default function AdminPage() {
     }
   }, [adminPermissions.length, activeTab, visibleNavItems]);
 
-  const unreadNotifCount = notifications.filter(
-    n => !lastSeenNotifTime || new Date(n.timestamp) > new Date(lastSeenNotifTime)
-  ).length;
+  const unreadNotifCount = notificationsUnread;
 
   const normalizedUserSearch = userSearch.trim().toLowerCase();
   const filteredUsers = userBalances.filter(u => {
@@ -449,8 +455,11 @@ export default function AdminPage() {
   const showSettingsControls = can('manage_settings');
   const showAdminManagement = can('manage_admins');
   const showAuditLogs = can('view_logs');
-  const canBalanceAction = can('manage_financials');
-  const canBanAction = can('manage_users');
+  const isModerator = adminProfile?.role === 'moderator';
+  const canManageUsers = !isModerator && can('manage_users');
+  const canViewUsers = canManageUsers || isModerator || can('view_dashboard');
+  const canBalanceAction = !isModerator && can('manage_financials');
+  const canBanAction = canManageUsers;
   const canAccountAction = canBalanceAction || canBanAction;
 
   useEffect(() => {
@@ -462,9 +471,32 @@ export default function AdminPage() {
     }
   }, [accountActionType, canBalanceAction, canBanAction]);
 
-  const handleMarkNotificationsRead = () => {
-    if (notifications.length > 0) setLastSeenNotifTime(notifications[0].timestamp);
+  const handleMarkNotificationsRead = async () => {
+    const latestTimestamp = notifications[0]?.timestamp || new Date().toISOString();
+    setNotificationsUnread(0);
+    setNotificationsSeenAt(latestTimestamp);
     setShowNotifications(false);
+    try {
+      const markReadRes = await fetch('/api/admin/notifications', {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({ seenAt: latestTimestamp }),
+      });
+      if (markReadRes.ok) {
+        const payload = await markReadRes.json();
+        if (typeof payload?.lastSeenAt === 'string') {
+          setNotificationsSeenAt(payload.lastSeenAt);
+        }
+      }
+
+      const refreshRes = await fetch('/api/admin/notifications', { headers: headers() });
+      if (refreshRes.ok) {
+        const payload = await refreshRes.json();
+        applyNotificationPayload(payload);
+      }
+    } catch {
+      // Keep optimistic UI state even if this request fails.
+    }
   };
 
   const handleLogin = async () => {
@@ -1065,6 +1097,13 @@ export default function AdminPage() {
             </h2>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleThemeChange(adminTheme === 'dark' ? 'light' : 'dark')}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              title={adminTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {adminTheme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            </button>
             {/* Notification Bell */}
             <div className="relative">
               <button
@@ -1079,7 +1118,7 @@ export default function AdminPage() {
                 )}
               </button>
               {showNotifications && (
-                <div className="absolute right-0 top-full mt-1 w-80 max-h-96 overflow-y-auto bg-[var(--admin-panel)] border border-[var(--admin-border)] rounded-xl shadow-2xl z-50">
+                <div className="absolute right-0 top-full mt-1 w-80 max-h-96 overflow-y-auto bg-[var(--admin-bg)] border border-[var(--admin-border)] rounded-xl shadow-2xl z-50">
                   <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--admin-border)]">
                     <p className="text-xs font-semibold">Notifications</p>
                     <button onClick={handleMarkNotificationsRead} className="text-[10px] text-accent hover:underline">
@@ -1090,7 +1129,7 @@ export default function AdminPage() {
                     <p className="p-4 text-xs text-gray-500 text-center">No notifications</p>
                   ) : (
                     notifications.slice(0, 20).map(n => {
-                      const isUnread = !lastSeenNotifTime || new Date(n.timestamp) > new Date(lastSeenNotifTime);
+                      const isUnread = !notificationsSeenAt || new Date(n.timestamp) > new Date(notificationsSeenAt);
                       return (
                         <div key={n.id} className={`px-3 py-2.5 border-b border-white/5 ${isUnread ? 'bg-accent/5' : ''}`}>
                           <div className="flex items-start gap-2">
@@ -1152,41 +1191,41 @@ export default function AdminPage() {
         )}
 
         {/* Content Area */}
-        <main className="flex-1 overflow-hidden p-3">
-          <div className="h-full flex flex-col gap-3">
+        <main className="flex-1 overflow-hidden p-2.5 md:p-3">
+          <div className="h-full flex flex-col gap-2.5">
             {error && <div className="p-2.5 rounded-lg bg-danger/20 text-danger text-xs">{error}</div>}
             {success && <div className="p-2.5 rounded-lg bg-success/20 text-success text-xs">{success}</div>}
             <div className="flex-1 min-h-0 overflow-hidden">
 
           {/* ── TAB: OVERVIEW ─────────────────────────── */}
           {activeTab === 'overview' && (
-            <div className="h-full flex flex-col gap-3">
+            <div className="h-full flex flex-col gap-2">
               {stats && (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 flex-shrink-0">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 flex-shrink-0">
                   {[
                     { label: 'Total Trades', value: stats.totalTrades, color: 'text-white' },
                     { label: 'Pending', value: stats.pendingTrades, color: 'text-yellow-400' },
                     { label: 'Wins', value: stats.wins, color: 'text-green-400' },
                     { label: 'Losses', value: stats.losses, color: 'text-red-400' },
                   ].map(s => (
-                    <div key={s.label} className="glass-card p-2.5 text-center">
+                    <div key={s.label} className="glass-card p-2 text-center">
                       <p className="text-[10px] text-gray-400 mb-0.5">{s.label}</p>
-                      <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                      <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 flex-shrink-0">
-                <div className="glass-card p-2.5 text-center">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5 flex-shrink-0">
+                <div className="glass-card p-2 text-center">
                   <p className="text-[10px] text-gray-400 mb-0.5">Registered Users</p>
-                  <p className="text-xl font-bold text-accent">{userBalances.length}</p>
+                  <p className="text-lg font-bold text-accent">{userBalances.length}</p>
                 </div>
-                <div className="glass-card p-2.5 text-center">
+                <div className="glass-card p-2 text-center">
                   <p className="text-[10px] text-gray-400 mb-0.5">Open Chats</p>
-                  <p className="text-xl font-bold text-purple-400">{chatConversations.length}</p>
+                  <p className="text-lg font-bold text-purple-400">{chatConversations.length}</p>
                 </div>
-                <div className="glass-card p-2.5 text-center col-span-2 lg:col-span-1">
+                <div className="glass-card p-2 text-center col-span-2 lg:col-span-1">
                   <p className="text-[10px] text-gray-400 mb-0.5">Current Mode</p>
                   <p className="text-sm font-bold capitalize">
                     {settings?.globalMode?.replace('_', ' ') || '\u2014'}
@@ -1194,9 +1233,9 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="grid lg:grid-cols-3 gap-3 flex-1 min-h-0">
+              <div className="grid lg:grid-cols-3 gap-2 flex-1 min-h-0">
                 {/* Recent Registrations */}
-                <div className="glass-card p-3 flex flex-col min-h-0 h-[220px] md:h-[260px]">
+                <div className="glass-card p-2.5 flex flex-col min-h-0 h-[176px] md:h-[212px]">
                   <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
                     <Bell size={12} className="text-accent" /> Recent Registrations
                   </h3>
@@ -1218,7 +1257,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* Online Admins */}
-                <div className="glass-card p-3 flex flex-col min-h-0 h-[220px] md:h-[260px]">
+                <div className="glass-card p-2.5 flex flex-col min-h-0 h-[176px] md:h-[212px]">
                   <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
                     <Shield size={12} className="text-accent" /> Online Admins
                   </h3>
@@ -1251,7 +1290,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* Recent Trades */}
-                <div className="glass-card p-3 flex flex-col min-h-0 h-[220px] md:h-[260px]">
+                <div className="glass-card p-2.5 flex flex-col min-h-0 h-[176px] md:h-[212px]">
                   <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
                     <Clock size={12} className="text-accent" /> Recent Trades
                   </h3>
@@ -1272,7 +1311,7 @@ export default function AdminPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {recentTrades.slice(0, 12).map(t => (
+                            {recentTrades.slice(0, 8).map(t => (
                               <tr key={t.id} className="border-b border-white/5 hover:bg-white/5">
                                 <td className="py-1 px-2 truncate max-w-[100px]">{t.user}</td>
                                 <td className={`py-1 px-2 font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
@@ -1497,7 +1536,7 @@ export default function AdminPage() {
           )}
 
           {/* ── TAB: USER MANAGEMENT ──────────────────── */}
-          {activeTab === 'users' && (
+          {activeTab === 'users' && canViewUsers && (
             <div className="h-full flex flex-col gap-3">
               {/* Account Actions */}
               <div className="glass-card p-3 space-y-2 flex-shrink-0">
@@ -1505,22 +1544,28 @@ export default function AdminPage() {
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
                     <Users size={12} className="text-accent" /> Account Actions
                   </h3>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setAccountActionMode('create')}
-                      className={`px-2 py-1 rounded text-[10px] font-semibold ${accountActionMode === 'create' ? 'bg-accent/20 text-accent' : 'bg-white/5 text-gray-400'}`}
-                    >
-                      Create User
-                    </button>
-                    <button
-                      onClick={() => setAccountActionMode('reset')}
-                      className={`px-2 py-1 rounded text-[10px] font-semibold ${accountActionMode === 'reset' ? 'bg-accent/20 text-accent' : 'bg-white/5 text-gray-400'}`}
-                    >
-                      Reset Password
-                    </button>
-                  </div>
+                  {canManageUsers ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setAccountActionMode('create')}
+                        className={`px-2 py-1 rounded text-[10px] font-semibold ${accountActionMode === 'create' ? 'bg-accent/20 text-accent' : 'bg-white/5 text-gray-400'}`}
+                      >
+                        Create User
+                      </button>
+                      <button
+                        onClick={() => setAccountActionMode('reset')}
+                        className={`px-2 py-1 rounded text-[10px] font-semibold ${accountActionMode === 'reset' ? 'bg-accent/20 text-accent' : 'bg-white/5 text-gray-400'}`}
+                      >
+                        Reset Password
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-gray-500">Read-only access</p>
+                  )}
                 </div>
-                {accountActionMode === 'create' ? (
+                {!canManageUsers ? (
+                  <p className="text-[11px] text-gray-400">Moderators can view accounts but cannot create users, reset passwords, or delete records.</p>
+                ) : accountActionMode === 'create' ? (
                   <div className="flex flex-wrap gap-2 items-end">
                     <div className="flex-1 min-w-[140px]">
                       <label className="block text-[10px] text-gray-400 mb-0.5">Full Name</label>
@@ -1622,21 +1667,20 @@ export default function AdminPage() {
                     <Users size={12} className="text-accent" /> Account Search
                   </h3>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setAccountActionType(canBalanceAction ? 'balance' : 'ban');
-                        setBalanceAction('increase');
-                        setBalanceReason('');
-                        setBanReason('');
-                        setShowAccountActionModal(true);
-                      }}
-                      disabled={!canAccountAction}
-                      className={`px-2 py-1 rounded text-[10px] font-semibold ${
-                        canAccountAction ? 'bg-accent/20 text-accent' : 'bg-white/5 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      Account Action
-                    </button>
+                    {canAccountAction && (
+                      <button
+                        onClick={() => {
+                          setAccountActionType(canBalanceAction ? 'balance' : 'ban');
+                          setBalanceAction('increase');
+                          setBalanceReason('');
+                          setBanReason('');
+                          setShowAccountActionModal(true);
+                        }}
+                        className="px-2 py-1 rounded text-[10px] font-semibold bg-accent/20 text-accent"
+                      >
+                        Account Action
+                      </button>
+                    )}
                     {hasFilters && (
                       <button
                         onClick={clearFilters}
@@ -1731,26 +1775,28 @@ export default function AdminPage() {
 
                 {userBalances.length > 0 && (
                   <div className="flex-1 min-h-0 overflow-y-auto mt-2 pr-1">
-                    <div className="overflow-x-auto">
+                  <div className="overflow-x-auto">
                       <table className="w-full text-[11px]">
                         <thead>
                           <tr className="text-gray-400 border-b border-gray-800">
-                            <th className="text-left py-1.5 pr-2">
-                              <input
-                                type="checkbox"
-                                aria-label="Select all filtered users"
-                                checked={allFilteredSelected}
-                                onChange={toggleSelectAll}
-                                className="h-3 w-3"
-                              />
-                            </th>
+                            {canManageUsers && (
+                              <th className="text-left py-1.5 pr-2">
+                                <input
+                                  type="checkbox"
+                                  aria-label="Select all filtered users"
+                                  checked={allFilteredSelected}
+                                  onChange={toggleSelectAll}
+                                  className="h-3 w-3"
+                                />
+                              </th>
+                            )}
                             <th className="text-left py-1.5 pr-2">User</th>
                             <th className="text-left py-1.5 pr-2">Email</th>
                             <th className="text-left py-1.5 pr-2">UID</th>
                             <th className="text-left py-1.5 pr-2">Status</th>
                             <th className="text-right py-1.5 pr-2">Balance</th>
-                            <th className="text-center py-1.5">Quick</th>
-                            <th className="text-center py-1.5">Actions</th>
+                            {canAccountAction && <th className="text-center py-1.5">Quick</th>}
+                            {canManageUsers && <th className="text-center py-1.5">Actions</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -1761,15 +1807,17 @@ export default function AdminPage() {
                                 u.accountStatus === 'banned' ? 'bg-red-500/10' : ''
                               }`}
                             >
-                              <td className="py-2 pr-2">
-                                <input
-                                  type="checkbox"
-                                  aria-label={`Select ${u.name || u.email}`}
-                                  checked={selectedUserIds.includes(u.id)}
-                                  onChange={() => toggleSelectUser(u.id)}
-                                  className="h-3 w-3"
-                                />
-                              </td>
+                              {canManageUsers && (
+                                <td className="py-2 pr-2">
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Select ${u.name || u.email}`}
+                                    checked={selectedUserIds.includes(u.id)}
+                                    onChange={() => toggleSelectUser(u.id)}
+                                    className="h-3 w-3"
+                                  />
+                                </td>
+                              )}
                               <td className="py-2 pr-2 font-medium">{u.name || '\u2014'}</td>
                               <td className="py-2 pr-2 text-gray-400">{u.email}</td>
                               <td className="py-2 pr-2 text-gray-400 font-mono">{u.uid || '\u2014'}</td>
@@ -1803,83 +1851,87 @@ export default function AdminPage() {
                                 </div>
                               </td>
                               <td className="py-2 pr-2 text-right font-mono text-accent">{u.balance.toLocaleString()}</td>
-                              <td className="py-2 text-center">
-                                <div className="flex gap-1 justify-center">
-                                  <button
-                                    onClick={() => {
-                                      setAccountActionType('balance');
-                                      setSelectedUserIds([]);
-                                      setBalanceUserId(u.id);
-                                      setBalanceAction('increase');
-                                      setBalanceAmount('1000');
-                                      setBalanceReason('');
-                                      setBanReason('');
-                                      setShowAccountActionModal(true);
-                                    }}
-                                    disabled={!canBalanceAction}
-                                    className="p-1 rounded bg-green-900/40 text-green-400 hover:bg-green-900/70 disabled:opacity-40 disabled:cursor-not-allowed"
-                                    title="+1000"
-                                  >
-                                    <Plus size={12} />
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setAccountActionType('balance');
-                                      setSelectedUserIds([]);
-                                      setBalanceUserId(u.id);
-                                      setBalanceAction('decrease');
-                                      setBalanceAmount('1000');
-                                      setBalanceReason('');
-                                      setBanReason('');
-                                      setShowAccountActionModal(true);
-                                    }}
-                                    disabled={!canBalanceAction}
-                                    className="p-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/70 disabled:opacity-40 disabled:cursor-not-allowed"
-                                    title="-1000"
-                                  >
-                                    <Minus size={12} />
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setAccountActionType('ban');
-                                      setSelectedUserIds([]);
-                                      setBalanceUserId(u.id);
-                                      setBanReason('');
-                                      setShowAccountActionModal(true);
-                                    }}
-                                    disabled={!canBanAction}
-                                    className="p-1 rounded bg-red-900/20 text-red-300 hover:bg-red-900/40 disabled:opacity-40 disabled:cursor-not-allowed"
-                                    title="Ban user"
-                                  >
-                                    <XCircle size={12} />
-                                  </button>
-                                </div>
-                              </td>
-                              <td className="py-2 text-center">
-                                {deleteConfirmUserId === u.id ? (
-                                  <div className="flex items-center gap-1 justify-center">
+                              {canAccountAction && (
+                                <td className="py-2 text-center">
+                                  <div className="flex gap-1 justify-center">
                                     <button
-                                      onClick={() => handleDeleteUser(u.id)}
-                                      className="px-2 py-0.5 rounded bg-danger text-white text-[10px] font-bold hover:bg-red-500"
+                                      onClick={() => {
+                                        setAccountActionType('balance');
+                                        setSelectedUserIds([]);
+                                        setBalanceUserId(u.id);
+                                        setBalanceAction('increase');
+                                        setBalanceAmount('1000');
+                                        setBalanceReason('');
+                                        setBanReason('');
+                                        setShowAccountActionModal(true);
+                                      }}
+                                      disabled={!canBalanceAction}
+                                      className="p-1 rounded bg-green-900/40 text-green-400 hover:bg-green-900/70 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="+1000"
                                     >
-                                      Confirm
+                                      <Plus size={12} />
                                     </button>
                                     <button
-                                      onClick={() => setDeleteConfirmUserId(null)}
-                                      className="px-2 py-0.5 rounded bg-white/10 text-gray-400 text-[10px]"
+                                      onClick={() => {
+                                        setAccountActionType('balance');
+                                        setSelectedUserIds([]);
+                                        setBalanceUserId(u.id);
+                                        setBalanceAction('decrease');
+                                        setBalanceAmount('1000');
+                                        setBalanceReason('');
+                                        setBanReason('');
+                                        setShowAccountActionModal(true);
+                                      }}
+                                      disabled={!canBalanceAction}
+                                      className="p-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/70 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="-1000"
                                     >
-                                      Cancel
+                                      <Minus size={12} />
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setAccountActionType('ban');
+                                        setSelectedUserIds([]);
+                                        setBalanceUserId(u.id);
+                                        setBanReason('');
+                                        setShowAccountActionModal(true);
+                                      }}
+                                      disabled={!canBanAction}
+                                      className="p-1 rounded bg-red-900/20 text-red-300 hover:bg-red-900/40 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      title="Ban user"
+                                    >
+                                      <XCircle size={12} />
                                     </button>
                                   </div>
-                                ) : (
-                                  <button
-                                    onClick={() => setDeleteConfirmUserId(u.id)}
-                                    className="p-1 rounded bg-red-900/30 text-red-400 hover:bg-red-900/60" title="Delete"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                )}
-                              </td>
+                                </td>
+                              )}
+                              {canManageUsers && (
+                                <td className="py-2 text-center">
+                                  {deleteConfirmUserId === u.id ? (
+                                    <div className="flex items-center gap-1 justify-center">
+                                      <button
+                                        onClick={() => handleDeleteUser(u.id)}
+                                        className="px-2 py-0.5 rounded bg-danger text-white text-[10px] font-bold hover:bg-red-500"
+                                      >
+                                        Confirm
+                                      </button>
+                                      <button
+                                        onClick={() => setDeleteConfirmUserId(null)}
+                                        className="px-2 py-0.5 rounded bg-white/10 text-gray-400 text-[10px]"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setDeleteConfirmUserId(u.id)}
+                                      className="p-1 rounded bg-red-900/30 text-red-400 hover:bg-red-900/60" title="Delete"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  )}
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -2325,30 +2377,6 @@ export default function AdminPage() {
                       </div>
                     )}
 
-                    {/* Security */}
-                    {showSettingsControls && adminSettings && (
-                      <div className="glass-card p-3 space-y-2">
-                        <p className="text-xs font-semibold">Security Settings</p>
-                        <label className="flex items-center gap-2 text-[10px] text-gray-400">
-                          <input
-                            type="checkbox"
-                            checked={adminSettings.security.require2fa}
-                            onChange={(e) => setAdminSettings(s => s ? { ...s, security: { ...s.security, require2fa: e.target.checked } } : s)}
-                            className="accent-accent"
-                          />
-                          Require 2FA for admins
-                        </label>
-                        <div>
-                          <label className="block text-[10px] text-gray-400 mb-0.5">IP Whitelist (one per line)</label>
-                          <textarea
-                            value={ipWhitelistInput}
-                            onChange={(e) => setIpWhitelistInput(e.target.value)}
-                            className="w-full text-xs rounded px-2 py-1.5 border min-h-[70px]"
-                          />
-                        </div>
-                      </div>
-                    )}
-
                     {/* System Notifications */}
                     {showSettingsControls && adminSettings && (
                       <div className="glass-card p-3 space-y-2">
@@ -2359,22 +2387,12 @@ export default function AdminPage() {
                               type="checkbox"
                               checked={adminSettings.notifications[key]}
                               onChange={(e) => setAdminSettings(s => s ? { ...s, notifications: { ...s.notifications, [key]: e.target.checked } } : s)}
-                              className="accent-accent"
-                            />
-                            {key === 'newUsers' ? 'New users' : key === 'largeWithdrawals' ? 'Large withdrawals' : 'Flagged trades'}
-                          </label>
+                            className="accent-accent"
+                          />
+                          {key === 'newUsers' ? 'New users' : key === 'largeWithdrawals' ? 'Large withdrawals' : 'Flagged trades'}
+                        </label>
                         ))}
-                        <div className="pt-1">
-                          <label className="block text-[10px] text-gray-400 mb-0.5">Theme</label>
-                          <select
-                            value={adminTheme}
-                            onChange={(e) => handleThemeChange(e.target.value as 'dark' | 'light')}
-                            className="w-full text-xs rounded px-2 py-1.5 border"
-                          >
-                            <option value="dark">Dark</option>
-                            <option value="light">Light</option>
-                          </select>
-                        </div>
+                        <p className="text-[10px] text-gray-500">Theme toggle is available in the top-right header.</p>
                       </div>
                     )}
 
@@ -2509,7 +2527,7 @@ export default function AdminPage() {
 
                     {/* Activity Logs */}
                     {showAuditLogs && (
-                      <div className="glass-card p-3 space-y-2 lg:col-span-2">
+                      <div className="glass-card p-3 space-y-2 lg:col-span-2 h-[280px] flex flex-col">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-xs font-semibold">Activity Logs</p>
                           <input
@@ -2519,14 +2537,14 @@ export default function AdminPage() {
                             className="w-36 text-[10px] rounded px-2 py-1 border"
                           />
                         </div>
-                        <div className="max-h-40 overflow-y-auto pr-1 text-[10px]">
+                        <div className="flex-1 min-h-0 overflow-y-auto pr-1 text-[10px]">
                           {auditLogsLoading ? (
                             <p className="text-gray-500">Loading logs...</p>
                           ) : filteredAuditLogs.length === 0 ? (
                             <p className="text-gray-500">No recent activity</p>
                           ) : (
                             <div className="space-y-1">
-                              {filteredAuditLogs.slice(0, 15).map(log => {
+                              {filteredAuditLogs.map(log => {
                                 const actorLabel = log.actorName || log.actorRole || 'Admin';
                                 const targetLabel = log.userName || log.userEmail || log.targetId || '—';
                                 const actionLabel = (log.actionType || 'action').split('_').join(' ');
@@ -2564,7 +2582,7 @@ export default function AdminPage() {
           )}
 
           {/* Account Action Modal */}
-          {showAccountActionModal && (
+          {showAccountActionModal && canAccountAction && (
             <div
               className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
               onClick={() => setShowAccountActionModal(false)}

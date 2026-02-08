@@ -20,6 +20,7 @@ const adminUserSchema = new mongoose.Schema(
     isRoot: { type: Boolean, default: false },
     lastActiveAt: { type: Date, default: null },
     lastActiveIp: { type: String, default: '' },
+    lastSeenNotificationAt: { type: Date, default: null },
     uiTheme: { type: String, enum: ['dark', 'light'], default: 'dark' },
     createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', default: null },
     createdByName: { type: String, default: '' },
