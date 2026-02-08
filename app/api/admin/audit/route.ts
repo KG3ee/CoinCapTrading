@@ -2,24 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import AdminAuditLog from '@/lib/models/AdminAuditLog';
 import { logger } from '@/lib/utils/logger';
+import { getAdminContext, hasPermission } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
 const log = logger.child({ module: 'AdminAuditLog' });
 
-function isAuthorized(request: NextRequest): boolean {
-  const adminKey = request.headers.get('x-admin-key');
-  const expected = process.env.ADMIN_SECRET_KEY;
-  if (!expected) {
-    log.warn('ADMIN_SECRET_KEY not set — admin endpoints disabled');
-    return false;
-  }
-  return adminKey === expected;
-}
-
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'view_logs')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -46,6 +41,10 @@ export async function GET(request: NextRequest) {
         newBalance: l.newBalance,
         reason: l.reason,
         actor: l.actor,
+        actorName: l.actorName,
+        actorRole: l.actorRole,
+        targetType: l.targetType,
+        targetId: l.targetId,
         ipAddress: l.ipAddress,
         createdAt: l.createdAt,
       })),

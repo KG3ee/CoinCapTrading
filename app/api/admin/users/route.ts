@@ -6,22 +6,20 @@ import AdminAuditLog from '@/lib/models/AdminAuditLog';
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { registerSchema } from '@/lib/validation/schemas';
+import { getAdminContext, hasPermission } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
 const log = logger.child({ module: 'AdminUsers' });
 
-function isAuthorized(request: NextRequest): boolean {
-  const adminKey = request.headers.get('x-admin-key');
-  const expected = process.env.ADMIN_SECRET_KEY;
-  if (!expected) return false;
-  return adminKey === expected;
-}
-
 // POST /api/admin/users — create a new user
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'manage_users')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -69,7 +67,11 @@ export async function POST(request: NextRequest) {
       userName: user.fullName || '',
       userEmail: user.email || '',
       reason: 'Admin created user',
-      actor: 'admin',
+      actor: context.admin._id.toString(),
+      actorName: context.admin.name,
+      actorRole: context.admin.role,
+      targetType: 'user',
+      targetId: user._id.toString(),
       ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
     });
 
@@ -101,8 +103,12 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/admin/users?userId=xxx — delete a user and all their data
 export async function DELETE(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'manage_users')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -162,7 +168,11 @@ export async function DELETE(request: NextRequest) {
       userName,
       userEmail,
       reason: 'Admin deleted user',
-      actor: 'admin',
+      actor: context.admin._id.toString(),
+      actorName: context.admin.name,
+      actorRole: context.admin.role,
+      targetType: 'user',
+      targetId: userId,
       ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
     });
 

@@ -43,6 +43,24 @@ const adminAuditLogSchema = new mongoose.Schema(
       type: String,
       default: 'admin',
     },
+    actorName: {
+      type: String,
+      default: '',
+    },
+    actorRole: {
+      type: String,
+      default: '',
+    },
+    targetType: {
+      type: String,
+      default: '',
+      index: true,
+    },
+    targetId: {
+      type: String,
+      default: '',
+      index: true,
+    },
     ipAddress: {
       type: String,
       default: '',

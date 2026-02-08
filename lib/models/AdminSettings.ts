@@ -47,9 +47,43 @@ const adminSettingsSchema = new mongoose.Schema(
 );
 
 const DEFAULT_ROLES = [
-  { name: 'Super Admin', permissions: ['manage_users', 'manage_trades', 'view_logs', 'manage_settings'] },
-  { name: 'Admin', permissions: ['manage_users', 'manage_trades', 'view_logs'] },
-  { name: 'Moderator', permissions: ['view_logs', 'manage_trades'] },
+  {
+    name: 'Super Admin',
+    permissions: [
+      'view_dashboard',
+      'manage_users',
+      'manage_trades',
+      'manage_financials',
+      'manage_kyc',
+      'manage_support',
+      'view_logs',
+      'manage_settings',
+      'manage_admins',
+    ],
+  },
+  {
+    name: 'Admin',
+    permissions: [
+      'view_dashboard',
+      'manage_users',
+      'manage_trades',
+      'manage_financials',
+      'manage_kyc',
+      'manage_support',
+      'view_logs',
+    ],
+  },
+  {
+    name: 'Moderator',
+    permissions: [
+      'view_dashboard',
+      'manage_trades',
+      'manage_kyc',
+      'manage_support',
+      'view_logs',
+      'manage_admins',
+    ],
+  },
 ];
 
 adminSettingsSchema.statics.getSettings = async function () {
@@ -59,6 +93,21 @@ adminSettingsSchema.statics.getSettings = async function () {
   } else if (!settings.roles || settings.roles.length === 0) {
     settings.roles = DEFAULT_ROLES;
     await settings.save();
+  } else {
+    const roleMap = new Map(DEFAULT_ROLES.map(role => [role.name.toLowerCase(), role]));
+    let updated = false;
+    settings.roles = settings.roles.map((role: any) => {
+      const template = roleMap.get(role.name?.toLowerCase());
+      if (!template) return role;
+      const merged = Array.from(new Set([...(role.permissions || []), ...template.permissions]));
+      if (merged.length !== (role.permissions || []).length) {
+        updated = true;
+      }
+      return { ...role, permissions: merged };
+    });
+    if (updated) {
+      await settings.save();
+    }
   }
   return settings;
 };

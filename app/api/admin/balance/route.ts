@@ -5,42 +5,55 @@ import AdminAuditLog from '@/lib/models/AdminAuditLog';
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import config from '@/lib/config';
+import { getAdminContext, hasPermission } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
 const log = logger.child({ module: 'AdminBalanceAdjust' });
 
-function isAuthorized(request: NextRequest): boolean {
-  const adminKey = request.headers.get('x-admin-key');
-  const expected = process.env.ADMIN_SECRET_KEY;
-  if (!expected) return false;
-  return adminKey === expected;
-}
-
 // GET /api/admin/balance — list all users with balances
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (
+    !hasPermission(context.permissions, 'manage_users') &&
+    !hasPermission(context.permissions, 'manage_financials') &&
+    !hasPermission(context.permissions, 'view_dashboard')
+  ) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
     await connectDB();
 
-    const users = await User.find({}, 'fullName email uid accountStatus isVerified isTwoFactorEnabled kycStatus').sort({ fullName: 1 });
+    const users = await User.find(
+      {},
+      'fullName email uid accountStatus isVerified isTwoFactorEnabled kycStatus lastActiveAt'
+    ).sort({ fullName: 1 });
+    const inactiveCutoff = new Date(Date.now() - 183 * 24 * 60 * 60 * 1000);
 
     const usersWithBalance = await Promise.all(
       users.map(async (user: any) => {
         const portfolio = await Portfolio.findOne({ userId: user._id });
+        const lastActiveAt = user.lastActiveAt || null;
+        let accountStatus = user.accountStatus;
+        if (accountStatus !== 'banned') {
+          const isInactive = !lastActiveAt || new Date(lastActiveAt) < inactiveCutoff;
+          if (isInactive) accountStatus = 'inactive';
+        }
         return {
           id: user._id.toString(),
           name: user.fullName || user.email,
           email: user.email,
           uid: user.uid,
-          accountStatus: user.accountStatus,
+          accountStatus,
           isVerified: !!user.isVerified,
           isTwoFactorEnabled: !!user.isTwoFactorEnabled,
           kycStatus: user.kycStatus || 'none',
           balance: portfolio?.accountBalance ?? config.app.defaultBalance,
+          lastActiveAt,
         };
       })
     );
@@ -54,8 +67,12 @@ export async function GET(request: NextRequest) {
 
 // PUT /api/admin/balance — adjust a user's balance
 export async function PUT(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'manage_financials')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -138,7 +155,11 @@ export async function PUT(request: NextRequest) {
           oldBalance,
           newBalance: portfolio.accountBalance,
           reason: reason.trim(),
-          actor: 'admin',
+          actor: context.admin._id.toString(),
+          actorName: context.admin.name,
+          actorRole: context.admin.role,
+          targetType: 'user',
+          targetId: id,
           ipAddress,
         });
 

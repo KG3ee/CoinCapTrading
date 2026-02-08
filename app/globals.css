@@ -32,13 +32,86 @@ html {
   }
 }
 
+/* Admin Theme Variables */
+:root {
+  --admin-bg: #0a0a0a;
+  --admin-panel: rgba(255, 255, 255, 0.02);
+  --admin-card: rgba(255, 255, 255, 0.05);
+  --admin-card-strong: rgba(255, 255, 255, 0.08);
+  --admin-border: rgba(255, 255, 255, 0.1);
+  --admin-text: #f9fafb;
+  --admin-muted: #9ca3af;
+  --admin-input: rgba(255, 255, 255, 0.06);
+  --admin-input-border: rgba(255, 255, 255, 0.12);
+  --admin-accent: #3b82f6;
+  --admin-success: #10b981;
+  --admin-danger: #ef4444;
+  --admin-warning: #f59e0b;
+}
+
+.admin-theme.light {
+  --admin-bg: #f4f6fb;
+  --admin-panel: #ffffff;
+  --admin-card: #ffffff;
+  --admin-card-strong: #f0f3f8;
+  --admin-border: #d7dce5;
+  --admin-text: #111827;
+  --admin-muted: #6b7280;
+  --admin-input: #f7f9fc;
+  --admin-input-border: #d7dce5;
+  --admin-accent: #2563eb;
+  --admin-success: #059669;
+  --admin-danger: #dc2626;
+  --admin-warning: #d97706;
+}
+
+.admin-theme {
+  color: var(--admin-text);
+}
+
+.admin-theme .admin-muted {
+  color: var(--admin-muted);
+}
+
+.admin-theme .admin-panel {
+  background: var(--admin-panel);
+  border-color: var(--admin-border);
+}
+
+.admin-theme .admin-input {
+  background: var(--admin-input);
+  border-color: var(--admin-input-border);
+  color: var(--admin-text);
+}
+
+.admin-theme .admin-input::placeholder {
+  color: var(--admin-muted);
+}
+
+.admin-theme input:not([type='checkbox']):not([type='radio']):not([type='range']),
+.admin-theme select,
+.admin-theme textarea {
+  background: var(--admin-input);
+  border-color: var(--admin-input-border);
+  color: var(--admin-text);
+}
+
+.admin-theme input:not([type='checkbox']):not([type='radio']):not([type='range'])::placeholder,
+.admin-theme textarea::placeholder {
+  color: var(--admin-muted);
+}
+
 @layer components {
   .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10;
+    background: var(--admin-card);
+    border: 1px solid var(--admin-border);
+    backdrop-filter: blur(12px);
   }
   
   .glass-card {
-    @apply glass rounded-lg p-2.5 sm:p-3 md:p-3.5 shadow-lg transition-smooth;
+    @apply rounded-lg p-2.5 sm:p-3 md:p-3.5 shadow-lg transition-smooth;
+    background: var(--admin-card);
+    border: 1px solid var(--admin-border);
   }
 
   .text-responsive-xl {

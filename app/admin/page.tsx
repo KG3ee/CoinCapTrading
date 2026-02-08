@@ -45,6 +45,7 @@ interface UserBalance {
   isVerified: boolean;
   isTwoFactorEnabled: boolean;
   kycStatus: 'none' | 'pending' | 'approved' | 'rejected';
+  lastActiveAt?: string | null;
 }
 interface ChatConversation {
   userId: string;
@@ -104,6 +105,11 @@ interface AuditLog {
   userEmail?: string;
   oldBalance?: number;
   newBalance?: number;
+  actor?: string;
+  actorName?: string;
+  actorRole?: string;
+  targetType?: string;
+  targetId?: string;
   createdAt: string;
 }
 interface AdminSettingsState {
@@ -112,19 +118,61 @@ interface AdminSettingsState {
   security: { require2fa: boolean; ipWhitelist: string[] };
   notifications: { newUsers: boolean; largeWithdrawals: boolean; flaggedTrades: boolean };
   maintenance: { enabled: boolean; message: string };
-  apiKeys: { id: string; name: string; keyLast4: string; scopes: string[]; createdAt: string; revokedAt: string | null }[];
   ui: { theme: 'dark' | 'light' };
+}
+
+interface AdminProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: 'superadmin' | 'admin' | 'moderator';
+  uiTheme: 'dark' | 'light';
+}
+
+type AdminPermission =
+  | 'view_dashboard'
+  | 'manage_trades'
+  | 'manage_users'
+  | 'manage_financials'
+  | 'manage_kyc'
+  | 'manage_support'
+  | 'view_logs'
+  | 'manage_settings'
+  | 'manage_admins';
+
+interface OnlineAdmin {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: 'online' | 'idle' | 'offline';
+  statusLabel: string;
+  lastActiveAt: string | null;
+}
+
+interface AdminUserItem {
+  id: string;
+  name: string;
+  email: string;
+  role: 'superadmin' | 'admin' | 'moderator';
+  roleLabel: string;
+  keyLast4: string;
+  status: string;
+  isRoot: boolean;
+  createdByName?: string;
+  createdByRole?: string;
+  createdAt: string;
 }
 
 type AdminTab = 'overview' | 'trades' | 'users' | 'chat' | 'kyc' | 'settings';
 
-const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield }[] = [
-  { key: 'overview', label: 'Overview', icon: BarChart3 },
-  { key: 'trades', label: 'Trade Control', icon: TrendingUp },
-  { key: 'users', label: 'Accounts', icon: Users },
-  { key: 'kyc', label: 'KYC Verification', icon: BadgeCheck },
-  { key: 'chat', label: 'Customer Chat', icon: MessageCircle },
-  { key: 'settings', label: 'Settings', icon: Settings },
+const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield; permission: AdminPermission }[] = [
+  { key: 'overview', label: 'Overview', icon: BarChart3, permission: 'view_dashboard' },
+  { key: 'trades', label: 'Trade Control', icon: TrendingUp, permission: 'manage_trades' },
+  { key: 'users', label: 'Accounts', icon: Users, permission: 'manage_users' },
+  { key: 'kyc', label: 'KYC Verification', icon: BadgeCheck, permission: 'manage_kyc' },
+  { key: 'chat', label: 'Customer Chat', icon: MessageCircle, permission: 'manage_support' },
+  { key: 'settings', label: 'Settings', icon: Settings, permission: 'manage_settings' },
 ];
 
 export default function AdminPage() {
@@ -135,12 +183,16 @@ export default function AdminPage() {
   const [success, setSuccess] = useState('');
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [adminProfile, setAdminProfile] = useState<AdminProfile | null>(null);
+  const [adminPermissions, setAdminPermissions] = useState<AdminPermission[]>([]);
+  const [adminTheme, setAdminTheme] = useState<'dark' | 'light'>('dark');
 
   const [settings, setSettings] = useState<TradeSettingsData | null>(null);
   const [stats, setStats] = useState<TradeStats | null>(null);
   const [recentTrades, setRecentTrades] = useState<RecentTrade[]>([]);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [userBalances, setUserBalances] = useState<UserBalance[]>([]);
+  const [onlineAdmins, setOnlineAdmins] = useState<OnlineAdmin[]>([]);
 
   const [globalMode, setGlobalMode] = useState<string>('random');
   const [winRate, setWinRate] = useState<number>(50);
@@ -150,6 +202,8 @@ export default function AdminPage() {
   const [balanceUserId, setBalanceUserId] = useState('');
   const [balanceAction, setBalanceAction] = useState<string>('increase');
   const [balanceAmount, setBalanceAmount] = useState('');
+  const [accountActionType, setAccountActionType] = useState<'balance' | 'ban'>('balance');
+  const [banReason, setBanReason] = useState('');
 
   const [resetUserId, setResetUserId] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -170,13 +224,17 @@ export default function AdminPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditLogsLoading, setAuditLogsLoading] = useState(false);
   const [auditLogsOpen, setAuditLogsOpen] = useState(false);
+  const [auditLogQuery, setAuditLogQuery] = useState('');
 
   const [adminSettings, setAdminSettings] = useState<AdminSettingsState | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
-  const [apiKeyName, setApiKeyName] = useState('');
-  const [apiKeyScopes, setApiKeyScopes] = useState<string[]>([]);
-  const [newApiKeyValue, setNewApiKeyValue] = useState<string | null>(null);
   const [ipWhitelistInput, setIpWhitelistInput] = useState('');
+  const [adminUsers, setAdminUsers] = useState<AdminUserItem[]>([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminRole, setNewAdminRole] = useState<'admin' | 'moderator'>('admin');
+  const [newAdminKey, setNewAdminKey] = useState<string | null>(null);
 
   const [createFullName, setCreateFullName] = useState('');
   const [createEmail, setCreateEmail] = useState('');
@@ -213,39 +271,89 @@ export default function AdminPage() {
     'x-admin-key': adminKey,
   }), [adminKey]);
 
+  const can = useCallback((perm: AdminPermission) => (
+    adminPermissions.includes(perm)
+  ), [adminPermissions]);
+
+  const visibleNavItems = adminPermissions.length > 0
+    ? NAV_ITEMS.filter(item => can(item.permission))
+    : NAV_ITEMS;
+
   // ── Data Fetching ──────────────────────────────────────
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/admin/trade-settings', { headers: headers() });
-      if (res.status === 401) { setIsAuthenticated(false); setError('Invalid admin key'); return; }
-      if (!res.ok) throw new Error('Failed to fetch');
-      const data = await res.json();
-      setSettings(data.settings);
-      setStats(data.stats);
-      setRecentTrades(data.recentTrades);
-      setUsers(data.users);
-      setGlobalMode(data.settings.globalMode);
-      setWinRate(data.settings.winRatePercent);
+      const sessionRes = await fetch('/api/admin/session', { headers: headers() });
+      if (sessionRes.status === 401) { setIsAuthenticated(false); setError('Invalid admin key'); return; }
+      if (!sessionRes.ok) throw new Error('Failed to authenticate');
+      const sessionData = await sessionRes.json();
+      const permissions: AdminPermission[] = sessionData.permissions || [];
+      setAdminProfile(sessionData.admin);
+      setAdminPermissions(permissions);
+      setAdminTheme(sessionData.admin?.uiTheme || 'dark');
       setIsAuthenticated(true);
 
-      const [balRes, chatRes, notifRes] = await Promise.all([
-        fetch('/api/admin/balance', { headers: headers() }),
-        fetch('/api/admin/chat', { headers: headers() }),
-        fetch('/api/admin/notifications', { headers: headers() }),
-      ]);
-      if (balRes.ok) { const d = await balRes.json(); setUserBalances(d.users); }
-      if (chatRes.ok) { const d = await chatRes.json(); setChatConversations(d.conversations || []); }
-      if (notifRes.ok) { const d = await notifRes.json(); setNotifications(d.notifications || []); }
+      const canLocal = (perm: AdminPermission) => permissions.includes(perm);
 
-      // Fetch KYC
-      const kycRes = await fetch(`/api/admin/kyc?status=pending`, { headers: headers() });
-      if (kycRes.ok) {
-        const kd = await kycRes.json();
-        setKycSubmissions(kd.submissions || []);
-        setKycCounts(kd.counts || { pending: 0, approved: 0, rejected: 0 });
+      if (canLocal('manage_trades')) {
+        const res = await fetch('/api/admin/trade-settings', { headers: headers() });
+        if (res.ok) {
+          const data = await res.json();
+          setSettings(data.settings);
+          setStats(data.stats);
+          setRecentTrades(data.recentTrades);
+          setUsers(data.users);
+          setGlobalMode(data.settings.globalMode);
+          setWinRate(data.settings.winRatePercent);
+        }
       }
+
+      const tasks: Promise<void>[] = [];
+
+      if (canLocal('manage_users') || canLocal('manage_financials') || canLocal('view_dashboard')) {
+        tasks.push(
+          fetch('/api/admin/balance', { headers: headers() })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.users) setUserBalances(d.users); })
+        );
+      }
+
+      if (canLocal('manage_support')) {
+        tasks.push(
+          fetch('/api/admin/chat', { headers: headers() })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.conversations) setChatConversations(d.conversations || []); })
+        );
+      }
+
+      if (canLocal('view_dashboard')) {
+        tasks.push(
+          fetch('/api/admin/notifications', { headers: headers() })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.notifications) setNotifications(d.notifications || []); })
+        );
+        tasks.push(
+          fetch('/api/admin/presence', { headers: headers() })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.admins) setOnlineAdmins(d.admins || []); })
+        );
+      }
+
+      if (canLocal('manage_kyc')) {
+        tasks.push(
+          fetch(`/api/admin/kyc?status=pending`, { headers: headers() })
+            .then(r => r.ok ? r.json() : null)
+            .then(kd => {
+              if (kd?.submissions) {
+                setKycSubmissions(kd.submissions || []);
+                setKycCounts(kd.counts || { pending: 0, approved: 0, rejected: 0 });
+              }
+            })
+        );
+      }
+
+      await Promise.all(tasks);
     } catch (err: any) {
       setError(err.message || 'Failed to load');
     } finally {
@@ -255,7 +363,7 @@ export default function AdminPage() {
 
   // Poll notifications every 15s
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !can('view_dashboard')) return;
     const interval = setInterval(async () => {
       try {
         const res = await fetch('/api/admin/notifications', { headers: headers() });
@@ -263,11 +371,18 @@ export default function AdminPage() {
       } catch { /* silent */ }
     }, 15000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, headers]);
+  }, [isAuthenticated, headers, can]);
 
   useEffect(() => {
     setSelectedUserIds(prev => prev.filter(id => userBalances.some(u => u.id === id)));
   }, [userBalances]);
+
+  useEffect(() => {
+    if (adminPermissions.length === 0) return;
+    if (!visibleNavItems.some(item => item.key === activeTab)) {
+      setActiveTab(visibleNavItems[0]?.key || 'overview');
+    }
+  }, [adminPermissions.length, activeTab, visibleNavItems]);
 
   const unreadNotifCount = notifications.filter(
     n => !lastSeenNotifTime || new Date(n.timestamp) > new Date(lastSeenNotifTime)
@@ -324,6 +439,10 @@ export default function AdminPage() {
 
   // ── Handlers ───────────────────────────────────────────
   const handleSaveSettings = async () => {
+    if (!can('manage_trades')) {
+      setError('You do not have permission to manage trades');
+      return;
+    }
     setError(''); setSuccess('');
     try {
       const res = await fetch('/api/admin/trade-settings', {
@@ -339,6 +458,10 @@ export default function AdminPage() {
   };
 
   const handleSetUserOverride = async () => {
+    if (!can('manage_trades')) {
+      setError('You do not have permission to manage trades');
+      return;
+    }
     if (!selectedUser) return;
     setError(''); setSuccess('');
     try {
@@ -356,6 +479,10 @@ export default function AdminPage() {
   };
 
   const removeUserOverride = async (userId: string) => {
+    if (!can('manage_trades')) {
+      setError('You do not have permission to manage trades');
+      return;
+    }
     try {
       const res = await fetch('/api/admin/trade-settings', {
         method: 'PUT', headers: headers(),
@@ -368,6 +495,10 @@ export default function AdminPage() {
   };
 
   const handleCreateUser = async () => {
+    if (!can('manage_users')) {
+      setError('You do not have permission to manage users');
+      return;
+    }
     if (!createFullName.trim() || !createEmail.trim() || createPassword.length < 6) return;
     setError(''); setSuccess(''); setCreatingUser(true);
     try {
@@ -390,7 +521,7 @@ export default function AdminPage() {
   };
 
   const fetchAuditLogs = useCallback(async (type: 'balance' | 'all' = 'balance') => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !can('view_logs')) return;
     setAuditLogsLoading(true);
     try {
       const res = await fetch(`/api/admin/audit?type=${type}`, { headers: headers() });
@@ -400,10 +531,10 @@ export default function AdminPage() {
       }
     } catch { /* silent */ }
     setAuditLogsLoading(false);
-  }, [headers, isAuthenticated]);
+  }, [headers, isAuthenticated, can]);
 
   const fetchAdminSettings = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !can('manage_settings')) return;
     setSettingsLoading(true);
     try {
       const res = await fetch('/api/admin/settings', { headers: headers() });
@@ -414,7 +545,68 @@ export default function AdminPage() {
       }
     } catch { /* silent */ }
     setSettingsLoading(false);
-  }, [headers, isAuthenticated]);
+  }, [headers, isAuthenticated, can]);
+
+  const fetchAdminUsers = useCallback(async () => {
+    if (!isAuthenticated || !can('manage_admins')) return;
+    setAdminUsersLoading(true);
+    try {
+      const res = await fetch('/api/admin/admin-users', { headers: headers() });
+      if (res.ok) {
+        const data = await res.json();
+        setAdminUsers(data.admins || []);
+      }
+    } catch { /* silent */ }
+    setAdminUsersLoading(false);
+  }, [headers, isAuthenticated, can]);
+
+  const handleCreateAdmin = async () => {
+    if (!newAdminName.trim() || !newAdminEmail.trim()) return;
+    setError(''); setSuccess('');
+    try {
+      const res = await fetch('/api/admin/admin-users', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ name: newAdminName.trim(), email: newAdminEmail.trim(), role: newAdminRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create admin');
+      setNewAdminKey(data.adminKey || null);
+      setNewAdminName(''); setNewAdminEmail('');
+      fetchAdminUsers();
+      setSuccess('Admin account created');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleDeleteAdmin = async (adminId: string) => {
+    setError(''); setSuccess('');
+    try {
+      const res = await fetch(`/api/admin/admin-users?adminId=${adminId}`, {
+        method: 'DELETE', headers: headers(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete admin');
+      fetchAdminUsers();
+      setSuccess('Admin deleted');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleThemeChange = async (theme: 'dark' | 'light') => {
+    setAdminTheme(theme);
+    try {
+      await fetch('/api/admin/session', {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({ uiTheme: theme }),
+      });
+    } catch { /* silent */ }
+  };
 
   const handleSaveAdminSettings = async () => {
     if (!adminSettings) return;
@@ -445,24 +637,6 @@ export default function AdminPage() {
     }
   };
 
-  const handleCreateApiKey = async () => {
-    if (!apiKeyName.trim()) return;
-    setError(''); setSuccess('');
-    try {
-      const res = await fetch('/api/admin/settings', {
-        method: 'POST', headers: headers(),
-        body: JSON.stringify({ name: apiKeyName.trim(), scopes: apiKeyScopes }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create API key');
-      setNewApiKeyValue(data.apiKey);
-      setApiKeyName('');
-      setApiKeyScopes([]);
-      fetchAdminSettings();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
 
   const handleRevokeApiKey = async (id: string) => {
     setError(''); setSuccess('');
@@ -483,10 +657,11 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (activeTab === 'settings') {
-      fetchAdminSettings();
-      fetchAuditLogs('all');
+      if (can('manage_settings')) fetchAdminSettings();
+      if (can('view_logs')) fetchAuditLogs('all');
+      if (can('manage_admins')) fetchAdminUsers();
     }
-  }, [activeTab, fetchAdminSettings, fetchAuditLogs]);
+  }, [activeTab, fetchAdminSettings, fetchAuditLogs, fetchAdminUsers, can]);
 
   const toggleSelectAll = () => {
     if (allFilteredSelected) {
@@ -515,6 +690,10 @@ export default function AdminPage() {
   };
 
   const handleAdjustBalance = async () => {
+    if (!can('manage_financials')) {
+      setError('You do not have permission to modify balances');
+      return;
+    }
     const targetIds = selectedUserIds.length > 0 ? selectedUserIds : (balanceUserId ? [balanceUserId] : []);
     if (!targetIds.length || !balanceAmount || !balanceReason.trim()) return;
     setError(''); setSuccess('');
@@ -552,7 +731,40 @@ export default function AdminPage() {
     } catch (err: any) { setError(err.message); }
   };
 
+  const handleBanUsers = async () => {
+    if (!can('manage_users')) {
+      setError('You do not have permission to ban users');
+      return;
+    }
+    const targetIds = selectedUserIds.length > 0 ? selectedUserIds : (balanceUserId ? [balanceUserId] : []);
+    if (!targetIds.length || banReason.trim().length < 3) return;
+    setError(''); setSuccess('');
+    try {
+      for (const id of targetIds) {
+        const res = await fetch('/api/admin/ban', {
+          method: 'PUT', headers: headers(),
+          body: JSON.stringify({ userId: id, reason: banReason.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to ban user');
+      }
+      setSuccess(`Banned ${targetIds.length} user${targetIds.length > 1 ? 's' : ''}`);
+      setBanReason('');
+      setSelectedUserIds([]);
+      setBalanceUserId('');
+      setShowAccountActionModal(false);
+      const balRes = await fetch('/api/admin/balance', { headers: headers() });
+      if (balRes.ok) { const d = await balRes.json(); setUserBalances(d.users); }
+      if (auditLogsOpen) fetchAuditLogs('balance');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) { setError(err.message); }
+  };
+
   const handleResetPassword = async () => {
+    if (!can('manage_users')) {
+      setError('You do not have permission to manage users');
+      return;
+    }
     if (!resetUserId || !newPassword) return;
     if (newPassword.length < 6) { setError('Password must be at least 6 characters'); return; }
     setError(''); setSuccess('');
@@ -569,6 +781,10 @@ export default function AdminPage() {
   };
 
   const handleDeleteUser = async (userId: string) => {
+    if (!can('manage_users')) {
+      setError('You do not have permission to manage users');
+      return;
+    }
     setError(''); setSuccess('');
     try {
       const res = await fetch(`/api/admin/users?userId=${userId}`, { method: 'DELETE', headers: headers() });
@@ -694,7 +910,7 @@ export default function AdminPage() {
   // ══════════════════════════════════════════════════════
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+      <div className={`min-h-screen admin-theme ${adminTheme === 'light' ? 'light' : ''} bg-[var(--admin-bg)] flex items-center justify-center p-4`}>
         <div className="glass-card w-full max-w-sm p-6 space-y-4">
           <div className="text-center">
             <Shield className="mx-auto mb-2 text-accent" size={32} />
@@ -732,15 +948,15 @@ export default function AdminPage() {
   // MAIN ADMIN PANEL
   // ══════════════════════════════════════════════════════
   return (
-    <div className="h-screen bg-[#0a0a0a] flex overflow-hidden">
+    <div className={`h-screen admin-theme ${adminTheme === 'light' ? 'light' : ''} bg-[var(--admin-bg)] flex overflow-hidden`}>
       {/* SIDEBAR (Desktop) */}
-      <aside className="hidden md:flex md:flex-col w-56 border-r border-white/10 bg-white/[0.02] flex-shrink-0">
-        <div className="p-4 border-b border-white/10 flex items-center gap-2">
+      <aside className="hidden md:flex md:flex-col w-56 border-r border-[var(--admin-border)] admin-panel flex-shrink-0">
+        <div className="p-4 border-b border-[var(--admin-border)] flex items-center gap-2">
           <Shield size={20} className="text-accent" />
           <h1 className="text-sm font-bold">Admin Panel</h1>
         </div>
         <nav className="flex-1 p-2 space-y-0.5">
-          {NAV_ITEMS.map(item => {
+          {visibleNavItems.map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.key;
             const badge = item.key === 'chat' && chatUnread > 0 ? chatUnread
@@ -763,7 +979,7 @@ export default function AdminPage() {
             );
           })}
         </nav>
-        <div className="p-2 border-t border-white/10 space-y-1">
+        <div className="p-2 border-t border-[var(--admin-border)] space-y-1">
           <a href="/" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
             <Home size={14} /> Back to Site
           </a>
@@ -779,7 +995,7 @@ export default function AdminPage() {
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Bar */}
-        <header className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.02] flex-shrink-0">
+        <header className="flex items-center justify-between px-4 py-3 border-b border-[var(--admin-border)] admin-panel flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
@@ -792,7 +1008,7 @@ export default function AdminPage() {
               </svg>
             </button>
             <h2 className="text-sm font-semibold">
-              {NAV_ITEMS.find(n => n.key === activeTab)?.label || 'Admin'}
+              {visibleNavItems.find(n => n.key === activeTab)?.label || 'Admin'}
             </h2>
           </div>
           <div className="flex items-center gap-2">
@@ -810,8 +1026,8 @@ export default function AdminPage() {
                 )}
               </button>
               {showNotifications && (
-                <div className="absolute right-0 top-full mt-1 w-80 max-h-96 overflow-y-auto bg-[#111] border border-white/10 rounded-xl shadow-2xl z-50">
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+                <div className="absolute right-0 top-full mt-1 w-80 max-h-96 overflow-y-auto bg-[var(--admin-panel)] border border-[var(--admin-border)] rounded-xl shadow-2xl z-50">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--admin-border)]">
                     <p className="text-xs font-semibold">Notifications</p>
                     <button onClick={handleMarkNotificationsRead} className="text-[10px] text-accent hover:underline">
                       Mark all read
@@ -852,8 +1068,8 @@ export default function AdminPage() {
 
         {/* Mobile Nav Dropdown */}
         {mobileNavOpen && (
-          <div className="md:hidden bg-[#111] border-b border-white/10 p-2 space-y-0.5">
-            {NAV_ITEMS.map(item => {
+          <div className="md:hidden bg-[var(--admin-panel)] border-b border-[var(--admin-border)] p-2 space-y-0.5">
+            {visibleNavItems.map(item => {
               const Icon = item.icon;
               return (
                 <button
@@ -925,7 +1141,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="grid lg:grid-cols-2 gap-3 flex-1 min-h-0">
+              <div className="grid lg:grid-cols-3 gap-3 flex-1 min-h-0">
                 {/* Recent Registrations */}
                 <div className="glass-card p-3 flex flex-col min-h-0 h-[220px] md:h-[260px]">
                   <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
@@ -942,6 +1158,39 @@ export default function AdminPage() {
                             <span className="text-gray-400 ml-1.5 truncate">{n.email}</span>
                           </div>
                           <span className="text-[9px] text-gray-500 flex-shrink-0">{new Date(n.timestamp).toLocaleDateString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Online Admins */}
+                <div className="glass-card p-3 flex flex-col min-h-0 h-[220px] md:h-[260px]">
+                  <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+                    <Shield size={12} className="text-accent" /> Online Admins
+                  </h3>
+                  {onlineAdmins.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">No active admins</p>
+                  ) : (
+                    <div className="space-y-1.5 flex-1 overflow-y-auto pr-1 text-[11px]">
+                      {onlineAdmins.slice(0, 10).map(a => (
+                        <div key={a.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-2 h-2 rounded-full ${
+                                a.status === 'online' ? 'bg-green-400' :
+                                a.status === 'idle' ? 'bg-yellow-400' : 'bg-gray-500'
+                              }`} />
+                              <span className="font-medium truncate">{a.name}</span>
+                            </div>
+                            <p className="text-[10px] text-gray-400 truncate">{a.role} · {a.email}</p>
+                          </div>
+                          <div className="text-[9px] text-gray-500 text-right">
+                            <div>{a.statusLabel}</div>
+                            {a.lastActiveAt && (
+                              <div>{new Date(a.lastActiveAt).toLocaleTimeString()}</div>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1074,7 +1323,7 @@ export default function AdminPage() {
                         className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs focus:border-accent focus:outline-none"
                       />
                       {overrideResults.length > 0 && overrideQuery.trim() && !selectedUser && (
-                        <div className="absolute z-10 mt-1 w-full max-h-32 overflow-y-auto rounded-lg border border-white/10 bg-[#111] shadow-xl">
+                        <div className="absolute z-10 mt-1 w-full max-h-32 overflow-y-auto rounded-lg border border-[var(--admin-border)] bg-[var(--admin-panel)] shadow-xl">
                           {overrideResults.map(u => (
                             <button
                               key={u.id}
@@ -1930,7 +2179,7 @@ export default function AdminPage() {
                   <div className="relative max-w-2xl max-h-[85vh]" onClick={e => e.stopPropagation()}>
                     <button
                       onClick={() => setKycImageModal(null)}
-                      className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-[#111] border border-white/20 flex items-center justify-center z-10 hover:bg-white/10"
+                      className="absolute -top-3 -right-3 w-7 h-7 rounded-full bg-[var(--admin-panel)] border border-[var(--admin-border)] flex items-center justify-center z-10 hover:bg-white/10"
                     >
                       <XIcon size={14} />
                     </button>
@@ -1958,21 +2207,6 @@ export default function AdminPage() {
                 <div className="glass-card p-4 text-xs text-gray-500">Loading settings...</div>
               ) : (
                 <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3">
-                  {newApiKeyValue && (
-                    <div className="glass-card p-3 text-xs flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-gray-400 mb-1">New API Key (copy once)</p>
-                        <p className="font-mono text-accent break-all">{newApiKeyValue}</p>
-                      </div>
-                      <button
-                        onClick={() => setNewApiKeyValue(null)}
-                        className="text-[10px] text-gray-400 hover:text-white"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  )}
-
                   <div className="grid lg:grid-cols-2 gap-3">
                     {/* RBAC */}
                     <div className="glass-card p-3 space-y-2">
@@ -2034,6 +2268,17 @@ export default function AdminPage() {
                           {key === 'newUsers' ? 'New users' : key === 'largeWithdrawals' ? 'Large withdrawals' : 'Flagged trades'}
                         </label>
                       ))}
+                      <div className="pt-1">
+                        <label className="block text-[10px] text-gray-400 mb-0.5">Theme</label>
+                        <select
+                          value={adminTheme}
+                          onChange={(e) => handleThemeChange(e.target.value as 'dark' | 'light')}
+                          className="w-full text-xs rounded px-2 py-1.5 border"
+                        >
+                          <option value="dark">Dark</option>
+                          <option value="light">Light</option>
+                        </select>
+                      </div>
                     </div>
 
                     {/* Maintenance Mode */}
@@ -2056,70 +2301,6 @@ export default function AdminPage() {
                         className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
                         placeholder="Maintenance message"
                       />
-                    </div>
-
-                    {/* API Management */}
-                    <div className="glass-card p-3 space-y-2 lg:col-span-2">
-                      <p className="text-xs font-semibold">API Management</p>
-                      <div className="flex flex-wrap gap-2 items-end">
-                        <div className="flex-1 min-w-[180px]">
-                          <label className="block text-[10px] text-gray-400 mb-0.5">Key name</label>
-                          <input
-                            value={apiKeyName}
-                            onChange={(e) => setApiKeyName(e.target.value)}
-                            className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                            placeholder="e.g. Trading bot"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {['read', 'write', 'admin'].map(scope => (
-                            <label key={scope} className="text-[10px] text-gray-400 flex items-center gap-1">
-                              <input
-                                type="checkbox"
-                                checked={apiKeyScopes.includes(scope)}
-                                onChange={(e) => {
-                                  setApiKeyScopes(prev => (
-                                    e.target.checked ? [...prev, scope] : prev.filter(s => s !== scope)
-                                  ));
-                                }}
-                                className="accent-accent"
-                              />
-                              {scope}
-                            </label>
-                          ))}
-                        </div>
-                        <button
-                          onClick={handleCreateApiKey}
-                          className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded"
-                        >
-                          Generate Key
-                        </button>
-                      </div>
-
-                      <div className="space-y-1 text-[10px]">
-                        {adminSettings.apiKeys.length === 0 ? (
-                          <p className="text-gray-500">No API keys created</p>
-                        ) : (
-                          adminSettings.apiKeys.map(key => (
-                            <div key={key.id} className="flex items-center justify-between p-2 rounded bg-white/5">
-                              <div>
-                                <p className="font-semibold">{key.name}</p>
-                                <p className="text-gray-400">•••• {key.keyLast4} · {key.scopes.join(', ') || 'no scopes'}</p>
-                              </div>
-                              {key.revokedAt ? (
-                                <span className="text-[9px] text-gray-500">Revoked</span>
-                              ) : (
-                                <button
-                                  onClick={() => handleRevokeApiKey(key.id)}
-                                  className="text-[10px] text-danger hover:underline"
-                                >
-                                  Revoke
-                                </button>
-                              )}
-                            </div>
-                          ))
-                        )}
-                      </div>
                     </div>
 
                     {/* Activity Logs */}
@@ -2153,18 +2334,6 @@ export default function AdminPage() {
                       </div>
                     </div>
 
-                    {/* UI Preferences */}
-                    <div className="glass-card p-3 space-y-2">
-                      <p className="text-xs font-semibold">Theme / UI Preferences</p>
-                      <select
-                        value={adminSettings.ui.theme}
-                        onChange={(e) => setAdminSettings(s => s ? { ...s, ui: { theme: e.target.value as 'dark' | 'light' } } : s)}
-                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                      >
-                        <option value="dark">Dark</option>
-                        <option value="light">Light</option>
-                      </select>
-                    </div>
                   </div>
                 </div>
               )}

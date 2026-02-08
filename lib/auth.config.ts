@@ -53,6 +53,10 @@ providers.push(
           return null;
         }
 
+        if (user.accountStatus === 'banned') {
+          throw new Error('ACCOUNT_BANNED');
+        }
+
         // Check if email is verified
         if (!user.isVerified) {
           throw new Error('EMAIL_NOT_VERIFIED');
@@ -99,6 +103,9 @@ providers.push(
           }
         }
 
+        user.lastActiveAt = new Date();
+        await user.save();
+
         return {
           id: user._id.toString(),
           name: user.fullName,
@@ -129,11 +136,18 @@ export const authConfig = {
             googleId: user.id,
             isVerified: true, // Auto-verify Google users
             password: Math.random().toString(36), // Random password for OAuth users
+            lastActiveAt: new Date(),
           });
+        } else if (dbUser.accountStatus === 'banned') {
+          return false;
         } else if (!dbUser.googleId) {
           // Link existing email account to Google
           dbUser.googleId = user.id;
           dbUser.isVerified = true;
+          dbUser.lastActiveAt = new Date();
+          await dbUser.save();
+        } else {
+          dbUser.lastActiveAt = new Date();
           await dbUser.save();
         }
 

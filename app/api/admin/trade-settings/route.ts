@@ -6,26 +6,20 @@ import Portfolio from '@/lib/models/Portfolio';
 import AdminAuditLog from '@/lib/models/AdminAuditLog';
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
+import { getAdminContext, hasPermission } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
 const log = logger.child({ module: 'AdminTradeSettings' });
 
-// Simple admin auth via secret key in header
-function isAuthorized(request: NextRequest): boolean {
-  const adminKey = request.headers.get('x-admin-key');
-  const expected = process.env.ADMIN_SECRET_KEY;
-  if (!expected) {
-    log.warn('ADMIN_SECRET_KEY not set — admin endpoints disabled');
-    return false;
-  }
-  return adminKey === expected;
-}
-
 // GET /api/admin/trade-settings — get current settings + stats
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'manage_trades')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -83,8 +77,12 @@ export async function GET(request: NextRequest) {
 
 // PUT /api/admin/trade-settings — update settings
 export async function PUT(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'manage_trades')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -115,7 +113,11 @@ export async function PUT(request: NextRequest) {
             userName: user?.fullName || '',
             userEmail: user?.email || '',
             reason: 'Removed trade override',
-            actor: 'admin',
+            actor: context.admin._id.toString(),
+            actorName: context.admin.name,
+            actorRole: context.admin.role,
+            targetType: 'user',
+            targetId: userId,
             ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
           });
         } else if (override === 'win' || override === 'lose') {
@@ -128,7 +130,11 @@ export async function PUT(request: NextRequest) {
             userName: user?.fullName || '',
             userEmail: user?.email || '',
             reason: `Set trade override to ${override.toUpperCase()}`,
-            actor: 'admin',
+            actor: context.admin._id.toString(),
+            actorName: context.admin.name,
+            actorRole: context.admin.role,
+            targetType: 'user',
+            targetId: userId,
             ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
           });
         }

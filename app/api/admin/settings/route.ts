@@ -3,24 +3,19 @@ import { connectDB } from '@/lib/mongodb';
 import AdminSettings from '@/lib/models/AdminSettings';
 import { logger } from '@/lib/utils/logger';
 import crypto from 'crypto';
+import { getAdminContext, hasPermission } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
 const log = logger.child({ module: 'AdminSettings' });
 
-function isAuthorized(request: NextRequest): boolean {
-  const adminKey = request.headers.get('x-admin-key');
-  const expected = process.env.ADMIN_SECRET_KEY;
-  if (!expected) {
-    log.warn('ADMIN_SECRET_KEY not set — admin endpoints disabled');
-    return false;
-  }
-  return adminKey === expected;
-}
-
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'manage_settings')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -51,8 +46,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'manage_settings')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -88,8 +87,12 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'manage_settings')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -130,8 +133,12 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'manage_settings')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {

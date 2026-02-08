@@ -5,6 +5,7 @@ import { withRateLimit } from '@/lib/middleware/rateLimit';
 import { tradeSchema } from '@/lib/validation/schemas';
 import { PortfolioService } from '@/lib/services/portfolioService';
 import { logger } from '@/lib/utils/logger';
+import User from '@/lib/models/User';
 export const dynamic = 'force-dynamic';
 
 const log = logger.child({ module: 'TradeRoute' });
@@ -46,6 +47,8 @@ export async function POST(request: NextRequest) {
       amount,
       pricePerUnit,
     });
+
+    await User.findByIdAndUpdate(session.user.id, { lastActiveAt: new Date() });
 
     log.info(
       { userId: session.user.id, type, cryptoSymbol, amount, pricePerUnit },

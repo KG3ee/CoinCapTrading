@@ -290,10 +290,18 @@ export default function ChatWidget() {
                 <div className="animate-spin w-6 h-6 border-2 border-accent border-t-transparent rounded-full" />
               </div>
             ) : messages.length === 0 ? (
-              <div className="text-center text-gray-500 text-xs mt-10 space-y-2">
-                <MessageCircle size={32} className="mx-auto text-gray-600" />
-                <p>No messages yet</p>
-                <p className="text-[10px]">Send a message to start a conversation with our support team.</p>
+              <div className="space-y-3">
+                <div className="flex items-start gap-2">
+                  <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-bold text-accent">
+                    CS
+                  </div>
+                  <div className="max-w-[80%] rounded-xl px-3 py-2 bg-white/10 text-[13px] text-white">
+                    Hello! How can we assist you today? Please describe your issue clearly.
+                  </div>
+                </div>
+                <div className="text-center text-gray-500 text-[10px]">
+                  Send a message to start a conversation with our support team.
+                </div>
               </div>
             ) : (
               messages.map((msg) => (

@@ -1,15 +1,14 @@
+import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import AdminAuditLog from '@/lib/models/AdminAuditLog';
-import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/utils/logger';
 import { getAdminContext, hasPermission } from '@/lib/adminAuth';
+import { logger } from '@/lib/utils/logger';
 
 export const dynamic = 'force-dynamic';
 
-const log = logger.child({ module: 'AdminResetPassword' });
+const log = logger.child({ module: 'AdminBan' });
 
-// PUT /api/admin/reset-password — reset a user's password
 export async function PUT(request: NextRequest) {
   const context = await getAdminContext(request);
   if ('error' in context) {
@@ -20,35 +19,30 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    const { userId, newPassword } = await request.json();
-
-    if (!userId || !newPassword) {
-      return NextResponse.json({ error: 'userId and newPassword are required' }, { status: 400 });
-    }
-
-    if (newPassword.length < 6) {
-      return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
-    }
-
     await connectDB();
+    const body = await request.json();
+    const userId = body?.userId;
+    const reason = typeof body?.reason === 'string' ? body.reason.trim() : '';
+
+    if (!userId || reason.length < 3) {
+      return NextResponse.json({ error: 'userId and reason are required' }, { status: 400 });
+    }
 
     const user = await User.findById(userId);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Set new password — the pre('save') hook will auto-hash it
-    user.password = newPassword;
+    user.accountStatus = 'banned';
     await user.save();
 
-    log.info({ userId, email: user.email }, 'Admin reset user password');
     await AdminAuditLog.create({
-      actionType: 'password_reset',
-      action: 'reset',
+      actionType: 'user_ban',
+      action: 'ban',
       userId: user._id,
       userName: user.fullName || '',
       userEmail: user.email || '',
-      reason: 'Admin reset user password',
+      reason,
       actor: context.admin._id.toString(),
       actorName: context.admin.name,
       actorRole: context.admin.role,
@@ -57,12 +51,11 @@ export async function PUT(request: NextRequest) {
       ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
     });
 
-    return NextResponse.json({
-      success: true,
-      message: `Password reset for ${user.fullName || user.email}`,
-    });
+    log.info({ userId: user._id.toString(), reason }, 'User banned');
+
+    return NextResponse.json({ message: 'User banned', userId: user._id.toString() });
   } catch (error: any) {
-    log.error({ error }, 'Failed to reset password');
+    log.error({ error }, 'Failed to ban user');
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

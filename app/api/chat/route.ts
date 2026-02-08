@@ -2,6 +2,7 @@ import { connectDB } from '@/lib/mongodb';
 import ChatMessage from '@/lib/models/ChatMessage';
 import { auth } from '@/lib/nextAuth';
 import { NextRequest, NextResponse } from 'next/server';
+import User from '@/lib/models/User';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,6 +97,8 @@ export async function POST(request: NextRequest) {
       attachments: validAttachments,
       read: false,
     });
+
+    await User.findByIdAndUpdate(session.user.id, { lastActiveAt: new Date() });
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error: any) {

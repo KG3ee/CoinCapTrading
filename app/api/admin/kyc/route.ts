@@ -2,20 +2,19 @@ import { connectDB } from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import KycVerification from '@/lib/models/KycVerification';
 import { NextRequest, NextResponse } from 'next/server';
+import AdminAuditLog from '@/lib/models/AdminAuditLog';
+import { getAdminContext, hasPermission } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
-function isAuthorized(request: NextRequest): boolean {
-  const adminKey = request.headers.get('x-admin-key');
-  const expected = process.env.ADMIN_SECRET_KEY;
-  if (!expected) return false;
-  return adminKey === expected;
-}
-
 // GET /api/admin/kyc — list KYC submissions for admin review
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'manage_kyc')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -82,8 +81,12 @@ export async function GET(request: NextRequest) {
 
 // PUT /api/admin/kyc — approve or reject a KYC submission
 export async function PUT(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'manage_kyc')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
@@ -115,6 +118,21 @@ export async function PUT(request: NextRequest) {
 
     // Update user's kycStatus
     await User.findByIdAndUpdate(kyc.userId, { kycStatus: newStatus });
+
+    await AdminAuditLog.create({
+      actionType: 'kyc_review',
+      action: newStatus,
+      userId: kyc.userId,
+      userName: '',
+      userEmail: '',
+      reason: action === 'reject' ? (rejectionReason || 'KYC rejected') : 'KYC approved',
+      actor: context.admin._id.toString(),
+      actorName: context.admin.name,
+      actorRole: context.admin.role,
+      targetType: 'kyc',
+      targetId: kyc._id.toString(),
+      ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
+    });
 
     return NextResponse.json({
       message: `KYC ${newStatus} successfully`,
