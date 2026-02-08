@@ -384,15 +384,6 @@ export default function AdminPage() {
     }
   }, [adminPermissions.length, activeTab, visibleNavItems]);
 
-  useEffect(() => {
-    if (accountActionType === 'balance' && !canBalanceAction && canBanAction) {
-      setAccountActionType('ban');
-    }
-    if (accountActionType === 'ban' && !canBanAction && canBalanceAction) {
-      setAccountActionType('balance');
-    }
-  }, [accountActionType, canBalanceAction, canBanAction]);
-
   const unreadNotifCount = notifications.filter(
     n => !lastSeenNotifTime || new Date(n.timestamp) > new Date(lastSeenNotifTime)
   ).length;
@@ -461,6 +452,15 @@ export default function AdminPage() {
   const canBalanceAction = can('manage_financials');
   const canBanAction = can('manage_users');
   const canAccountAction = canBalanceAction || canBanAction;
+
+  useEffect(() => {
+    if (accountActionType === 'balance' && !canBalanceAction && canBanAction) {
+      setAccountActionType('ban');
+    }
+    if (accountActionType === 'ban' && !canBanAction && canBalanceAction) {
+      setAccountActionType('balance');
+    }
+  }, [accountActionType, canBalanceAction, canBanAction]);
 
   const handleMarkNotificationsRead = () => {
     if (notifications.length > 0) setLastSeenNotifTime(notifications[0].timestamp);
