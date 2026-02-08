@@ -2349,232 +2349,233 @@ export default function AdminPage() {
               {showSettingsControls && (settingsLoading || !adminSettings) ? (
                 <div className="glass-card p-4 text-xs text-gray-500">Loading settings...</div>
               ) : (
-                <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3">
-                  <div className="grid lg:grid-cols-2 gap-3">
-                    {/* RBAC */}
+                <div className="flex-1 min-h-0 overflow-y-auto xl:overflow-hidden pr-1">
+                  <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-5 gap-2">
                     {showSettingsControls && adminSettings && (
-                      <div className="glass-card p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold">Role-Based Access Control</p>
-                          <label className="flex items-center gap-2 text-[10px] text-gray-400">
-                            <input
-                              type="checkbox"
-                              checked={adminSettings.rbacEnabled}
-                              onChange={(e) => setAdminSettings(s => s ? { ...s, rbacEnabled: e.target.checked } : s)}
-                              className="accent-accent"
-                            />
-                            Enable RBAC
-                          </label>
-                        </div>
-                        <div className="space-y-1 text-[10px]">
-                          {adminSettings.roles.map(role => (
-                            <div key={role.name} className="p-2 rounded bg-white/5">
-                              <p className="font-semibold">{role.name}</p>
-                              <p className="text-gray-400">{role.permissions.join(', ')}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* System Notifications */}
-                    {showSettingsControls && adminSettings && (
-                      <div className="glass-card p-3 space-y-2">
-                        <p className="text-xs font-semibold">System Notifications</p>
-                        {(['newUsers', 'largeWithdrawals', 'flaggedTrades'] as const).map(key => (
-                          <label key={key} className="flex items-center gap-2 text-[10px] text-gray-400">
-                            <input
-                              type="checkbox"
-                              checked={adminSettings.notifications[key]}
-                              onChange={(e) => setAdminSettings(s => s ? { ...s, notifications: { ...s.notifications, [key]: e.target.checked } } : s)}
-                            className="accent-accent"
-                          />
-                          {key === 'newUsers' ? 'New users' : key === 'largeWithdrawals' ? 'Large withdrawals' : 'Flagged trades'}
-                        </label>
-                        ))}
-                        <p className="text-[10px] text-gray-500">Theme toggle is available in the top-right header.</p>
-                      </div>
-                    )}
-
-                    {/* Maintenance Mode */}
-                    {showSettingsControls && adminSettings && (
-                      <div className="glass-card p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold">Maintenance Mode</p>
-                          <label className="flex items-center gap-2 text-[10px] text-gray-400">
-                            <input
-                              type="checkbox"
-                              checked={adminSettings.maintenance.enabled}
-                              onChange={(e) => setAdminSettings(s => s ? { ...s, maintenance: { ...s.maintenance, enabled: e.target.checked } } : s)}
-                              className="accent-accent"
-                            />
-                            Enabled
-                          </label>
-                        </div>
-                        <input
-                          value={adminSettings.maintenance.message}
-                          onChange={(e) => setAdminSettings(s => s ? { ...s, maintenance: { ...s.maintenance, message: e.target.value } } : s)}
-                          className="w-full text-xs rounded px-2 py-1.5 border"
-                          placeholder="Maintenance message"
-                        />
-                      </div>
-                    )}
-
-                    {/* Admin Management */}
-                    {showAdminManagement && (
-                      <div className="glass-card p-3 space-y-2 lg:col-span-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold">Admin Accounts</p>
-                          <span className="text-[10px] text-gray-500">{adminUsers.length} total</span>
-                        </div>
-
-                        {newAdminKey && (
-                          <div className="p-2 rounded bg-white/5 text-[10px] flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="text-gray-400 mb-0.5">New admin key (copy once)</p>
-                              <p className="font-mono text-accent break-all">{newAdminKey}</p>
-                            </div>
-                            <button
-                              onClick={() => setNewAdminKey(null)}
-                              className="text-[10px] text-gray-400 hover:text-white"
-                            >
-                              Dismiss
-                            </button>
+                      <div className="min-h-0 flex flex-col gap-2 xl:col-span-2">
+                        {/* RBAC */}
+                        <div className="glass-card p-3 min-h-[180px] xl:min-h-0 xl:flex-[1.35] flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold">Role-Based Access Control</p>
+                            <label className="flex items-center gap-2 text-[10px] text-gray-400">
+                              <input
+                                type="checkbox"
+                                checked={adminSettings.rbacEnabled}
+                                onChange={(e) => setAdminSettings(s => s ? { ...s, rbacEnabled: e.target.checked } : s)}
+                                className="accent-accent"
+                              />
+                              Enable RBAC
+                            </label>
                           </div>
-                        )}
+                          <div className="space-y-1 text-[10px] flex-1 min-h-0 overflow-y-auto pr-1">
+                            {adminSettings.roles.map(role => (
+                              <div key={role.name} className="p-2 rounded bg-white/5">
+                                <p className="font-semibold">{role.name}</p>
+                                <p className="text-gray-400">{role.permissions.join(', ')}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
 
-                        {adminProfile?.role === 'superadmin' ? (
-                          <div className="grid md:grid-cols-4 gap-2 items-end">
-                            <div className="md:col-span-1">
-                              <label className="block text-[10px] text-gray-400 mb-0.5">Name</label>
+                        {/* System Notifications */}
+                        <div className="glass-card p-3 min-h-[120px] xl:min-h-0 xl:flex-[0.85] flex flex-col gap-2">
+                          <p className="text-xs font-semibold">System Notifications</p>
+                          <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1">
+                            {(['newUsers', 'largeWithdrawals', 'flaggedTrades'] as const).map(key => (
+                              <label key={key} className="flex items-center gap-2 text-[10px] text-gray-400">
+                                <input
+                                  type="checkbox"
+                                  checked={adminSettings.notifications[key]}
+                                  onChange={(e) => setAdminSettings(s => s ? { ...s, notifications: { ...s.notifications, [key]: e.target.checked } } : s)}
+                                  className="accent-accent"
+                                />
+                                {key === 'newUsers' ? 'New users' : key === 'largeWithdrawals' ? 'Large withdrawals' : 'Flagged trades'}
+                              </label>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-gray-500">Theme toggle is available in the top-right header.</p>
+                        </div>
+
+                        {/* Maintenance Mode */}
+                        <div className="glass-card p-3 min-h-[120px] xl:min-h-0 xl:flex-[0.8] flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold">Maintenance Mode</p>
+                            <label className="flex items-center gap-2 text-[10px] text-gray-400">
                               <input
-                                value={newAdminName}
-                                onChange={(e) => setNewAdminName(e.target.value)}
-                                className="w-full text-xs rounded px-2 py-1.5 border"
-                                placeholder="Admin name"
+                                type="checkbox"
+                                checked={adminSettings.maintenance.enabled}
+                                onChange={(e) => setAdminSettings(s => s ? { ...s, maintenance: { ...s.maintenance, enabled: e.target.checked } } : s)}
+                                className="accent-accent"
                               />
-                            </div>
-                            <div className="md:col-span-2">
-                              <label className="block text-[10px] text-gray-400 mb-0.5">Email</label>
-                              <input
-                                value={newAdminEmail}
-                                onChange={(e) => setNewAdminEmail(e.target.value)}
-                                className="w-full text-xs rounded px-2 py-1.5 border"
-                                placeholder="admin@email.com"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] text-gray-400 mb-0.5">Role</label>
-                              <select
-                                value={newAdminRole}
-                                onChange={(e) => setNewAdminRole(e.target.value as 'admin' | 'moderator')}
-                                className="w-full text-xs rounded px-2 py-1.5 border"
-                              >
-                                <option value="admin">Admin</option>
-                                <option value="moderator">Moderator</option>
-                              </select>
-                            </div>
-                            <div className="md:col-span-4">
+                              Enabled
+                            </label>
+                          </div>
+                          <input
+                            value={adminSettings.maintenance.message}
+                            onChange={(e) => setAdminSettings(s => s ? { ...s, maintenance: { ...s.maintenance, message: e.target.value } } : s)}
+                            className="w-full text-xs rounded px-2 py-1.5 border"
+                            placeholder="Maintenance message"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className={`min-h-0 flex flex-col gap-2 ${showSettingsControls && adminSettings ? 'xl:col-span-3' : 'xl:col-span-5'}`}>
+                      {/* Admin Management */}
+                      {showAdminManagement && (
+                        <div className="glass-card p-3 min-h-[250px] xl:min-h-0 xl:flex-[1.2] flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold">Admin Accounts</p>
+                            <span className="text-[10px] text-gray-500">{adminUsers.length} total</span>
+                          </div>
+
+                          {newAdminKey && (
+                            <div className="p-2 rounded bg-white/5 text-[10px] flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-gray-400 mb-0.5">New admin key (copy once)</p>
+                                <p className="font-mono text-accent break-all">{newAdminKey}</p>
+                              </div>
                               <button
-                                onClick={handleCreateAdmin}
-                                className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded"
+                                onClick={() => setNewAdminKey(null)}
+                                className="text-[10px] text-gray-400 hover:text-white"
                               >
-                                Create Admin
+                                Dismiss
                               </button>
                             </div>
+                          )}
+
+                          {adminProfile?.role === 'superadmin' ? (
+                            <div className="grid md:grid-cols-4 gap-2 items-end">
+                              <div className="md:col-span-1">
+                                <label className="block text-[10px] text-gray-400 mb-0.5">Name</label>
+                                <input
+                                  value={newAdminName}
+                                  onChange={(e) => setNewAdminName(e.target.value)}
+                                  className="w-full text-xs rounded px-2 py-1.5 border"
+                                  placeholder="Admin name"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-[10px] text-gray-400 mb-0.5">Email</label>
+                                <input
+                                  value={newAdminEmail}
+                                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                                  className="w-full text-xs rounded px-2 py-1.5 border"
+                                  placeholder="admin@email.com"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-gray-400 mb-0.5">Role</label>
+                                <select
+                                  value={newAdminRole}
+                                  onChange={(e) => setNewAdminRole(e.target.value as 'admin' | 'moderator')}
+                                  className="w-full text-xs rounded px-2 py-1.5 border"
+                                >
+                                  <option value="admin">Admin</option>
+                                  <option value="moderator">Moderator</option>
+                                </select>
+                              </div>
+                              <div className="md:col-span-4">
+                                <button
+                                  onClick={handleCreateAdmin}
+                                  className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded"
+                                >
+                                  Create Admin
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-[10px] text-gray-500">Only Super Admin can create new admin accounts.</p>
+                          )}
+
+                          <div className="flex-1 min-h-0 overflow-y-auto pr-1 text-[10px]">
+                            {adminUsersLoading ? (
+                              <p className="text-gray-500">Loading admins...</p>
+                            ) : adminUsers.length === 0 ? (
+                              <p className="text-gray-500">No admins found</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {adminUsers.map(admin => {
+                                  const cannotDelete = admin.isRoot || (admin.role === 'superadmin' && adminProfile?.role !== 'superadmin');
+                                  return (
+                                    <div key={admin.id} className="flex items-center justify-between p-2 rounded bg-white/5">
+                                      <div className="min-w-0">
+                                        <p className="font-semibold truncate">{admin.name} ({admin.roleLabel})</p>
+                                        <p className="text-gray-400 truncate">{admin.email} · •••• {admin.keyLast4}</p>
+                                        {admin.createdByName && (
+                                          <p className="text-[9px] text-gray-500 truncate">Created by {admin.createdByName}</p>
+                                        )}
+                                      </div>
+                                      <button
+                                        onClick={() => {
+                                          if (cannotDelete) return;
+                                          if (!confirm(`Delete ${admin.name}?`)) return;
+                                          handleDeleteAdmin(admin.id);
+                                        }}
+                                        disabled={cannotDelete}
+                                        className="text-[10px] text-danger hover:underline disabled:opacity-40"
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <p className="text-[10px] text-gray-500">Only Super Admin can create new admin accounts.</p>
-                        )}
-
-                        <div className="max-h-40 overflow-y-auto pr-1 text-[10px]">
-                          {adminUsersLoading ? (
-                            <p className="text-gray-500">Loading admins...</p>
-                          ) : adminUsers.length === 0 ? (
-                            <p className="text-gray-500">No admins found</p>
-                          ) : (
-                            <div className="space-y-1">
-                              {adminUsers.map(admin => {
-                                const cannotDelete = admin.isRoot || (admin.role === 'superadmin' && adminProfile?.role !== 'superadmin');
-                                return (
-                                  <div key={admin.id} className="flex items-center justify-between p-2 rounded bg-white/5">
-                                    <div className="min-w-0">
-                                      <p className="font-semibold truncate">{admin.name} ({admin.roleLabel})</p>
-                                      <p className="text-gray-400 truncate">{admin.email} · •••• {admin.keyLast4}</p>
-                                      {admin.createdByName && (
-                                        <p className="text-[9px] text-gray-500 truncate">Created by {admin.createdByName}</p>
-                                      )}
-                                    </div>
-                                    <button
-                                      onClick={() => {
-                                        if (cannotDelete) return;
-                                        if (!confirm(`Delete ${admin.name}?`)) return;
-                                        handleDeleteAdmin(admin.id);
-                                      }}
-                                      disabled={cannotDelete}
-                                      className="text-[10px] text-danger hover:underline disabled:opacity-40"
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Activity Logs */}
-                    {showAuditLogs && (
-                      <div className="glass-card p-3 space-y-2 lg:col-span-2 h-[280px] flex flex-col">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-semibold">Activity Logs</p>
-                          <input
-                            value={auditLogQuery}
-                            onChange={(e) => setAuditLogQuery(e.target.value)}
-                            placeholder="Search logs"
-                            className="w-36 text-[10px] rounded px-2 py-1 border"
-                          />
-                        </div>
-                        <div className="flex-1 min-h-0 overflow-y-auto pr-1 text-[10px]">
-                          {auditLogsLoading ? (
-                            <p className="text-gray-500">Loading logs...</p>
-                          ) : filteredAuditLogs.length === 0 ? (
-                            <p className="text-gray-500">No recent activity</p>
-                          ) : (
-                            <div className="space-y-1">
-                              {filteredAuditLogs.map(log => {
-                                const actorLabel = log.actorName || log.actorRole || 'Admin';
-                                const targetLabel = log.userName || log.userEmail || log.targetId || '—';
-                                const actionLabel = (log.actionType || 'action').split('_').join(' ');
-                                const amountLabel = Number(log.amount || 0) > 0 ? ` · ${Number(log.amount || 0).toLocaleString()}` : '';
-                                return (
-                                  <div key={log.id} className="flex items-center justify-between p-2 rounded bg-white/5">
-                                    <div className="min-w-0">
-                                      <p className="font-semibold truncate">
-                                        {actorLabel} {log.actorRole ? `(${log.actorRole})` : ''}
-                                      </p>
-                                      <p className="text-gray-400 truncate">
-                                        {actionLabel} · {log.action?.toUpperCase()}{amountLabel} · {targetLabel}
-                                      </p>
-                                      {log.reason && (
-                                        <p className="text-[9px] text-gray-500 truncate">Reason: {log.reason}</p>
-                                      )}
+                      {/* Activity Logs */}
+                      {showAuditLogs && (
+                        <div className="glass-card p-3 min-h-[230px] xl:min-h-0 xl:flex-1 flex flex-col gap-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold">Activity Logs</p>
+                            <input
+                              value={auditLogQuery}
+                              onChange={(e) => setAuditLogQuery(e.target.value)}
+                              placeholder="Search logs"
+                              className="w-36 text-[10px] rounded px-2 py-1 border"
+                            />
+                          </div>
+                          <div className="flex-1 min-h-0 overflow-y-auto pr-1 text-[10px]">
+                            {auditLogsLoading ? (
+                              <p className="text-gray-500">Loading logs...</p>
+                            ) : filteredAuditLogs.length === 0 ? (
+                              <p className="text-gray-500">No recent activity</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {filteredAuditLogs.map(log => {
+                                  const actorLabel = log.actorName || log.actorRole || 'Admin';
+                                  const targetLabel = log.userName || log.userEmail || log.targetId || '—';
+                                  const actionLabel = (log.actionType || 'action').split('_').join(' ');
+                                  const amountLabel = Number(log.amount || 0) > 0 ? ` · ${Number(log.amount || 0).toLocaleString()}` : '';
+                                  return (
+                                    <div key={log.id} className="flex items-center justify-between p-2 rounded bg-white/5">
+                                      <div className="min-w-0">
+                                        <p className="font-semibold truncate">
+                                          {actorLabel} {log.actorRole ? `(${log.actorRole})` : ''}
+                                        </p>
+                                        <p className="text-gray-400 truncate">
+                                          {actionLabel} · {log.action?.toUpperCase()}{amountLabel} · {targetLabel}
+                                        </p>
+                                        {log.reason && (
+                                          <p className="text-[9px] text-gray-500 truncate">Reason: {log.reason}</p>
+                                        )}
+                                      </div>
+                                      <div className="text-[9px] text-gray-500 text-right flex-shrink-0">
+                                        <div>{new Date(log.createdAt).toLocaleDateString()}</div>
+                                        <div>{new Date(log.createdAt).toLocaleTimeString()}</div>
+                                      </div>
                                     </div>
-                                    <div className="text-[9px] text-gray-500 text-right flex-shrink-0">
-                                      <div>{new Date(log.createdAt).toLocaleDateString()}</div>
-                                      <div>{new Date(log.createdAt).toLocaleTimeString()}</div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
-
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
