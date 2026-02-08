@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB();
 
-    const users = await User.find({}, 'fullName email').sort({ fullName: 1 });
+    const users = await User.find({}, 'fullName email uid').sort({ fullName: 1 });
 
     const usersWithBalance = await Promise.all(
       users.map(async (user: any) => {
@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
           id: user._id.toString(),
           name: user.fullName || user.email,
           email: user.email,
+          uid: user.uid,
           balance: portfolio?.accountBalance ?? config.app.defaultBalance,
         };
       })

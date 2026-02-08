@@ -35,7 +35,7 @@ interface RecentTrade {
   createdAt: string;
 }
 interface UserItem { id: string; name: string; }
-interface UserBalance { id: string; name: string; email: string; balance: number; }
+interface UserBalance { id: string; name: string; email: string; uid: string; balance: number; }
 interface ChatConversation {
   userId: string;
   userName: string;
@@ -122,6 +122,8 @@ export default function AdminPage() {
   const [resetUserId, setResetUserId] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  const [userSearch, setUserSearch] = useState('');
 
   const [createFullName, setCreateFullName] = useState('');
   const [createEmail, setCreateEmail] = useState('');
@@ -213,6 +215,16 @@ export default function AdminPage() {
   const unreadNotifCount = notifications.filter(
     n => !lastSeenNotifTime || new Date(n.timestamp) > new Date(lastSeenNotifTime)
   ).length;
+
+  const normalizedUserSearch = userSearch.trim().toLowerCase();
+  const filteredUsers = normalizedUserSearch
+    ? userBalances.filter(u => (
+        (u.name || '').toLowerCase().includes(normalizedUserSearch) ||
+        (u.email || '').toLowerCase().includes(normalizedUserSearch) ||
+        (u.uid || '').toLowerCase().includes(normalizedUserSearch) ||
+        (u.id || '').toLowerCase().includes(normalizedUserSearch)
+      ))
+    : userBalances;
 
   const handleMarkNotificationsRead = () => {
     if (notifications.length > 0) setLastSeenNotifTime(notifications[0].timestamp);
@@ -924,6 +936,34 @@ export default function AdminPage() {
           {/* ── TAB: USER MANAGEMENT ──────────────────── */}
           {activeTab === 'users' && (
             <>
+              {/* User Search */}
+              <div className="glass-card p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold flex items-center gap-1.5">
+                    <Users size={14} className="text-accent" /> Search Users
+                  </h3>
+                  {userSearch && (
+                    <button
+                      onClick={() => setUserSearch('')}
+                      className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
+                    >
+                      <XIcon size={10} /> Clear
+                    </button>
+                  )}
+                </div>
+                <input
+                  value={userSearch}
+                  onChange={e => setUserSearch(e.target.value)}
+                  placeholder="Search by name, email, or UID"
+                  className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                />
+                {userSearch && (
+                  <p className="text-[10px] text-gray-500">
+                    Matching users: {filteredUsers.length}
+                  </p>
+                )}
+              </div>
+
               {/* Create User */}
               <div className="glass-card p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -995,7 +1035,11 @@ export default function AdminPage() {
                       className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
                     >
                       <option value="">Select user</option>
-                      {userBalances.map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
+                      {filteredUsers.map(u => (
+                          <option key={u.id} value={u.id}>
+                            {u.name || u.email} {u.uid ? `(${u.uid})` : ''}
+                          </option>
+                        ))}
                     </select>
                   </div>
                   <div className="w-[100px]">
@@ -1033,16 +1077,18 @@ export default function AdminPage() {
                         <tr className="text-gray-400 border-b border-gray-800">
                           <th className="text-left py-1.5 pr-2">User</th>
                           <th className="text-left py-1.5 pr-2">Email</th>
+                          <th className="text-left py-1.5 pr-2">UID</th>
                           <th className="text-right py-1.5 pr-2">Balance</th>
                           <th className="text-center py-1.5">Quick</th>
                           <th className="text-center py-1.5">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {userBalances.map(u => (
+                        {filteredUsers.map(u => (
                           <tr key={u.id} className="border-b border-gray-800/50 hover:bg-white/5">
                             <td className="py-2 pr-2 font-medium">{u.name || '\u2014'}</td>
                             <td className="py-2 pr-2 text-gray-400">{u.email}</td>
+                            <td className="py-2 pr-2 text-gray-400 font-mono">{u.uid || '\u2014'}</td>
                             <td className="py-2 pr-2 text-right font-mono text-accent">{u.balance.toLocaleString()}</td>
                             <td className="py-2 text-center">
                               <div className="flex gap-1 justify-center">
@@ -1106,9 +1152,11 @@ export default function AdminPage() {
                       className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
                     >
                       <option value="">Select user</option>
-                      {userBalances.map(u => (
-                        <option key={u.id} value={u.id}>{u.name || u.email} ({u.email})</option>
-                      ))}
+                      {filteredUsers.map(u => (
+                          <option key={u.id} value={u.id}>
+                            {u.name || u.email} ({u.email}) {u.uid ? `- ${u.uid}` : ''}
+                          </option>
+                        ))}
                     </select>
                   </div>
                   <div className="flex-1 min-w-[140px]">
