@@ -1,5 +1,6 @@
 import { connectDB } from '@/lib/mongodb';
 import User from '@/lib/models/User';
+import AdminAuditLog from '@/lib/models/AdminAuditLog';
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 
@@ -43,6 +44,16 @@ export async function PUT(request: NextRequest) {
     await user.save();
 
     log.info({ userId, email: user.email }, 'Admin reset user password');
+    await AdminAuditLog.create({
+      actionType: 'password_reset',
+      action: 'reset',
+      userId: user._id,
+      userName: user.fullName || '',
+      userEmail: user.email || '',
+      reason: 'Admin reset user password',
+      actor: 'admin',
+      ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
+    });
 
     return NextResponse.json({
       success: true,

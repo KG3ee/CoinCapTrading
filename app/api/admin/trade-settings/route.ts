@@ -3,6 +3,7 @@ import TradeSettings from '@/lib/models/TradeSettings';
 import TimedTrade from '@/lib/models/TimedTrade';
 import User from '@/lib/models/User';
 import Portfolio from '@/lib/models/Portfolio';
+import AdminAuditLog from '@/lib/models/AdminAuditLog';
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 
@@ -71,6 +72,7 @@ export async function GET(request: NextRequest) {
       users: users.map((u: any) => ({
         id: u._id.toString(),
         name: u.fullName || u.email,
+        email: u.email,
       })),
     });
   } catch (error: any) {
@@ -105,8 +107,30 @@ export async function PUT(request: NextRequest) {
       for (const [userId, override] of Object.entries(userOverrides)) {
         if (override === null || override === '') {
           settings.userOverrides.delete(userId);
+          const user = await User.findById(userId, 'fullName email');
+          await AdminAuditLog.create({
+            actionType: 'trade_override',
+            action: 'remove',
+            userId,
+            userName: user?.fullName || '',
+            userEmail: user?.email || '',
+            reason: 'Removed trade override',
+            actor: 'admin',
+            ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
+          });
         } else if (override === 'win' || override === 'lose') {
           settings.userOverrides.set(userId, override);
+          const user = await User.findById(userId, 'fullName email');
+          await AdminAuditLog.create({
+            actionType: 'trade_override',
+            action: override,
+            userId,
+            userName: user?.fullName || '',
+            userEmail: user?.email || '',
+            reason: `Set trade override to ${override.toUpperCase()}`,
+            actor: 'admin',
+            ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
+          });
         }
       }
     }

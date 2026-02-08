@@ -2,6 +2,7 @@ import { connectDB } from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import Portfolio from '@/lib/models/Portfolio';
 import Trade from '@/lib/models/Trade';
+import AdminAuditLog from '@/lib/models/AdminAuditLog';
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { registerSchema } from '@/lib/validation/schemas';
@@ -61,6 +62,16 @@ export async function POST(request: NextRequest) {
     });
 
     log.info({ userId: user._id, email: user.email, isVerified: user.isVerified }, 'Admin created user');
+    await AdminAuditLog.create({
+      actionType: 'user_create',
+      action: 'create',
+      userId: user._id,
+      userName: user.fullName || '',
+      userEmail: user.email || '',
+      reason: 'Admin created user',
+      actor: 'admin',
+      ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
+    });
 
     return NextResponse.json(
       {
@@ -144,6 +155,16 @@ export async function DELETE(request: NextRequest) {
     await User.findByIdAndDelete(userId);
 
     log.info({ userId, userName, userEmail, results }, 'User deleted by admin');
+    await AdminAuditLog.create({
+      actionType: 'user_delete',
+      action: 'delete',
+      userId,
+      userName,
+      userEmail,
+      reason: 'Admin deleted user',
+      actor: 'admin',
+      ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
+    });
 
     return NextResponse.json({
       message: `User "${userName}" (${userEmail}) deleted successfully`,

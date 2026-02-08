@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Shield, RefreshCw, Users, TrendingUp, Clock, AlertCircle,
-  Plus, Minus, KeyRound, MessageCircle, Send, Paperclip, X as XIcon,
+  Plus, Minus, MessageCircle, Send, Paperclip, X as XIcon,
   Trash2, LogOut, Home, Bell, Settings, BarChart3, ChevronRight,
   BadgeCheck, Eye, XCircle, CheckCircle2,
 } from 'lucide-react';
@@ -34,7 +34,7 @@ interface RecentTrade {
   forcedResult: string | null;
   createdAt: string;
 }
-interface UserItem { id: string; name: string; }
+interface UserItem { id: string; name: string; email?: string; }
 interface UserBalance {
   id: string;
   name: string;
@@ -93,6 +93,28 @@ interface KycSubmission {
   submittedAt: string;
   reviewedAt: string | null;
 }
+interface AuditLog {
+  id: string;
+  actionType?: string;
+  action: string;
+  amount: number;
+  reason: string;
+  userId?: string;
+  userName?: string;
+  userEmail?: string;
+  oldBalance?: number;
+  newBalance?: number;
+  createdAt: string;
+}
+interface AdminSettingsState {
+  rbacEnabled: boolean;
+  roles: { name: string; permissions: string[] }[];
+  security: { require2fa: boolean; ipWhitelist: string[] };
+  notifications: { newUsers: boolean; largeWithdrawals: boolean; flaggedTrades: boolean };
+  maintenance: { enabled: boolean; message: string };
+  apiKeys: { id: string; name: string; keyLast4: string; scopes: string[]; createdAt: string; revokedAt: string | null }[];
+  ui: { theme: 'dark' | 'light' };
+}
 
 type AdminTab = 'overview' | 'trades' | 'users' | 'chat' | 'kyc' | 'settings';
 
@@ -140,6 +162,21 @@ export default function AdminPage() {
   const [filterKyc, setFilterKyc] = useState<'all' | 'none' | 'pending' | 'approved' | 'rejected'>('all');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [balanceReason, setBalanceReason] = useState('');
+  const [accountActionMode, setAccountActionMode] = useState<'create' | 'reset'>('create');
+  const [showAccountActionModal, setShowAccountActionModal] = useState(false);
+
+  const [overrideQuery, setOverrideQuery] = useState('');
+
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
+  const [auditLogsOpen, setAuditLogsOpen] = useState(false);
+
+  const [adminSettings, setAdminSettings] = useState<AdminSettingsState | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [apiKeyName, setApiKeyName] = useState('');
+  const [apiKeyScopes, setApiKeyScopes] = useState<string[]>([]);
+  const [newApiKeyValue, setNewApiKeyValue] = useState<string | null>(null);
+  const [ipWhitelistInput, setIpWhitelistInput] = useState('');
 
   const [createFullName, setCreateFullName] = useState('');
   const [createEmail, setCreateEmail] = useState('');
@@ -229,6 +266,13 @@ export default function AdminPage() {
   }, [isAuthenticated, headers]);
 
   useEffect(() => {
+    if (activeTab === 'settings') {
+      fetchAdminSettings();
+      fetchAuditLogs('all');
+    }
+  }, [activeTab, fetchAdminSettings, fetchAuditLogs]);
+
+  useEffect(() => {
     setSelectedUserIds(prev => prev.filter(id => userBalances.some(u => u.id === id)));
   }, [userBalances]);
 
@@ -254,6 +298,10 @@ export default function AdminPage() {
   const selectedUsers = userBalances.filter(u => selectedUserIds.includes(u.id));
   const allFilteredSelected = filteredUsers.length > 0 && filteredUsers.every(u => selectedUserIds.includes(u.id));
   const parsedBalanceAmount = Number(balanceAmount);
+  const normalizedOverrideQuery = overrideQuery.trim().toLowerCase();
+  const overrideResults = normalizedOverrideQuery
+    ? users.filter(u => `${u.name} ${u.email || ''}`.toLowerCase().includes(normalizedOverrideQuery)).slice(0, 8)
+    : [];
   const previewTargets = selectedUserIds.length
     ? selectedUsers
     : balanceUserId
@@ -348,6 +396,98 @@ export default function AdminPage() {
     setCreatingUser(false);
   };
 
+  const fetchAuditLogs = useCallback(async (type: 'balance' | 'all' = 'balance') => {
+    if (!isAuthenticated) return;
+    setAuditLogsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/audit?type=${type}`, { headers: headers() });
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(data.logs || []);
+      }
+    } catch { /* silent */ }
+    setAuditLogsLoading(false);
+  }, [headers, isAuthenticated]);
+
+  const fetchAdminSettings = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setSettingsLoading(true);
+    try {
+      const res = await fetch('/api/admin/settings', { headers: headers() });
+      if (res.ok) {
+        const data = await res.json();
+        setAdminSettings(data.settings);
+        setIpWhitelistInput((data.settings?.security?.ipWhitelist || []).join('\n'));
+      }
+    } catch { /* silent */ }
+    setSettingsLoading(false);
+  }, [headers, isAuthenticated]);
+
+  const handleSaveAdminSettings = async () => {
+    if (!adminSettings) return;
+    setError(''); setSuccess('');
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT', headers: headers(),
+        body: JSON.stringify({
+          rbacEnabled: adminSettings.rbacEnabled,
+          roles: adminSettings.roles,
+          security: {
+            require2fa: adminSettings.security.require2fa,
+            ipWhitelist: ipWhitelistInput.split('\n').map(v => v.trim()).filter(Boolean),
+          },
+          notifications: adminSettings.notifications,
+          maintenance: adminSettings.maintenance,
+          ui: adminSettings.ui,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save settings');
+      const savedWhitelist = ipWhitelistInput.split('\n').map(v => v.trim()).filter(Boolean);
+      setAdminSettings(s => s ? { ...s, security: { ...s.security, ipWhitelist: savedWhitelist } } : s);
+      setSuccess('Settings saved');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleCreateApiKey = async () => {
+    if (!apiKeyName.trim()) return;
+    setError(''); setSuccess('');
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({ name: apiKeyName.trim(), scopes: apiKeyScopes }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create API key');
+      setNewApiKeyValue(data.apiKey);
+      setApiKeyName('');
+      setApiKeyScopes([]);
+      fetchAdminSettings();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleRevokeApiKey = async (id: string) => {
+    setError(''); setSuccess('');
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'DELETE', headers: headers(),
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to revoke API key');
+      setSuccess('API key revoked');
+      fetchAdminSettings();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   const toggleSelectAll = () => {
     if (allFilteredSelected) {
       const filteredIds = new Set(filteredUsers.map(u => u.id));
@@ -402,6 +542,10 @@ export default function AdminPage() {
         setSelectedUserIds([]);
       }
       setBalanceUserId('');
+      setShowAccountActionModal(false);
+      if (auditLogsOpen) {
+        fetchAuditLogs('balance');
+      }
       const balRes = await fetch('/api/admin/balance', { headers: headers() });
       if (balRes.ok) { const d = await balRes.json(); setUserBalances(d.users); }
       setTimeout(() => setSuccess(''), 3000);
@@ -588,7 +732,7 @@ export default function AdminPage() {
   // MAIN ADMIN PANEL
   // ══════════════════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex">
+    <div className="h-screen bg-[#0a0a0a] flex overflow-hidden">
       {/* SIDEBAR (Desktop) */}
       <aside className="hidden md:flex md:flex-col w-56 border-r border-white/10 bg-white/[0.02] flex-shrink-0">
         <div className="p-4 border-b border-white/10 flex items-center gap-2">
@@ -633,7 +777,7 @@ export default function AdminPage() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Bar */}
         <header className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.02] flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -739,129 +883,135 @@ export default function AdminPage() {
         )}
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 space-y-4">
-          {error && <div className="p-2.5 rounded-lg bg-danger/20 text-danger text-xs">{error}</div>}
-          {success && <div className="p-2.5 rounded-lg bg-success/20 text-success text-xs">{success}</div>}
+        <main className="flex-1 overflow-hidden p-3">
+          <div className="h-full flex flex-col gap-3">
+            {error && <div className="p-2.5 rounded-lg bg-danger/20 text-danger text-xs">{error}</div>}
+            {success && <div className="p-2.5 rounded-lg bg-success/20 text-success text-xs">{success}</div>}
+            <div className="flex-1 min-h-0 overflow-hidden">
 
           {/* ── TAB: OVERVIEW ─────────────────────────── */}
           {activeTab === 'overview' && (
-            <>
+            <div className="h-full flex flex-col gap-3">
               {stats && (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 flex-shrink-0">
                   {[
                     { label: 'Total Trades', value: stats.totalTrades, color: 'text-white' },
                     { label: 'Pending', value: stats.pendingTrades, color: 'text-yellow-400' },
                     { label: 'Wins', value: stats.wins, color: 'text-green-400' },
                     { label: 'Losses', value: stats.losses, color: 'text-red-400' },
                   ].map(s => (
-                    <div key={s.label} className="glass-card p-4 text-center">
-                      <p className="text-[11px] text-gray-400 mb-1">{s.label}</p>
-                      <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                    <div key={s.label} className="glass-card p-2.5 text-center">
+                      <p className="text-[10px] text-gray-400 mb-0.5">{s.label}</p>
+                      <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                <div className="glass-card p-4 text-center">
-                  <p className="text-[11px] text-gray-400 mb-1">Registered Users</p>
-                  <p className="text-2xl font-bold text-accent">{userBalances.length}</p>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 flex-shrink-0">
+                <div className="glass-card p-2.5 text-center">
+                  <p className="text-[10px] text-gray-400 mb-0.5">Registered Users</p>
+                  <p className="text-xl font-bold text-accent">{userBalances.length}</p>
                 </div>
-                <div className="glass-card p-4 text-center">
-                  <p className="text-[11px] text-gray-400 mb-1">Open Chats</p>
-                  <p className="text-2xl font-bold text-purple-400">{chatConversations.length}</p>
+                <div className="glass-card p-2.5 text-center">
+                  <p className="text-[10px] text-gray-400 mb-0.5">Open Chats</p>
+                  <p className="text-xl font-bold text-purple-400">{chatConversations.length}</p>
                 </div>
-                <div className="glass-card p-4 text-center col-span-2 lg:col-span-1">
-                  <p className="text-[11px] text-gray-400 mb-1">Current Mode</p>
-                  <p className="text-lg font-bold capitalize">
+                <div className="glass-card p-2.5 text-center col-span-2 lg:col-span-1">
+                  <p className="text-[10px] text-gray-400 mb-0.5">Current Mode</p>
+                  <p className="text-sm font-bold capitalize">
                     {settings?.globalMode?.replace('_', ' ') || '\u2014'}
                   </p>
                 </div>
               </div>
 
-              {/* Recent Registrations */}
-              <div className="glass-card p-4">
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
-                  <Bell size={14} className="text-accent" /> Recent Registrations
-                </h3>
-                {notifications.length === 0 ? (
-                  <p className="text-xs text-gray-500 italic">No recent registrations</p>
-                ) : (
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {notifications.slice(0, 10).map(n => (
-                      <div key={n.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 text-xs">
-                        <div>
-                          <span className="font-medium">{n.name}</span>
-                          <span className="text-gray-400 ml-1.5">{n.email}</span>
+              <div className="grid lg:grid-cols-2 gap-3 flex-1 min-h-0">
+                {/* Recent Registrations */}
+                <div className="glass-card p-3 flex flex-col min-h-0 h-[220px] md:h-[260px]">
+                  <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+                    <Bell size={12} className="text-accent" /> Recent Registrations
+                  </h3>
+                  {notifications.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">No recent registrations</p>
+                  ) : (
+                    <div className="space-y-1.5 flex-1 overflow-y-auto pr-1">
+                      {notifications.slice(0, 10).map(n => (
+                        <div key={n.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 text-[11px]">
+                          <div className="min-w-0">
+                            <span className="font-medium">{n.name}</span>
+                            <span className="text-gray-400 ml-1.5 truncate">{n.email}</span>
+                          </div>
+                          <span className="text-[9px] text-gray-500 flex-shrink-0">{new Date(n.timestamp).toLocaleDateString()}</span>
                         </div>
-                        <span className="text-[10px] text-gray-500">{new Date(n.timestamp).toLocaleDateString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-              {/* Recent Trades */}
-              <div className="glass-card p-4">
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-1.5">
-                  <Clock size={14} className="text-accent" /> Recent Trades
-                </h3>
-                {recentTrades.length === 0 ? (
-                  <p className="text-xs text-gray-500 italic">No trades yet</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-[11px]">
-                      <thead>
-                        <tr className="text-gray-400 border-b border-white/10">
-                          <th className="text-left py-1.5 px-2">User</th>
-                          <th className="text-left py-1.5 px-2">Type</th>
-                          <th className="text-left py-1.5 px-2">Symbol</th>
-                          <th className="text-right py-1.5 px-2">Amount</th>
-                          <th className="text-center py-1.5 px-2">Result</th>
-                          <th className="text-right py-1.5 px-2">Time</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {recentTrades.slice(0, 10).map(t => (
-                          <tr key={t.id} className="border-b border-white/5 hover:bg-white/5">
-                            <td className="py-1.5 px-2 truncate max-w-[100px]">{t.user}</td>
-                            <td className={`py-1.5 px-2 font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
-                              {t.type.toUpperCase()}
-                            </td>
-                            <td className="py-1.5 px-2">{t.cryptoSymbol}</td>
-                            <td className="py-1.5 px-2 text-right">{t.amount.toLocaleString()}</td>
-                            <td className="py-1.5 px-2 text-center">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                t.result === 'win' ? 'bg-green-500/20 text-green-400' :
-                                t.result === 'lose' ? 'bg-red-500/20 text-red-400' :
-                                'bg-yellow-500/20 text-yellow-400'
-                              }`}>
-                                {t.result.toUpperCase()}
-                              </span>
-                            </td>
-                            <td className="py-1.5 px-2 text-right text-gray-400">
-                              {new Date(t.createdAt).toLocaleTimeString()}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                {/* Recent Trades */}
+                <div className="glass-card p-3 flex flex-col min-h-0 h-[220px] md:h-[260px]">
+                  <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
+                    <Clock size={12} className="text-accent" /> Recent Trades
+                  </h3>
+                  {recentTrades.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">No trades yet</p>
+                  ) : (
+                    <div className="flex-1 overflow-y-auto pr-1">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-[11px]">
+                          <thead>
+                            <tr className="text-gray-400 border-b border-white/10">
+                              <th className="text-left py-1 px-2">User</th>
+                              <th className="text-left py-1 px-2">Type</th>
+                              <th className="text-left py-1 px-2">Symbol</th>
+                              <th className="text-right py-1 px-2">Amount</th>
+                              <th className="text-center py-1 px-2">Result</th>
+                              <th className="text-right py-1 px-2">Time</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {recentTrades.slice(0, 12).map(t => (
+                              <tr key={t.id} className="border-b border-white/5 hover:bg-white/5">
+                                <td className="py-1 px-2 truncate max-w-[100px]">{t.user}</td>
+                                <td className={`py-1 px-2 font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                                  {t.type.toUpperCase()}
+                                </td>
+                                <td className="py-1 px-2">{t.cryptoSymbol}</td>
+                                <td className="py-1 px-2 text-right">{t.amount.toLocaleString()}</td>
+                                <td className="py-1 px-2 text-center">
+                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold ${
+                                    t.result === 'win' ? 'bg-green-500/20 text-green-400' :
+                                    t.result === 'lose' ? 'bg-red-500/20 text-red-400' :
+                                    'bg-yellow-500/20 text-yellow-400'
+                                  }`}>
+                                    {t.result.toUpperCase()}
+                                  </span>
+                                </td>
+                                <td className="py-1 px-2 text-right text-gray-400">
+                                  {new Date(t.createdAt).toLocaleTimeString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </>
+            </div>
           )}
 
           {/* ── TAB: TRADE CONTROL ────────────────────── */}
           {activeTab === 'trades' && (
-            <>
-              <div className="grid md:grid-cols-2 gap-4">
+            <div className="h-full flex flex-col gap-3">
+              <div className="grid md:grid-cols-2 gap-3 flex-shrink-0">
                 {/* Global Mode */}
-                <div className="glass-card p-4 space-y-3">
-                  <h3 className="text-sm font-bold flex items-center gap-1.5">
-                    <TrendingUp size={14} className="text-accent" /> Global Trade Mode
+                <div className="glass-card p-3 space-y-2 h-[200px] md:h-[260px] flex flex-col">
+                  <h3 className="text-xs font-bold flex items-center gap-1.5">
+                    <TrendingUp size={12} className="text-accent" /> Global Trade Mode
                   </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-2 flex-1 overflow-y-auto pr-1">
                     {[
                       { value: 'random', label: 'Random', desc: 'Uses win rate % below' },
                       { value: 'all_win', label: 'All Win', desc: 'Every trade wins' },
@@ -869,7 +1019,7 @@ export default function AdminPage() {
                     ].map(mode => (
                       <label
                         key={mode.value}
-                        className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                        className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-all ${
                           globalMode === mode.value ? 'border-accent bg-accent/10' : 'border-white/10 bg-white/5 hover:bg-white/10'
                         }`}
                       >
@@ -880,7 +1030,7 @@ export default function AdminPage() {
                           className="accent-accent"
                         />
                         <div>
-                          <p className="text-sm font-medium">{mode.label}</p>
+                          <p className="text-xs font-medium">{mode.label}</p>
                           <p className="text-[10px] text-gray-400">{mode.desc}</p>
                         </div>
                       </label>
@@ -888,7 +1038,7 @@ export default function AdminPage() {
                   </div>
                   {globalMode === 'random' && (
                     <div>
-                      <label className="text-xs text-gray-400 mb-1 block">
+                      <label className="text-[10px] text-gray-400 mb-1 block">
                         Win Rate: <span className="text-white font-bold">{winRate}%</span>
                       </label>
                       <input
@@ -896,33 +1046,48 @@ export default function AdminPage() {
                         onChange={e => setWinRate(Number(e.target.value))}
                         className="w-full accent-accent"
                       />
-                      <div className="flex justify-between text-[10px] text-gray-500">
+                      <div className="flex justify-between text-[9px] text-gray-500">
                         <span>0% (lose)</span><span>100% (win)</span>
                       </div>
                     </div>
                   )}
                   <button
                     onClick={handleSaveSettings}
-                    className="w-full py-2 rounded-lg bg-accent hover:bg-accent/80 font-semibold text-sm transition-colors"
+                    className="w-full py-2 rounded-lg bg-accent hover:bg-accent/80 font-semibold text-xs transition-colors"
                   >
                     Save Settings
                   </button>
                 </div>
 
                 {/* User Overrides */}
-                <div className="glass-card p-4 space-y-3">
-                  <h3 className="text-sm font-bold flex items-center gap-1.5">
-                    <Users size={14} className="text-accent" /> User Overrides
+                <div className="glass-card p-3 space-y-2 h-[200px] md:h-[260px] flex flex-col">
+                  <h3 className="text-xs font-bold flex items-center gap-1.5">
+                    <Users size={12} className="text-accent" /> User Overrides
                   </h3>
-                  <p className="text-[10px] text-gray-400">Override global settings for specific users.</p>
+                  <p className="text-[10px] text-gray-400">Type to search a user and set override.</p>
                   <div className="flex gap-2">
-                    <select
-                      value={selectedUser} onChange={e => setSelectedUser(e.target.value)}
-                      className="flex-1 px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs focus:border-accent focus:outline-none"
-                    >
-                      <option value="">Select user...</option>
-                      {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                    </select>
+                    <div className="flex-1 relative">
+                      <input
+                        value={overrideQuery}
+                        onChange={e => { setOverrideQuery(e.target.value); setSelectedUser(''); }}
+                        placeholder="Search name, email, or UID"
+                        className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs focus:border-accent focus:outline-none"
+                      />
+                      {overrideResults.length > 0 && overrideQuery.trim() && !selectedUser && (
+                        <div className="absolute z-10 mt-1 w-full max-h-32 overflow-y-auto rounded-lg border border-white/10 bg-[#111] shadow-xl">
+                          {overrideResults.map(u => (
+                            <button
+                              key={u.id}
+                              onClick={() => { setSelectedUser(u.id); setOverrideQuery(u.name); }}
+                              className="w-full px-2 py-1.5 text-left text-xs hover:bg-white/10"
+                            >
+                              <div className="font-medium">{u.name}</div>
+                              {u.email && <div className="text-[9px] text-gray-400">{u.email}</div>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <select
                       value={userOverride} onChange={e => setUserOverride(e.target.value)}
                       className="px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs focus:border-accent focus:outline-none"
@@ -938,251 +1103,323 @@ export default function AdminPage() {
                       Set
                     </button>
                   </div>
-                  {settings && Object.keys(settings.userOverrides).length > 0 ? (
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-gray-400 font-semibold">Active:</p>
-                      {Object.entries(settings.userOverrides).map(([uid, ov]) => (
-                        <div key={uid} className="flex items-center justify-between p-2 rounded-lg bg-white/5 text-xs">
-                          <span>{users.find(u => u.id === uid)?.name || uid}</span>
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              ov === 'win' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                            }`}>
-                              {ov.toUpperCase()}
-                            </span>
-                            <button onClick={() => removeUserOverride(uid)} className="text-gray-400 hover:text-danger text-[10px] underline">
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                  {selectedUser && (
+                    <div className="text-[10px] text-gray-500">
+                      Selected: {users.find(u => u.id === selectedUser)?.name || selectedUser}
                     </div>
-                  ) : (
-                    <p className="text-[10px] text-gray-500 italic">No overrides</p>
                   )}
+                  <div className="flex-1 overflow-y-auto pr-1">
+                    {settings && Object.keys(settings.userOverrides).length > 0 ? (
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-gray-400 font-semibold">Active:</p>
+                        {Object.entries(settings.userOverrides).map(([uid, ov]) => (
+                          <div key={uid} className="flex items-center justify-between p-2 rounded-lg bg-white/5 text-xs">
+                            <span>{users.find(u => u.id === uid)?.name || uid}</span>
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                ov === 'win' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                              }`}>
+                                {ov.toUpperCase()}
+                              </span>
+                              <button onClick={() => removeUserOverride(uid)} className="text-gray-400 hover:text-danger text-[10px] underline">
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-gray-500 italic">No overrides</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* All Trades Table */}
-              <div className="glass-card p-4">
-                <h3 className="text-sm font-bold mb-3 flex items-center gap-1.5">
-                  <Clock size={14} className="text-accent" /> All Timed Trades
+              <div className="glass-card p-3 flex flex-col flex-1 min-h-0">
+                <h3 className="text-xs font-bold mb-2 flex items-center gap-1.5">
+                  <Clock size={12} className="text-accent" /> All Timed Trades
                 </h3>
                 {recentTrades.length === 0 ? (
                   <p className="text-xs text-gray-500 italic">No trades yet</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-[11px]">
-                      <thead>
-                        <tr className="text-gray-400 border-b border-white/10">
-                          <th className="text-left py-1.5 px-2">User</th>
-                          <th className="text-left py-1.5 px-2">Type</th>
-                          <th className="text-left py-1.5 px-2">Symbol</th>
-                          <th className="text-right py-1.5 px-2">Amount</th>
-                          <th className="text-center py-1.5 px-2">Period</th>
-                          <th className="text-center py-1.5 px-2">Result</th>
-                          <th className="text-right py-1.5 px-2">Profit</th>
-                          <th className="text-right py-1.5 px-2">Time</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {recentTrades.map(t => (
-                          <tr key={t.id} className="border-b border-white/5 hover:bg-white/5">
-                            <td className="py-1.5 px-2 truncate max-w-[100px]">{t.user}</td>
-                            <td className={`py-1.5 px-2 font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
-                              {t.type.toUpperCase()}
-                            </td>
-                            <td className="py-1.5 px-2">{t.cryptoSymbol}</td>
-                            <td className="py-1.5 px-2 text-right">{t.amount.toLocaleString()}</td>
-                            <td className="py-1.5 px-2 text-center">{t.period}s</td>
-                            <td className="py-1.5 px-2 text-center">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                t.result === 'win' ? 'bg-green-500/20 text-green-400' :
-                                t.result === 'lose' ? 'bg-red-500/20 text-red-400' :
-                                'bg-yellow-500/20 text-yellow-400'
-                              }`}>
-                                {t.result.toUpperCase()}
-                              </span>
-                            </td>
-                            <td className={`py-1.5 px-2 text-right ${t.result === 'win' ? 'text-green-400' : ''}`}>
-                              {t.result === 'win' ? `+${t.profitAmount.toLocaleString()}` : '\u2014'}
-                            </td>
-                            <td className="py-1.5 px-2 text-right text-gray-400">
-                              {new Date(t.createdAt).toLocaleTimeString()}
-                            </td>
+                  <div className="flex-1 overflow-y-auto pr-1">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px]">
+                        <thead>
+                          <tr className="text-gray-400 border-b border-white/10">
+                            <th className="text-left py-1 px-2">User</th>
+                            <th className="text-left py-1 px-2">Type</th>
+                            <th className="text-left py-1 px-2">Symbol</th>
+                            <th className="text-right py-1 px-2">Amount</th>
+                            <th className="text-center py-1 px-2">Period</th>
+                            <th className="text-center py-1 px-2">Result</th>
+                            <th className="text-right py-1 px-2">Profit</th>
+                            <th className="text-right py-1 px-2">Time</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {recentTrades.map(t => (
+                            <tr key={t.id} className="border-b border-white/5 hover:bg-white/5">
+                              <td className="py-1 px-2 truncate max-w-[100px]">{t.user}</td>
+                              <td className={`py-1 px-2 font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                                {t.type.toUpperCase()}
+                              </td>
+                              <td className="py-1 px-2">{t.cryptoSymbol}</td>
+                              <td className="py-1 px-2 text-right">{t.amount.toLocaleString()}</td>
+                              <td className="py-1 px-2 text-center">{t.period}s</td>
+                              <td className="py-1 px-2 text-center">
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold ${
+                                  t.result === 'win' ? 'bg-green-500/20 text-green-400' :
+                                  t.result === 'lose' ? 'bg-red-500/20 text-red-400' :
+                                  'bg-yellow-500/20 text-yellow-400'
+                                }`}>
+                                  {t.result.toUpperCase()}
+                                </span>
+                              </td>
+                              <td className={`py-1 px-2 text-right ${t.result === 'win' ? 'text-green-400' : ''}`}>
+                                {t.result === 'win' ? `+${t.profitAmount.toLocaleString()}` : '\u2014'}
+                              </td>
+                              <td className="py-1 px-2 text-right text-gray-400">
+                                {new Date(t.createdAt).toLocaleTimeString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>
-            </>
+            </div>
           )}
 
           {/* ── TAB: USER MANAGEMENT ──────────────────── */}
           {activeTab === 'users' && (
-            <>
-              {/* Create User */}
-              <div className="glass-card p-4 space-y-3">
+            <div className="h-full flex flex-col gap-3">
+              {/* Account Actions */}
+              <div className="glass-card p-3 space-y-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold flex items-center gap-1.5">
-                    <Users size={14} className="text-accent" /> Create User
+                  <h3 className="text-xs font-bold flex items-center gap-1.5">
+                    <Users size={12} className="text-accent" /> Account Actions
                   </h3>
-                  <span className="text-[10px] text-gray-500">Auto-verified</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setAccountActionMode('create')}
+                      className={`px-2 py-1 rounded text-[10px] font-semibold ${accountActionMode === 'create' ? 'bg-accent/20 text-accent' : 'bg-white/5 text-gray-400'}`}
+                    >
+                      Create User
+                    </button>
+                    <button
+                      onClick={() => setAccountActionMode('reset')}
+                      className={`px-2 py-1 rounded text-[10px] font-semibold ${accountActionMode === 'reset' ? 'bg-accent/20 text-accent' : 'bg-white/5 text-gray-400'}`}
+                    >
+                      Reset Password
+                    </button>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2 items-end">
-                  <div className="flex-1 min-w-[140px]">
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Full Name</label>
-                    <input
-                      type="text"
-                      value={createFullName}
-                      onChange={e => setCreateFullName(e.target.value)}
-                      placeholder="Jane Doe"
-                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-[160px]">
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Email</label>
-                    <input
-                      type="email"
-                      value={createEmail}
-                      onChange={e => setCreateEmail(e.target.value)}
-                      placeholder="jane@example.com"
-                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-[140px]">
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Password</label>
-                    <div className="relative">
+                {accountActionMode === 'create' ? (
+                  <div className="flex flex-wrap gap-2 items-end">
+                    <div className="flex-1 min-w-[140px]">
+                      <label className="block text-[10px] text-gray-400 mb-0.5">Full Name</label>
                       <input
-                        type={showCreatePassword ? 'text' : 'password'}
-                        value={createPassword}
-                        onChange={e => setCreatePassword(e.target.value)}
-                        placeholder="Min 6 chars"
-                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 pr-14"
+                        type="text"
+                        value={createFullName}
+                        onChange={e => setCreateFullName(e.target.value)}
+                        placeholder="Jane Doe"
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowCreatePassword(!showCreatePassword)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400 hover:text-white"
-                      >
-                        {showCreatePassword ? 'Hide' : 'Show'}
-                      </button>
                     </div>
+                    <div className="flex-1 min-w-[160px]">
+                      <label className="block text-[10px] text-gray-400 mb-0.5">Email</label>
+                      <input
+                        type="email"
+                        value={createEmail}
+                        onChange={e => setCreateEmail(e.target.value)}
+                        placeholder="jane@example.com"
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-[140px]">
+                      <label className="block text-[10px] text-gray-400 mb-0.5">Password</label>
+                      <div className="relative">
+                        <input
+                          type={showCreatePassword ? 'text' : 'password'}
+                          value={createPassword}
+                          onChange={e => setCreatePassword(e.target.value)}
+                          placeholder="Min 6 chars"
+                          className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 pr-14"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCreatePassword(!showCreatePassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400 hover:text-white"
+                        >
+                          {showCreatePassword ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleCreateUser}
+                      disabled={creatingUser || !createFullName.trim() || !createEmail.trim() || createPassword.length < 6}
+                      className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded disabled:opacity-40"
+                    >
+                      {creatingUser ? 'Creating...' : 'Create'}
+                    </button>
                   </div>
-                  <button
-                    onClick={handleCreateUser}
-                    disabled={creatingUser || !createFullName.trim() || !createEmail.trim() || createPassword.length < 6}
-                    className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded disabled:opacity-40"
-                  >
-                    {creatingUser ? 'Creating...' : 'Create'}
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2 items-end">
+                    <div className="flex-1 min-w-[140px]">
+                      <label className="block text-[10px] text-gray-400 mb-0.5">User</label>
+                      <select
+                        value={resetUserId} onChange={e => setResetUserId(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                      >
+                        <option value="">Select user</option>
+                        {filteredUsers.map(u => (
+                            <option key={u.id} value={u.id}>
+                              {u.name || u.email} ({u.email}) {u.uid ? `- ${u.uid}` : ''}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div className="flex-1 min-w-[140px]">
+                      <label className="block text-[10px] text-gray-400 mb-0.5">New Password</label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          placeholder="Min 6 chars"
+                          className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 pr-14"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400 hover:text-white"
+                        >
+                          {showPassword ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleResetPassword}
+                      disabled={!resetUserId || newPassword.length < 6}
+                      className="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded disabled:opacity-40"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Accounts & Balances */}
-              <div className="grid gap-3 lg:grid-cols-2">
-                {/* Account Search */}
-                <div className="glass-card p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold flex items-center gap-1.5">
-                      <Users size={14} className="text-accent" /> Account Search
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      {hasFilters && (
-                        <button
-                          onClick={clearFilters}
-                          className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
-                        >
-                          <XIcon size={10} /> Clear Filters
-                        </button>
-                      )}
-                      {userSearch && (
-                        <button
-                          onClick={() => setUserSearch('')}
-                          className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
-                        >
-                          <XIcon size={10} /> Clear Search
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Search users</label>
-                    <input
-                      value={userSearch}
-                      onChange={e => setUserSearch(e.target.value)}
-                      placeholder="Search by name, email, or UID"
-                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] text-gray-400 mb-0.5">Status</label>
-                        <select
-                          value={filterStatus}
-                          onChange={e => setFilterStatus(e.target.value as any)}
-                          className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                        >
-                          <option value="all">All</option>
-                          <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                          <option value="banned">Banned</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-400 mb-0.5">Verified</label>
-                        <select
-                          value={filterVerified}
-                          onChange={e => setFilterVerified(e.target.value as any)}
-                          className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                        >
-                          <option value="all">All</option>
-                          <option value="verified">Verified</option>
-                          <option value="unverified">Unverified</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-400 mb-0.5">2FA</label>
-                        <select
-                          value={filterTwoFactor}
-                          onChange={e => setFilterTwoFactor(e.target.value as any)}
-                          className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                        >
-                          <option value="all">All</option>
-                          <option value="enabled">Enabled</option>
-                          <option value="disabled">Disabled</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-400 mb-0.5">KYC</label>
-                        <select
-                          value={filterKyc}
-                          onChange={e => setFilterKyc(e.target.value as any)}
-                          className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                        >
-                          <option value="all">All</option>
-                          <option value="none">None</option>
-                          <option value="pending">Pending</option>
-                          <option value="approved">Approved</option>
-                          <option value="rejected">Rejected</option>
-                        </select>
-                      </div>
-                    </div>
-                    {(userSearch || hasFilters) && (
-                      <p className="text-[10px] text-gray-500">
-                        Matching users: {filteredUsers.length}
-                      </p>
+              {/* Account Search */}
+              <div className="glass-card p-3 flex flex-col flex-1 min-h-0">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold flex items-center gap-1.5">
+                    <Users size={12} className="text-accent" /> Account Search
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { setBalanceAction('increase'); setBalanceReason(''); setShowAccountActionModal(true); }}
+                      className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold"
+                    >
+                      Account Action
+                    </button>
+                    {hasFilters && (
+                      <button
+                        onClick={clearFilters}
+                        className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
+                      >
+                        <XIcon size={10} /> Clear Filters
+                      </button>
                     )}
-                    {selectedUserIds.length > 0 && (
-                      <p className="text-[10px] text-gray-500">
-                        Selected: {selectedUserIds.length}
-                      </p>
+                    {userSearch && (
+                      <button
+                        onClick={() => setUserSearch('')}
+                        className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
+                      >
+                        <XIcon size={10} /> Clear Search
+                      </button>
                     )}
                   </div>
+                </div>
 
-                  {userBalances.length > 0 && (
+                <div className="space-y-2">
+                  <label className="block text-[10px] text-gray-400 mb-0.5">Search users</label>
+                  <input
+                    value={userSearch}
+                    onChange={e => setUserSearch(e.target.value)}
+                    placeholder="Search by name, email, or UID"
+                    className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-0.5">Status</label>
+                      <select
+                        value={filterStatus}
+                        onChange={e => setFilterStatus(e.target.value as any)}
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                      >
+                        <option value="all">All</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="banned">Banned</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-0.5">Verified</label>
+                      <select
+                        value={filterVerified}
+                        onChange={e => setFilterVerified(e.target.value as any)}
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                      >
+                        <option value="all">All</option>
+                        <option value="verified">Verified</option>
+                        <option value="unverified">Unverified</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-0.5">2FA</label>
+                      <select
+                        value={filterTwoFactor}
+                        onChange={e => setFilterTwoFactor(e.target.value as any)}
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                      >
+                        <option value="all">All</option>
+                        <option value="enabled">Enabled</option>
+                        <option value="disabled">Disabled</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-0.5">KYC</label>
+                      <select
+                        value={filterKyc}
+                        onChange={e => setFilterKyc(e.target.value as any)}
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                      >
+                        <option value="all">All</option>
+                        <option value="none">None</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </div>
+                  </div>
+                  {(userSearch || hasFilters) && (
+                    <p className="text-[10px] text-gray-500">
+                      Matching users: {filteredUsers.length}
+                    </p>
+                  )}
+                  {selectedUserIds.length > 0 && (
+                    <p className="text-[10px] text-gray-500">
+                      Selected: {selectedUserIds.length}
+                    </p>
+                  )}
+                </div>
+
+                {userBalances.length > 0 && (
+                  <div className="flex-1 min-h-0 overflow-y-auto mt-2 pr-1">
                     <div className="overflow-x-auto">
                       <table className="w-full text-[11px]">
                         <thead>
@@ -1253,13 +1490,27 @@ export default function AdminPage() {
                               <td className="py-2 text-center">
                                 <div className="flex gap-1 justify-center">
                                   <button
-                                    onClick={() => { setSelectedUserIds([]); setBalanceUserId(u.id); setBalanceAction('increase'); setBalanceAmount('1000'); }}
+                                    onClick={() => {
+                                      setSelectedUserIds([]);
+                                      setBalanceUserId(u.id);
+                                      setBalanceAction('increase');
+                                      setBalanceAmount('1000');
+                                      setBalanceReason('');
+                                      setShowAccountActionModal(true);
+                                    }}
                                     className="p-1 rounded bg-green-900/40 text-green-400 hover:bg-green-900/70" title="+1000"
                                   >
                                     <Plus size={12} />
                                   </button>
                                   <button
-                                    onClick={() => { setSelectedUserIds([]); setBalanceUserId(u.id); setBalanceAction('decrease'); setBalanceAmount('1000'); }}
+                                    onClick={() => {
+                                      setSelectedUserIds([]);
+                                      setBalanceUserId(u.id);
+                                      setBalanceAction('decrease');
+                                      setBalanceAmount('1000');
+                                      setBalanceReason('');
+                                      setShowAccountActionModal(true);
+                                    }}
                                     className="p-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/70" title="-1000"
                                   >
                                     <Minus size={12} />
@@ -1296,168 +1547,62 @@ export default function AdminPage() {
                         </tbody>
                       </table>
                     </div>
-                  )}
-                </div>
-
-                {/* Balance Actions */}
-                <div className="glass-card p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold flex items-center gap-1.5">
-                      <Plus size={14} className="text-accent" /> Balance Actions
-                    </h3>
-                    {selectedUserIds.length > 0 && (
-                      <button
-                        onClick={() => setSelectedUserIds([])}
-                        className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
-                      >
-                        <XIcon size={10} /> Clear Selection
-                      </button>
-                    )}
                   </div>
+                )}
 
-                  <div className="text-[10px] text-gray-500">
-                    {selectedUserIds.length > 0
-                      ? `Applying to ${selectedUserIds.length} selected users`
-                      : 'Applying to a single user'}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 items-end">
-                    <div className="flex-1 min-w-[120px]">
-                      <label className="block text-[10px] text-gray-400 mb-0.5">User</label>
-                      <select
-                        value={balanceUserId} onChange={e => setBalanceUserId(e.target.value)}
-                        disabled={selectedUserIds.length > 0}
-                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 disabled:opacity-50"
-                      >
-                        <option value="">Select user</option>
-                        {filteredUsers.map(u => (
-                            <option key={u.id} value={u.id}>
-                              {u.name || u.email} {u.uid ? `(${u.uid})` : ''}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                    <div className="w-[100px]">
-                      <label className="block text-[10px] text-gray-400 mb-0.5">Action</label>
-                      <select
-                        value={balanceAction} onChange={e => setBalanceAction(e.target.value)}
-                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                      >
-                        <option value="increase">+ Increase</option>
-                        <option value="decrease">- Decrease</option>
-                        <option value="set">= Set to</option>
-                      </select>
-                    </div>
-                    <div className="w-[120px]">
-                      <label className="block text-[10px] text-gray-400 mb-0.5">Amount (USDT)</label>
-                      <input
-                        type="number" min="0" value={balanceAmount}
-                        onChange={e => setBalanceAmount(e.target.value)}
-                        placeholder="0.00"
-                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-400 mb-0.5">Reason (required)</label>
-                    <textarea
-                      value={balanceReason}
-                      onChange={e => setBalanceReason(e.target.value)}
-                      placeholder="Audit reason for this change"
-                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 min-h-[60px]"
-                    />
-                  </div>
-
-                  <div className="text-[10px] text-gray-400 space-y-1">
-                    <div className="font-semibold text-gray-300">Preview</div>
-                    {!previewTargets.length && (
-                      <div>Select user(s) and enter amount to preview.</div>
-                    )}
-                    {previewRows.map(row => (
-                      <div key={row.id} className="flex items-center justify-between gap-2">
-                        <span className="truncate">{row.name}</span>
-                        <span className="font-mono">
-                          {row.oldBalance.toLocaleString()} → {row.newBalance.toLocaleString()}
-                        </span>
-                      </div>
-                    ))}
-                    {previewMoreCount > 0 && (
-                      <div className="text-[10px] text-gray-500">+ {previewMoreCount} more</div>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={handleAdjustBalance}
-                    disabled={
-                      (!selectedUserIds.length && !balanceUserId) ||
-                      !balanceAmount ||
-                      Number.isNaN(parsedBalanceAmount) ||
-                      parsedBalanceAmount <= 0 ||
-                      balanceReason.trim().length < 3
-                    }
-                    className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded disabled:opacity-40"
-                  >
-                    Apply
-                  </button>
-                </div>
-              </div>
-
-              {/* Password Reset */}
-              <div className="glass-card p-4 space-y-3">
-                <h3 className="text-sm font-bold flex items-center gap-1.5">
-                  <KeyRound size={14} className="text-accent" /> Reset User Password
-                </h3>
-                <div className="flex flex-wrap gap-2 items-end">
-                  <div className="flex-1 min-w-[140px]">
-                    <label className="block text-[10px] text-gray-400 mb-0.5">User</label>
-                    <select
-                      value={resetUserId} onChange={e => setResetUserId(e.target.value)}
-                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                    >
-                      <option value="">Select user</option>
-                      {filteredUsers.map(u => (
-                          <option key={u.id} value={u.id}>
-                            {u.name || u.email} ({u.email}) {u.uid ? `- ${u.uid}` : ''}
-                          </option>
+                {/* Audit Logs */}
+                <details
+                  className="mt-2 border-t border-white/10 pt-2"
+                  open={auditLogsOpen}
+                  onToggle={(e) => {
+                    const open = (e.currentTarget as HTMLDetailsElement).open;
+                    setAuditLogsOpen(open);
+                    if (open) fetchAuditLogs('balance');
+                  }}
+                >
+                  <summary className="text-[11px] text-gray-400 cursor-pointer select-none">
+                    Account Action Logs
+                  </summary>
+                  <div className="mt-2 max-h-40 overflow-y-auto pr-1 text-[10px]">
+                    {auditLogsLoading ? (
+                      <p className="text-gray-500">Loading logs...</p>
+                    ) : auditLogs.length === 0 ? (
+                      <p className="text-gray-500">No logs yet</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {auditLogs.map(log => (
+                          <div key={log.id} className="flex items-center justify-between p-2 rounded bg-white/5">
+                            <div className="min-w-0">
+                              <p className="font-semibold truncate">
+                                {log.userName || log.userEmail || log.userId}
+                              </p>
+                              <p className="text-gray-400 truncate">
+                                {log.action.toUpperCase()} {Number(log.amount || 0).toLocaleString()} &middot; {log.reason}
+                                {log.oldBalance !== undefined && log.newBalance !== undefined && (
+                                  <span className="ml-2 text-[9px] text-gray-500">
+                                    {Number(log.oldBalance).toLocaleString()} → {Number(log.newBalance).toLocaleString()}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            <div className="text-[9px] text-gray-500 text-right flex-shrink-0">
+                              <div>{new Date(log.createdAt).toLocaleDateString()}</div>
+                              <div>{new Date(log.createdAt).toLocaleTimeString()}</div>
+                            </div>
+                          </div>
                         ))}
-                    </select>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-[140px]">
-                    <label className="block text-[10px] text-gray-400 mb-0.5">New Password</label>
-                    <div className="relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={newPassword}
-                        onChange={e => setNewPassword(e.target.value)}
-                        placeholder="Min 6 chars"
-                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 pr-14"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400 hover:text-white"
-                      >
-                        {showPassword ? 'Hide' : 'Show'}
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleResetPassword}
-                    disabled={!resetUserId || newPassword.length < 6}
-                    className="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded disabled:opacity-40"
-                  >
-                    Reset
-                  </button>
-                </div>
+                </details>
               </div>
-            </>
+            </div>
           )}
 
           {/* ── TAB: CHAT ─────────────────────────────── */}
           {activeTab === 'chat' && (
-            <div className="glass-card p-4 space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="glass-card p-3 flex flex-col h-full min-h-0">
+              <div className="flex items-center justify-between flex-shrink-0">
                 <h3 className="text-sm font-bold flex items-center gap-1.5">
                   <MessageCircle size={14} className="text-accent" /> Customer Chat
                   {chatUnread > 0 && (
@@ -1471,7 +1616,7 @@ export default function AdminPage() {
 
               {activeChatUser ? (
                 <>
-                  <div className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
+                  <div className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2 flex-shrink-0 mt-2">
                     <div>
                       <p className="text-xs font-bold">
                         {chatConversations.find(c => c.userId === activeChatUser)?.userName || 'User'}
@@ -1496,7 +1641,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div className="h-72 overflow-y-auto space-y-2 bg-black/20 rounded-lg p-3">
+                  <div className="flex-1 min-h-0 overflow-y-auto space-y-2 bg-black/20 rounded-lg p-3 mt-2">
                     {chatMessages.length === 0 ? (
                       <p className="text-[10px] text-gray-500 text-center mt-8">No messages</p>
                     ) : (
@@ -1531,7 +1676,7 @@ export default function AdminPage() {
                   </div>
 
                   {chatAttachments.length > 0 && (
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 flex-shrink-0 mt-2">
                       {chatAttachments.map((att, i) => (
                         <div key={i} className="relative w-12 h-12 rounded overflow-hidden bg-white/5">
                           {att.type === 'image' ? (
@@ -1550,7 +1695,7 @@ export default function AdminPage() {
                     </div>
                   )}
 
-                  <div className="flex gap-1.5 items-end">
+                  <div className="flex gap-1.5 items-end flex-shrink-0 mt-2">
                     <button
                       onClick={() => chatFileRef.current?.click()}
                       className="p-1.5 rounded bg-white/5 text-gray-400 hover:text-white"
@@ -1577,7 +1722,7 @@ export default function AdminPage() {
               ) : chatConversations.length === 0 ? (
                 <p className="text-[10px] text-gray-500 italic">No conversations yet</p>
               ) : (
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1 min-h-0 overflow-y-auto mt-2 pr-1">
                   {chatConversations.map(c => (
                     <button
                       key={c.userId}
@@ -1608,9 +1753,9 @@ export default function AdminPage() {
 
           {/* ── TAB: KYC VERIFICATION ─────────────────── */}
           {activeTab === 'kyc' && (
-            <>
+            <div className="h-full flex flex-col gap-3">
               {/* Filter Tabs */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-shrink-0">
                 {(['pending', 'approved', 'rejected', 'all'] as const).map(f => (
                   <button
                     key={f}
@@ -1627,17 +1772,18 @@ export default function AdminPage() {
                 ))}
               </div>
 
-              {kycSubmissions.length === 0 ? (
-                <div className="glass-card p-8 text-center">
-                  <BadgeCheck size={32} className="mx-auto text-gray-600 mb-2" />
-                  <p className="text-xs text-gray-500">No {kycFilter !== 'all' ? kycFilter : ''} submissions</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {kycSubmissions.map(kyc => {
-                    const isViewing = kycViewingId === kyc.id;
-                    return (
-                      <div key={kyc.id} className="glass-card p-4 space-y-3">
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                {kycSubmissions.length === 0 ? (
+                  <div className="glass-card p-8 text-center">
+                    <BadgeCheck size={32} className="mx-auto text-gray-600 mb-2" />
+                    <p className="text-xs text-gray-500">No {kycFilter !== 'all' ? kycFilter : ''} submissions</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {kycSubmissions.map(kyc => {
+                      const isViewing = kycViewingId === kyc.id;
+                      return (
+                        <div key={kyc.id} className="glass-card p-4 space-y-3">
                         {/* Header Row */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 min-w-0">
@@ -1768,11 +1914,12 @@ export default function AdminPage() {
                             )}
                           </div>
                         )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {/* Image Preview Modal */}
               {kycImageModal && (
@@ -1791,40 +1938,356 @@ export default function AdminPage() {
                   </div>
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {/* ── TAB: SETTINGS ─────────────────────────── */}
           {activeTab === 'settings' && (
-            <div className="glass-card p-4 space-y-4">
-              <h3 className="text-sm font-bold">Admin Settings</h3>
-              <div className="grid gap-3 text-xs">
-                <div className="p-3 rounded-lg bg-white/5">
-                  <p className="text-gray-400 mb-1">Environment</p>
-                  <p className="font-mono text-accent">Production</p>
+            <div className="h-full flex flex-col gap-3">
+              <div className="flex items-center justify-between flex-shrink-0">
+                <h3 className="text-sm font-bold">Admin Settings</h3>
+                <button
+                  onClick={handleSaveAdminSettings}
+                  className="px-3 py-1.5 rounded bg-accent text-black text-xs font-semibold"
+                >
+                  Save Changes
+                </button>
+              </div>
+
+              {settingsLoading || !adminSettings ? (
+                <div className="glass-card p-4 text-xs text-gray-500">Loading settings...</div>
+              ) : (
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3">
+                  {newApiKeyValue && (
+                    <div className="glass-card p-3 text-xs flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-gray-400 mb-1">New API Key (copy once)</p>
+                        <p className="font-mono text-accent break-all">{newApiKeyValue}</p>
+                      </div>
+                      <button
+                        onClick={() => setNewApiKeyValue(null)}
+                        className="text-[10px] text-gray-400 hover:text-white"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="grid lg:grid-cols-2 gap-3">
+                    {/* RBAC */}
+                    <div className="glass-card p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold">Role-Based Access Control</p>
+                        <label className="flex items-center gap-2 text-[10px] text-gray-400">
+                          <input
+                            type="checkbox"
+                            checked={adminSettings.rbacEnabled}
+                            onChange={(e) => setAdminSettings(s => s ? { ...s, rbacEnabled: e.target.checked } : s)}
+                            className="accent-accent"
+                          />
+                          Enable RBAC
+                        </label>
+                      </div>
+                      <div className="space-y-1 text-[10px]">
+                        {adminSettings.roles.map(role => (
+                          <div key={role.name} className="p-2 rounded bg-white/5">
+                            <p className="font-semibold">{role.name}</p>
+                            <p className="text-gray-400">{role.permissions.join(', ')}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Security */}
+                    <div className="glass-card p-3 space-y-2">
+                      <p className="text-xs font-semibold">Security Settings</p>
+                      <label className="flex items-center gap-2 text-[10px] text-gray-400">
+                        <input
+                          type="checkbox"
+                          checked={adminSettings.security.require2fa}
+                          onChange={(e) => setAdminSettings(s => s ? { ...s, security: { ...s.security, require2fa: e.target.checked } } : s)}
+                          className="accent-accent"
+                        />
+                        Require 2FA for admins
+                      </label>
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-0.5">IP Whitelist (one per line)</label>
+                        <textarea
+                          value={ipWhitelistInput}
+                          onChange={(e) => setIpWhitelistInput(e.target.value)}
+                          className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 min-h-[70px]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* System Notifications */}
+                    <div className="glass-card p-3 space-y-2">
+                      <p className="text-xs font-semibold">System Notifications</p>
+                      {(['newUsers', 'largeWithdrawals', 'flaggedTrades'] as const).map(key => (
+                        <label key={key} className="flex items-center gap-2 text-[10px] text-gray-400">
+                          <input
+                            type="checkbox"
+                            checked={adminSettings.notifications[key]}
+                            onChange={(e) => setAdminSettings(s => s ? { ...s, notifications: { ...s.notifications, [key]: e.target.checked } } : s)}
+                            className="accent-accent"
+                          />
+                          {key === 'newUsers' ? 'New users' : key === 'largeWithdrawals' ? 'Large withdrawals' : 'Flagged trades'}
+                        </label>
+                      ))}
+                    </div>
+
+                    {/* Maintenance Mode */}
+                    <div className="glass-card p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold">Maintenance Mode</p>
+                        <label className="flex items-center gap-2 text-[10px] text-gray-400">
+                          <input
+                            type="checkbox"
+                            checked={adminSettings.maintenance.enabled}
+                            onChange={(e) => setAdminSettings(s => s ? { ...s, maintenance: { ...s.maintenance, enabled: e.target.checked } } : s)}
+                            className="accent-accent"
+                          />
+                          Enabled
+                        </label>
+                      </div>
+                      <input
+                        value={adminSettings.maintenance.message}
+                        onChange={(e) => setAdminSettings(s => s ? { ...s, maintenance: { ...s.maintenance, message: e.target.value } } : s)}
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                        placeholder="Maintenance message"
+                      />
+                    </div>
+
+                    {/* API Management */}
+                    <div className="glass-card p-3 space-y-2 lg:col-span-2">
+                      <p className="text-xs font-semibold">API Management</p>
+                      <div className="flex flex-wrap gap-2 items-end">
+                        <div className="flex-1 min-w-[180px]">
+                          <label className="block text-[10px] text-gray-400 mb-0.5">Key name</label>
+                          <input
+                            value={apiKeyName}
+                            onChange={(e) => setApiKeyName(e.target.value)}
+                            className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                            placeholder="e.g. Trading bot"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {['read', 'write', 'admin'].map(scope => (
+                            <label key={scope} className="text-[10px] text-gray-400 flex items-center gap-1">
+                              <input
+                                type="checkbox"
+                                checked={apiKeyScopes.includes(scope)}
+                                onChange={(e) => {
+                                  setApiKeyScopes(prev => (
+                                    e.target.checked ? [...prev, scope] : prev.filter(s => s !== scope)
+                                  ));
+                                }}
+                                className="accent-accent"
+                              />
+                              {scope}
+                            </label>
+                          ))}
+                        </div>
+                        <button
+                          onClick={handleCreateApiKey}
+                          className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded"
+                        >
+                          Generate Key
+                        </button>
+                      </div>
+
+                      <div className="space-y-1 text-[10px]">
+                        {adminSettings.apiKeys.length === 0 ? (
+                          <p className="text-gray-500">No API keys created</p>
+                        ) : (
+                          adminSettings.apiKeys.map(key => (
+                            <div key={key.id} className="flex items-center justify-between p-2 rounded bg-white/5">
+                              <div>
+                                <p className="font-semibold">{key.name}</p>
+                                <p className="text-gray-400">•••• {key.keyLast4} · {key.scopes.join(', ') || 'no scopes'}</p>
+                              </div>
+                              {key.revokedAt ? (
+                                <span className="text-[9px] text-gray-500">Revoked</span>
+                              ) : (
+                                <button
+                                  onClick={() => handleRevokeApiKey(key.id)}
+                                  className="text-[10px] text-danger hover:underline"
+                                >
+                                  Revoke
+                                </button>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Activity Logs */}
+                    <div className="glass-card p-3 space-y-2 lg:col-span-2">
+                      <p className="text-xs font-semibold">Activity Logs</p>
+                      <div className="max-h-40 overflow-y-auto pr-1 text-[10px]">
+                        {auditLogsLoading ? (
+                          <p className="text-gray-500">Loading logs...</p>
+                        ) : auditLogs.length === 0 ? (
+                          <p className="text-gray-500">No recent activity</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {auditLogs.slice(0, 15).map(log => (
+                              <div key={log.id} className="flex items-center justify-between p-2 rounded bg-white/5">
+                                <div className="min-w-0">
+                                  <p className="font-semibold truncate">
+                                    {log.userName || log.userEmail || log.userId}
+                                  </p>
+                                  <p className="text-gray-400 truncate">
+                                    {(log.actionType || 'action').split('_').join(' ')} · {log.action.toUpperCase()} {Number(log.amount || 0).toLocaleString()} · {log.reason}
+                                  </p>
+                                </div>
+                                <div className="text-[9px] text-gray-500 text-right flex-shrink-0">
+                                  <div>{new Date(log.createdAt).toLocaleDateString()}</div>
+                                  <div>{new Date(log.createdAt).toLocaleTimeString()}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* UI Preferences */}
+                    <div className="glass-card p-3 space-y-2">
+                      <p className="text-xs font-semibold">Theme / UI Preferences</p>
+                      <select
+                        value={adminSettings.ui.theme}
+                        onChange={(e) => setAdminSettings(s => s ? { ...s, ui: { theme: e.target.value as 'dark' | 'light' } } : s)}
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                      >
+                        <option value="dark">Dark</option>
+                        <option value="light">Light</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
-                <div className="p-3 rounded-lg bg-white/5">
-                  <p className="text-gray-400 mb-1">Total Users</p>
-                  <p className="font-bold text-lg">{userBalances.length}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-white/5">
-                  <p className="text-gray-400 mb-1">Active Trade Mode</p>
-                  <p className="font-bold capitalize">{settings?.globalMode?.replace('_', ' ') || '\u2014'}</p>
-                  <p className="text-[10px] text-gray-500 mt-1">Win Rate: {settings?.winRatePercent ?? '\u2014'}%</p>
-                </div>
-                <div className="p-3 rounded-lg bg-white/5">
-                  <p className="text-gray-400 mb-1">Admin Session</p>
-                  <p className="text-green-400 font-semibold">Active</p>
+              )}
+            </div>
+          )}
+
+          {/* Account Action Modal */}
+          {showAccountActionModal && (
+            <div
+              className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+              onClick={() => setShowAccountActionModal(false)}
+            >
+              <div
+                className="glass-card w-full max-w-lg p-4 space-y-3"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold">Account Action</h3>
                   <button
-                    onClick={() => { setIsAuthenticated(false); setAdminKey(''); }}
-                    className="mt-2 text-[10px] text-danger hover:underline"
+                    onClick={() => setShowAccountActionModal(false)}
+                    className="p-1 rounded hover:bg-white/10"
                   >
-                    End Session
+                    <XIcon size={14} />
+                  </button>
+                </div>
+
+                <div className="text-[10px] text-gray-500">
+                  {selectedUserIds.length > 0
+                    ? `Applying to ${selectedUserIds.length} selected users`
+                    : 'Select a user to apply action'}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">User</label>
+                    <select
+                      value={balanceUserId} onChange={e => setBalanceUserId(e.target.value)}
+                      disabled={selectedUserIds.length > 0}
+                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 disabled:opacity-50"
+                    >
+                      <option value="">Select user</option>
+                      {filteredUsers.map(u => (
+                          <option key={u.id} value={u.id}>
+                            {u.name || u.email} {u.uid ? `(${u.uid})` : ''}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Action</label>
+                    <select
+                      value={balanceAction} onChange={e => setBalanceAction(e.target.value)}
+                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                    >
+                      <option value="increase">+ Increase</option>
+                      <option value="decrease">- Decrease</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[10px] text-gray-400 mb-0.5">Amount (USDT)</label>
+                    <input
+                      type="number" min="0" value={balanceAmount}
+                      onChange={e => setBalanceAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-gray-400 mb-0.5">Reason (required)</label>
+                  <textarea
+                    value={balanceReason}
+                    onChange={e => setBalanceReason(e.target.value)}
+                    placeholder="Audit reason for this change"
+                    className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5 min-h-[70px]"
+                  />
+                </div>
+
+                <div className="text-[10px] text-gray-400 space-y-1">
+                  <div className="font-semibold text-gray-300">Preview</div>
+                  {!previewTargets.length && (
+                    <div>Select user(s) and enter amount to preview.</div>
+                  )}
+                  {previewRows.map(row => (
+                    <div key={row.id} className="flex items-center justify-between gap-2">
+                      <span className="truncate">{row.name}</span>
+                      <span className="font-mono">
+                        {row.oldBalance.toLocaleString()} → {row.newBalance.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                  {previewMoreCount > 0 && (
+                    <div className="text-[10px] text-gray-500">+ {previewMoreCount} more</div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => { setBalanceReason(''); setShowAccountActionModal(false); }}
+                    className="px-3 py-1.5 rounded bg-white/5 text-gray-400 text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAdjustBalance}
+                    disabled={
+                      (!selectedUserIds.length && !balanceUserId) ||
+                      !balanceAmount ||
+                      Number.isNaN(parsedBalanceAmount) ||
+                      parsedBalanceAmount <= 0 ||
+                      balanceReason.trim().length < 3
+                    }
+                    className="px-3 py-1.5 bg-accent text-black text-xs font-bold rounded disabled:opacity-40"
+                  >
+                    Apply
                   </button>
                 </div>
               </div>
             </div>
           )}
+            </div>
+          </div>
         </main>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { connectDB } from '@/lib/mongodb';
 import Portfolio from '@/lib/models/Portfolio';
 import User from '@/lib/models/User';
+import AdminAuditLog from '@/lib/models/AdminAuditLog';
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import config from '@/lib/config';
@@ -89,6 +90,8 @@ export async function PUT(request: NextRequest) {
     const updated: Array<{ userId: string; name: string; oldBalance: number; newBalance: number }> = [];
     const failed: Array<{ userId: string; error: string }> = [];
 
+    const ipAddress = request.headers.get('x-forwarded-for') || request.ip || '';
+
     for (const id of targetIds) {
       try {
         const user = await User.findById(id, 'fullName email');
@@ -124,6 +127,20 @@ export async function PUT(request: NextRequest) {
           { userId: id, action, amount: parsedAmount, oldBalance, newBalance: portfolio.accountBalance, reason: reason.trim() },
           'Admin adjusted user balance'
         );
+
+        await AdminAuditLog.create({
+          actionType: 'balance_adjust',
+          action,
+          userId: id,
+          userName: user.fullName || '',
+          userEmail: user.email || '',
+          amount: parsedAmount,
+          oldBalance,
+          newBalance: portfolio.accountBalance,
+          reason: reason.trim(),
+          actor: 'admin',
+          ipAddress,
+        });
 
         updated.push({
           userId: id,
