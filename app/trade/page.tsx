@@ -194,13 +194,13 @@ export default function TradePage() {
       <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-base md:text-lg font-bold">Trade</h1>
-          <p className="text-[11px] text-gray-400">Spot trading dashboard with live order book.</p>
+          <p className="text-sm text-gray-400">Spot trading dashboard with live order book.</p>
         </div>
         <div className="flex flex-wrap gap-1.5 relative">
           <div className="relative">
             <button 
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] min-h-[32px] flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-sm min-h-[32px] flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {selectedCrypto.symbol}/USDT
               <ChevronDown size={12} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
@@ -217,13 +217,13 @@ export default function TradePage() {
                     <button
                       key={crypto.id}
                       onClick={() => handleCryptoSelect(crypto)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded text-[11px] hover:bg-white/10 transition-colors ${
+                      className={`w-full text-left px-2.5 py-1.5 rounded text-sm hover:bg-white/10 transition-colors ${
                         selectedCrypto.id === crypto.id ? 'bg-accent text-white' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-semibold">{crypto.symbol}</span>
-                        <span className="text-[10px] text-gray-400">{crypto.name}</span>
+                        <span className="text-xs text-gray-400">{crypto.name}</span>
                       </div>
                     </button>
                   ))}
@@ -239,12 +239,12 @@ export default function TradePage() {
           <div className="glass-card p-2.5">
             <div className="flex items-center justify-between mb-1.5">
               <div>
-                <p className="text-[10px] text-gray-400">{selectedCrypto.symbol}/USDT</p>
+                <p className="text-xs text-gray-400">{selectedCrypto.symbol}/USDT</p>
                 <p className="text-base font-bold">${livePrice}</p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] text-gray-400">24h Change</p>
-                <p className={`text-[11px] ${isUp ? 'text-success' : 'text-danger'}`}>{liveChange}%</p>
+                <p className="text-xs text-gray-400">24h Change</p>
+                <p className={`text-sm ${isUp ? 'text-success' : 'text-danger'}`}>{liveChange}%</p>
               </div>
             </div>
             <div className="mb-1.5">
@@ -252,20 +252,20 @@ export default function TradePage() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
               <div className="p-1.5 rounded-lg bg-white/5">
-                <p className="text-[10px] text-gray-400">24h High</p>
-                <p className="text-[11px] font-semibold">${high24h}</p>
+                <p className="text-xs text-gray-400">24h High</p>
+                <p className="text-sm font-semibold">${high24h}</p>
               </div>
               <div className="p-1.5 rounded-lg bg-white/5">
-                <p className="text-[10px] text-gray-400">24h Low</p>
-                <p className="text-[11px] font-semibold">${low24h}</p>
+                <p className="text-xs text-gray-400">24h Low</p>
+                <p className="text-sm font-semibold">${low24h}</p>
               </div>
               <div className="p-1.5 rounded-lg bg-white/5">
-                <p className="text-[10px] text-gray-400">Volume</p>
-                <p className="text-[11px] font-semibold">{volume24h}</p>
+                <p className="text-xs text-gray-400">Volume</p>
+                <p className="text-sm font-semibold">{volume24h}</p>
               </div>
               <div className="p-1.5 rounded-lg bg-white/5">
-                <p className="text-[10px] text-gray-400">Market Cap</p>
-                <p className="text-[11px] font-semibold">{marketCap}</p>
+                <p className="text-xs text-gray-400">Market Cap</p>
+                <p className="text-sm font-semibold">{marketCap}</p>
               </div>
             </div>
           </div>
@@ -275,14 +275,14 @@ export default function TradePage() {
           <div className="glass-card p-2.5">
             {/* Status Message */}
             {message && (
-              <div className={`mb-1.5 p-1.5 rounded text-[10px] ${message.type === 'success' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
+              <div className={`mb-1.5 p-1.5 rounded text-xs ${message.type === 'success' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
                 {message.text}
               </div>
             )}
 
             {/* Wallet Balance */}
             <div className="mb-3 p-2 rounded-lg bg-white/5 border border-white/10">
-              <p className="text-[10px] text-gray-400">Wallet Balance</p>
+              <p className="text-xs text-gray-400">Wallet Balance</p>
               <p className="text-base font-bold">{walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })} <span className="text-xs text-gray-400">USDT</span></p>
             </div>
 
@@ -305,7 +305,7 @@ export default function TradePage() {
             </div>
 
             {/* Info */}
-            <div className="mt-3 space-y-1 text-[10px] text-gray-400">
+            <div className="mt-3 space-y-1 text-xs text-gray-400">
               <p>Select Buy or Sell to open a timed trade.</p>
               <p>Choose a period and amount, then confirm your order.</p>
             </div>
@@ -313,7 +313,7 @@ export default function TradePage() {
 
           <div className="glass-card p-2.5 hidden sm:block">
             <h2 className="text-xs font-semibold mb-1.5">Order Book</h2>
-            <div className="text-[10px] text-gray-400 grid grid-cols-3 pb-0.5 border-b border-white/10 mb-0.5">
+            <div className="text-xs text-gray-400 grid grid-cols-3 pb-0.5 border-b border-white/10 mb-0.5">
               <span>Price</span>
               <span className="text-right">Amount</span>
               <span className="text-right">Total</span>
@@ -321,15 +321,15 @@ export default function TradePage() {
             {livePriceNum ? (
               <div className="space-y-0.5">
                 {generateOrderBook(livePriceNum).asks.slice(0, 2).map((ask, idx) => (
-                  <div key={`ask-${idx}`} className="grid grid-cols-3 text-danger text-[10px]">
+                  <div key={`ask-${idx}`} className="grid grid-cols-3 text-danger text-xs">
                     <span>{ask.price}</span>
                     <span className="text-right text-gray-200">{ask.amount}</span>
                     <span className="text-right text-gray-400">{ask.total}</span>
                   </div>
                 ))}
-                <div className="py-0.5 border-y border-white/10 text-center font-bold text-[10px]">{livePrice}</div>
+                <div className="py-0.5 border-y border-white/10 text-center font-bold text-xs">{livePrice}</div>
                 {generateOrderBook(livePriceNum).bids.slice(0, 2).map((bid, idx) => (
-                  <div key={`bid-${idx}`} className="grid grid-cols-3 text-success text-[10px]">
+                  <div key={`bid-${idx}`} className="grid grid-cols-3 text-success text-xs">
                     <span>{bid.price}</span>
                     <span className="text-right text-gray-200">{bid.amount}</span>
                     <span className="text-right text-gray-400">{bid.total}</span>
@@ -337,7 +337,7 @@ export default function TradePage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center text-[10px] text-gray-500 py-3 animate-pulse">Loading...</div>
+              <div className="text-center text-xs text-gray-500 py-3 animate-pulse">Loading...</div>
             )}
           </div>
         </div>

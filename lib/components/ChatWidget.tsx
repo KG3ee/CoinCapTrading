@@ -247,7 +247,7 @@ export default function ChatWidget() {
         >
           <MessageCircle size={22} />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center px-1">
+            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-danger text-white text-xs font-bold flex items-center justify-center px-1">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
@@ -256,7 +256,7 @@ export default function ChatWidget() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed inset-0 md:inset-auto md:bottom-6 md:right-6 z-[70] w-full md:w-[380px] h-[100dvh] md:h-[520px] md:rounded-xl overflow-hidden flex flex-col bg-[#0d0d1a] md:border md:border-white/10 md:shadow-2xl">
+        <div className="fixed inset-0 md:inset-auto md:bottom-6 md:right-6 z-[70] w-full md:w-[380px] h-[100dvh] md:h-[520px] md:rounded-xl overflow-hidden flex flex-col bg-[var(--app-bg)] md:border md:border-white/10 md:shadow-2xl">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-accent/20 to-purple-600/20 border-b border-white/10" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
             <div className="flex items-center gap-2">
@@ -265,7 +265,7 @@ export default function ChatWidget() {
               </div>
               <div>
                 <p className="text-sm font-bold">Customer Support</p>
-                <p className="text-[10px] text-green-400 flex items-center gap-1">
+                <p className="text-xs text-green-400 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />
                   Online
                 </p>
@@ -299,7 +299,7 @@ export default function ChatWidget() {
                     Hello! How can we assist you today? Please describe your issue clearly.
                   </div>
                 </div>
-                <div className="text-center text-gray-500 text-[10px]">
+                <div className="text-center text-gray-500 text-xs">
                   Send a message to start a conversation with our support team.
                 </div>
               </div>
@@ -317,7 +317,7 @@ export default function ChatWidget() {
                     }`}
                   >
                     {msg.sender === 'admin' && (
-                      <p className="text-[9px] text-accent font-medium">{msg.senderName}</p>
+                      <p className="text-[11px] text-accent font-medium">{msg.senderName}</p>
                     )}
 
                     {/* Attachments */}
@@ -349,7 +349,7 @@ export default function ChatWidget() {
                     {msg.text && (
                       <p className="text-xs whitespace-pre-wrap break-words">{msg.text}</p>
                     )}
-                    <p className="text-[9px] text-gray-500">{formatTime(msg.createdAt)}</p>
+                    <p className="text-[11px] text-gray-500">{formatTime(msg.createdAt)}</p>
                   </div>
                 </div>
               ))
@@ -361,7 +361,7 @@ export default function ChatWidget() {
           {showScrollBtn && (
             <button
               onClick={() => scrollToBottom()}
-              className="absolute bottom-24 md:bottom-[120px] left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white/10 backdrop-blur text-[10px] text-gray-300 flex items-center gap-1 hover:bg-white/20 transition-colors z-10"
+              className="absolute bottom-24 md:bottom-[120px] left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white/10 backdrop-blur text-xs text-gray-300 flex items-center gap-1 hover:bg-white/20 transition-colors z-10"
             >
               <ChevronDown size={12} /> New messages
             </button>

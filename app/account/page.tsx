@@ -471,7 +471,7 @@ export default function AccountPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 border-b border-white/10">
+        <div className="flex gap-2 border-b border-white/10 overflow-x-auto">
           <button
             onClick={() => {
               setActiveTab('profile');
@@ -479,7 +479,7 @@ export default function AccountPage() {
               setError('');
               setSuccess('');
             }}
-            className={`px-4 py-3 font-semibold border-b-2 transition-colors ${
+            className={`px-3 sm:px-4 py-2.5 font-semibold text-sm sm:text-base border-b-2 transition-colors whitespace-nowrap shrink-0 ${
               activeTab === 'profile'
                 ? 'border-accent text-accent'
                 : 'border-transparent text-gray-400 hover:text-white'
@@ -495,7 +495,7 @@ export default function AccountPage() {
               setError('');
               setSuccess('');
             }}
-            className={`px-4 py-3 font-semibold border-b-2 transition-colors ${
+            className={`px-3 sm:px-4 py-2.5 font-semibold text-sm sm:text-base border-b-2 transition-colors whitespace-nowrap shrink-0 ${
               activeTab === 'settings'
                 ? 'border-accent text-accent'
                 : 'border-transparent text-gray-400 hover:text-white'
@@ -510,7 +510,7 @@ export default function AccountPage() {
               setError('');
               setSuccess('');
             }}
-            className={`px-4 py-3 font-semibold border-b-2 transition-colors ${
+            className={`px-3 sm:px-4 py-2.5 font-semibold text-sm sm:text-base border-b-2 transition-colors whitespace-nowrap shrink-0 ${
               activeTab === 'security'
                 ? 'border-accent text-accent'
                 : 'border-transparent text-gray-400 hover:text-white'

@@ -28,7 +28,7 @@ export default async function RootLayout({
 
   return (
     <html lang={DEFAULT_LOCALE}>
-      <body className="bg-[#0a0a0a] text-white">
+      <body className="theme-root">
         <RootLayoutClient locale={DEFAULT_LOCALE} messages={messages}>
           {children}
         </RootLayoutClient>

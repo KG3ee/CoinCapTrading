@@ -14,6 +14,16 @@ interface RootLayoutClientProps {
   messages: any;
 }
 
+type AppTheme = 'dark' | 'light';
+const THEME_STORAGE_KEY = 'coincap-theme';
+
+function applyThemeClass(theme: AppTheme) {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  root.classList.remove('theme-dark', 'theme-light');
+  root.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+}
+
 function RootLayoutContent({
   children,
 }: {
@@ -23,6 +33,39 @@ function RootLayoutContent({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { status } = useSession();
   const [portfolioValue, setPortfolioValue] = useState<string | null>(null);
+  const [appTheme, setAppTheme] = useState<AppTheme>('dark');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+    const nextTheme: AppTheme =
+      storedTheme === 'light' || storedTheme === 'dark'
+        ? storedTheme
+        : prefersLight
+          ? 'light'
+          : 'dark';
+    setAppTheme(nextTheme);
+    applyThemeClass(nextTheme);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(prefers-color-scheme: light)');
+    const handleThemeChange = (event: MediaQueryListEvent) => {
+      const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+      if (storedTheme === 'light' || storedTheme === 'dark') return;
+      const nextTheme: AppTheme = event.matches ? 'light' : 'dark';
+      setAppTheme(nextTheme);
+      applyThemeClass(nextTheme);
+    };
+    media.addEventListener('change', handleThemeChange);
+    return () => media.removeEventListener('change', handleThemeChange);
+  }, []);
+
+  useEffect(() => {
+    applyThemeClass(appTheme);
+  }, [appTheme]);
   
   useEffect(() => {
     if (status === 'authenticated') {
@@ -180,7 +223,7 @@ function RootLayoutContent({
                 }`}
               >
                 <Icon size={20} />
-                <span className="text-[10px] font-medium hidden xs:inline">{item.name}</span>
+                <span className="text-[11px] font-medium">{item.name}</span>
               </Link>
             );
           })}

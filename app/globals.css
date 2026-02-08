@@ -3,21 +3,24 @@
 @tailwind utilities;
 
 html {
-  font-size: clamp(15px, 2.5vw, 16px);
+  font-size: clamp(15.5px, 2.2vw, 16.5px);
 }
 
 @media (max-width: 640px) {
   html {
-    font-size: 15px;
+    font-size: 16px;
   }
 }
 
 @layer base {
   body {
-    @apply bg-background text-white antialiased;
+    background-color: var(--app-bg);
+    color: var(--app-text);
+    @apply antialiased;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    transition: background-color 180ms ease, color 180ms ease;
   }
   
   * {
@@ -30,6 +33,49 @@ html {
     margin: 0;
     padding: 0;
   }
+}
+
+/* App Theme Variables */
+:root {
+  --app-bg: #0a0a0a;
+  --app-panel: rgba(255, 255, 255, 0.02);
+  --app-card: rgba(255, 255, 255, 0.05);
+  --app-card-strong: rgba(255, 255, 255, 0.1);
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-text: #f9fafb;
+  --app-muted: #9ca3af;
+  --app-muted-strong: #6b7280;
+  --scrollbar-track: rgba(255, 255, 255, 0.06);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.24);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
+}
+
+.theme-dark {
+  --app-bg: #0a0a0a;
+  --app-panel: rgba(255, 255, 255, 0.02);
+  --app-card: rgba(255, 255, 255, 0.05);
+  --app-card-strong: rgba(255, 255, 255, 0.1);
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-text: #f9fafb;
+  --app-muted: #9ca3af;
+  --app-muted-strong: #6b7280;
+  --scrollbar-track: rgba(255, 255, 255, 0.06);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.24);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
+}
+
+.theme-light {
+  --app-bg: #f3f6fb;
+  --app-panel: #ffffff;
+  --app-card: #ffffff;
+  --app-card-strong: #eef3f9;
+  --app-border: #d7dce5;
+  --app-text: #0f172a;
+  --app-muted: #5f6b7a;
+  --app-muted-strong: #475569;
+  --scrollbar-track: rgba(15, 23, 42, 0.08);
+  --scrollbar-thumb: rgba(15, 23, 42, 0.22);
+  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.34);
 }
 
 /* Admin Theme Variables */
@@ -47,6 +93,22 @@ html {
   --admin-success: #10b981;
   --admin-danger: #ef4444;
   --admin-warning: #f59e0b;
+}
+
+.theme-light {
+  --admin-bg: #f4f6fb;
+  --admin-panel: #ffffff;
+  --admin-card: #ffffff;
+  --admin-card-strong: #f0f3f8;
+  --admin-border: #d7dce5;
+  --admin-text: #111827;
+  --admin-muted: #6b7280;
+  --admin-input: #f7f9fc;
+  --admin-input-border: #d7dce5;
+  --admin-accent: #2563eb;
+  --admin-success: #059669;
+  --admin-danger: #dc2626;
+  --admin-warning: #d97706;
 }
 
 .admin-theme.light {
@@ -133,6 +195,59 @@ html {
   background-color: var(--admin-card-strong) !important;
 }
 
+.theme-light .text-white {
+  color: var(--app-text) !important;
+}
+
+.theme-light .text-gray-400 {
+  color: var(--app-muted) !important;
+}
+
+.theme-light .text-gray-500,
+.theme-light .text-gray-600 {
+  color: var(--app-muted-strong) !important;
+}
+
+.theme-light .bg-background {
+  background-color: var(--app-bg) !important;
+}
+
+.theme-light [class~='bg-white/5'] {
+  background-color: var(--app-card) !important;
+}
+
+.theme-light [class~='bg-white/10'] {
+  background-color: var(--app-card-strong) !important;
+}
+
+.theme-light [class~='border-white/5'],
+.theme-light [class~='border-white/10'],
+.theme-light [class~='border-white/20'] {
+  border-color: var(--app-border) !important;
+}
+
+.theme-light [class~='bg-black/50'],
+.theme-light [class~='bg-black/70'],
+.theme-light [class~='bg-black/80'] {
+  background-color: rgba(15, 23, 42, 0.7) !important;
+}
+
+.theme-root [class*='text-[8px]'] {
+  font-size: 0.675rem !important;
+}
+
+.theme-root [class*='text-[9px]'] {
+  font-size: 0.72rem !important;
+}
+
+.theme-root [class*='text-[10px]'] {
+  font-size: 0.78rem !important;
+}
+
+.theme-root [class*='text-[11px]'] {
+  font-size: 0.84rem !important;
+}
+
 @layer components {
   .glass {
     background: var(--admin-card);
@@ -193,16 +308,16 @@ html {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* ===== Trade Result Animations ===== */

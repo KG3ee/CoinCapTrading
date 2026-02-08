@@ -332,7 +332,7 @@ export default function WalletPage() {
 
   // Tab styles
   const tabClass = (tab: TabType) => `
-    px-4 py-3 font-semibold transition-all border-b-2
+    px-3 sm:px-4 py-2.5 font-semibold text-sm sm:text-base transition-all border-b-2 whitespace-nowrap shrink-0
     ${activeTab === tab 
       ? 'border-accent text-accent' 
       : 'border-transparent text-gray-400 hover:text-white'
@@ -396,7 +396,7 @@ export default function WalletPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="border-b border-white/10 flex gap-4">
+        <div className="border-b border-white/10 flex gap-2 sm:gap-4 overflow-x-auto">
           <button
             onClick={() => setActiveTab('overview')}
             className={tabClass('overview')}

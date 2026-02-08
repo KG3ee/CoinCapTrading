@@ -65,14 +65,14 @@ export default function SettingsPage() {
 
   if (isLoading || status === 'loading') {
     return (
-      <div className="h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
         <Loader2 className="animate-spin text-accent" size={32} />
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-[#0a0a0a] flex flex-col">
+    <div className="min-h-[100dvh] bg-background flex flex-col">
       {/* Header */}
       <div className="sticky top-0 z-50 flex items-center justify-between p-4 glass border-b border-white/10">
         <button

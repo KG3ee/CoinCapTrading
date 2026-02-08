@@ -181,10 +181,10 @@ export default function HomePage() {
                 />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] text-gray-400 truncate leading-tight">{crypto.symbol}</p>
+                <p className="text-xs text-gray-400 truncate leading-tight">{crypto.symbol}</p>
                 <p className={`text-xs font-semibold truncate leading-tight ${crypto.price === '--' ? 'animate-pulse text-gray-500' : ''}`}>${crypto.price}</p>
               </div>
-              <span className={`text-[10px] flex items-center gap-0.5 whitespace-nowrap ${crypto.isUp ? 'text-success' : 'text-danger'}`}>
+              <span className={`text-xs flex items-center gap-0.5 whitespace-nowrap ${crypto.isUp ? 'text-success' : 'text-danger'}`}>
                 {crypto.isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                 {crypto.change}%
               </span>
@@ -200,11 +200,11 @@ export default function HomePage() {
           onClick={() => router.push('/wallet')}
         >
           <div className="flex items-center justify-between mb-1">
-            <p className="text-[10px] text-gray-400 truncate">Total Balance</p>
+            <p className="text-xs text-gray-400 truncate">Total Balance</p>
             <DollarSign size={12} className="text-accent flex-shrink-0" />
           </div>
           <p className="text-sm font-bold truncate">$24,567.89</p>
-          <p className="text-[10px] text-success truncate">+12.5%</p>
+          <p className="text-xs text-success truncate">+12.5%</p>
         </div>
         
         <div 
@@ -212,11 +212,11 @@ export default function HomePage() {
           onClick={() => router.push('/trade')}
         >
           <div className="flex items-center justify-between mb-1">
-            <p className="text-[10px] text-gray-400 truncate">24h Volume</p>
+            <p className="text-xs text-gray-400 truncate">24h Volume</p>
             <BarChart3 size={12} className="text-purple-400 flex-shrink-0" />
           </div>
           <p className="text-sm font-bold truncate">$8,429.12</p>
-          <p className="text-[10px] text-gray-400 truncate">15 TX</p>
+          <p className="text-xs text-gray-400 truncate">15 TX</p>
         </div>
         
         <div 
@@ -224,11 +224,11 @@ export default function HomePage() {
           onClick={() => router.push('/trade')}
         >
           <div className="flex items-center justify-between mb-1">
-            <p className="text-[10px] text-gray-400 truncate">Top Gainer</p>
+            <p className="text-xs text-gray-400 truncate">Top Gainer</p>
             <TrendingUp size={12} className="text-success flex-shrink-0" />
           </div>
           <p className="text-sm font-bold">ADA</p>
-          <p className="text-[10px] text-success">+3.2%</p>
+          <p className="text-xs text-success">+3.2%</p>
         </div>
         
         <div 
@@ -236,11 +236,11 @@ export default function HomePage() {
           onClick={() => router.push('/trade')}
         >
           <div className="flex items-center justify-between mb-1">
-            <p className="text-[10px] text-gray-400 truncate">Active Orders</p>
+            <p className="text-xs text-gray-400 truncate">Active Orders</p>
             <Activity size={12} className="text-blue-400 flex-shrink-0" />
           </div>
           <p className="text-sm font-bold">7</p>
-          <p className="text-[10px] text-gray-400">3 Pending</p>
+          <p className="text-xs text-gray-400">3 Pending</p>
         </div>
       </div>
 
@@ -286,13 +286,13 @@ export default function HomePage() {
                       />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-semibold">{crypto.symbol}</p>
-                      <p className="text-[9px] text-gray-400 truncate">{crypto.name}</p>
+                      <p className="text-xs font-semibold">{crypto.symbol}</p>
+                      <p className="text-[11px] text-gray-400 truncate">{crypto.name}</p>
                     </div>
                   </div>
                   <div>
-                    <p className={`text-[10px] font-semibold ${crypto.price === '--' ? 'animate-pulse text-gray-500' : ''}`}>${crypto.price}</p>
-                    <p className={`text-[9px] flex items-center gap-0.5 ${crypto.price === '--' ? 'text-gray-500 animate-pulse' : crypto.isUp ? 'text-success' : 'text-danger'}`}>
+                    <p className={`text-xs font-semibold ${crypto.price === '--' ? 'animate-pulse text-gray-500' : ''}`}>${crypto.price}</p>
+                    <p className={`text-[11px] flex items-center gap-0.5 ${crypto.price === '--' ? 'text-gray-500 animate-pulse' : crypto.isUp ? 'text-success' : 'text-danger'}`}>
                       {crypto.price !== '--' && (crypto.isUp ? <TrendingUp size={8} /> : <TrendingDown size={8} />)}
                       {crypto.change}{crypto.price !== '--' ? '%' : ''}
                     </p>
@@ -311,18 +311,18 @@ export default function HomePage() {
 
             {/* Status Message */}
             {quickTradeMessage && (
-              <div className={`mb-1.5 p-1.5 rounded text-[10px] ${quickTradeMessage.type === 'success' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
+              <div className={`mb-1.5 p-1.5 rounded text-xs ${quickTradeMessage.type === 'success' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
                 {quickTradeMessage.text}
               </div>
             )}
 
             <div className="space-y-1.5">
               <div>
-                <label className="text-[10px] text-gray-400 block mb-0.5 font-medium">Select Coin</label>
+                <label className="text-xs text-gray-400 block mb-0.5 font-medium">Select Coin</label>
                 <select 
                   value={quickTradeCoin}
                   onChange={(e) => setQuickTradeCoin(e.target.value)}
-                  className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-[10px]"
+                  className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none text-xs"
                 >
                   <option value="BTC">BTC</option>
                   <option value="ETH">ETH</option>
@@ -334,7 +334,7 @@ export default function HomePage() {
               </div>
 
               {status === 'authenticated' && (
-                <div className="flex items-center justify-between py-1 border-t border-white/10 text-[10px]">
+                <div className="flex items-center justify-between py-1 border-t border-white/10 text-xs">
                   <p className="text-gray-400">Wallet Balance</p>
                   <p className="font-bold text-accent">${walletBalance.toLocaleString()} USDT</p>
                 </div>
@@ -343,13 +343,13 @@ export default function HomePage() {
               <div className="flex gap-1.5">
                 <button 
                   onClick={() => openQuickTrade('buy')}
-                  className="flex-1 py-2 rounded-lg bg-success hover:bg-success/80 text-white font-semibold text-[11px] min-h-[36px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="flex-1 py-2 rounded-lg bg-success hover:bg-success/80 text-white font-semibold text-sm min-h-[36px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   Buy {quickTradeCoin}
                 </button>
                 <button 
                   onClick={() => openQuickTrade('sell')}
-                  className="flex-1 py-2 rounded-lg bg-danger hover:bg-danger/80 text-white font-semibold text-[11px] min-h-[36px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="flex-1 py-2 rounded-lg bg-danger hover:bg-danger/80 text-white font-semibold text-sm min-h-[36px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   Sell {quickTradeCoin}
                 </button>
@@ -362,15 +362,15 @@ export default function HomePage() {
             className="glass-card p-2 sm:p-2.5 cursor-pointer hover:bg-white/10 transition-colors"
             onClick={() => router.push('/trade')}
           >
-            <h2 className="text-[10px] font-semibold mb-1.5">Order Book</h2>
+            <h2 className="text-xs font-semibold mb-1.5">Order Book</h2>
             {(() => {
               const btcLive = prices['bitcoin'];
               const base = btcLive?.priceUsd || 0;
               if (!base) return (
-                <div className="text-center text-[10px] text-gray-500 py-3 animate-pulse">Loading order book...</div>
+                <div className="text-center text-xs text-gray-500 py-3 animate-pulse">Loading order book...</div>
               );
               return (
-                <div className="space-y-0.5 text-[10px]">
+                <div className="space-y-0.5 text-xs">
                   <div className="flex justify-between text-gray-400 pb-0.5 border-b border-white/10">
                     <span>Price</span>
                     <span>Amount</span>

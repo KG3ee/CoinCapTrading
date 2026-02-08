@@ -153,7 +153,7 @@ export default function TradeHistoryPage() {
                       <tr key={t.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
                         <td className="py-2.5 px-3 text-gray-300">
                           <div>{new Date(t.createdAt).toLocaleDateString()}</div>
-                          <div className="text-[10px] text-gray-500">{new Date(t.createdAt).toLocaleTimeString()}</div>
+                          <div className="text-xs text-gray-500">{new Date(t.createdAt).toLocaleTimeString()}</div>
                         </td>
                         <td className="py-2.5 px-3">
                           <span className={`flex items-center gap-1 font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
@@ -164,14 +164,14 @@ export default function TradeHistoryPage() {
                         <td className="py-2.5 px-3 font-medium">{t.cryptoSymbol}</td>
                         <td className="py-2.5 px-3 text-right font-mono">{t.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</td>
                         <td className="py-2.5 px-3 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                             t.tradeKind === 'timed' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'
                           }`}>
                             {t.tradeKind === 'timed' ? `${t.period}s` : 'SPOT'}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                             t.status === 'win' ? 'bg-green-500/20 text-green-400' :
                             t.status === 'lose' ? 'bg-red-500/20 text-red-400' :
                             t.status === 'completed' ? 'bg-blue-500/20 text-blue-400' :
@@ -185,7 +185,7 @@ export default function TradeHistoryPage() {
                         }`}>
                           {t.profitLoss > 0 ? '+' : ''}{t.profitLoss.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                           {t.profitPercent !== 0 && (
-                            <span className="text-[10px] ml-1 opacity-60">({t.profitPercent > 0 ? '+' : ''}{t.profitPercent}%)</span>
+                            <span className="text-xs ml-1 opacity-60">({t.profitPercent > 0 ? '+' : ''}{t.profitPercent}%)</span>
                           )}
                         </td>
                       </tr>
@@ -205,13 +205,13 @@ export default function TradeHistoryPage() {
                           {t.type.toUpperCase()}
                         </span>
                         <span className="text-xs font-semibold">{t.cryptoSymbol}</span>
-                        <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${
+                        <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-semibold ${
                           t.tradeKind === 'timed' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'
                         }`}>
                           {t.tradeKind === 'timed' ? `${t.period}s` : 'SPOT'}
                         </span>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                         t.status === 'win' ? 'bg-green-500/20 text-green-400' :
                         t.status === 'lose' ? 'bg-red-500/20 text-red-400' :
                         t.status === 'completed' ? 'bg-blue-500/20 text-blue-400' :
@@ -220,13 +220,13 @@ export default function TradeHistoryPage() {
                         {t.status.toUpperCase()}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-[11px]">
+                    <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">Amount: <span className="text-white font-mono">{t.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span></span>
                       <span className={`font-mono font-semibold ${t.profitLoss > 0 ? 'text-green-400' : t.profitLoss < 0 ? 'text-red-400' : 'text-gray-400'}`}>
                         {t.profitLoss > 0 ? '+' : ''}{t.profitLoss.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDT
                       </span>
                     </div>
-                    <p className="text-[10px] text-gray-500">{new Date(t.createdAt).toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">{new Date(t.createdAt).toLocaleString()}</p>
                   </div>
                 ))}
               </div>
@@ -237,7 +237,7 @@ export default function TradeHistoryPage() {
         {/* Pagination */}
         {pagination && pagination.totalPages > 1 && (
           <div className="flex items-center justify-between">
-            <p className="text-[11px] text-gray-400">
+            <p className="text-sm text-gray-400">
               Page {pagination.page} of {pagination.totalPages}
             </p>
             <div className="flex items-center gap-1.5">

@@ -667,6 +667,12 @@ export default function AdminPage() {
   const handleThemeChange = async (theme: 'dark' | 'light') => {
     setAdminTheme(theme);
     setAdminProfile(prev => prev ? { ...prev, uiTheme: theme } : prev);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('coincap-theme', theme);
+      const root = document.documentElement;
+      root.classList.remove('theme-dark', 'theme-light');
+      root.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+    }
     try {
       await fetch('/api/admin/session', {
         method: 'PUT',
@@ -1033,7 +1039,7 @@ export default function AdminPage() {
   // MAIN ADMIN PANEL
   // ══════════════════════════════════════════════════════
   return (
-    <div className={`h-screen admin-theme ${adminTheme === 'light' ? 'light' : ''} bg-[var(--admin-bg)] flex overflow-hidden`}>
+    <div className={`min-h-[100dvh] admin-theme ${adminTheme === 'light' ? 'light' : ''} bg-[var(--admin-bg)] flex overflow-hidden`}>
       {/* SIDEBAR (Desktop) */}
       <aside className="hidden md:flex md:flex-col w-56 border-r border-[var(--admin-border)] admin-panel flex-shrink-0">
         <div className="p-4 border-b border-[var(--admin-border)] flex items-center gap-2">
