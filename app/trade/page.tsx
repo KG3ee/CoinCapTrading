@@ -234,7 +234,7 @@ export default function TradePage() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-1.5 flex-1">
+      <div className="grid lg:grid-cols-3 gap-1.5 lg:flex-1">
         <div className="lg:col-span-2 space-y-1.5">
           <div className="glass-card p-2.5">
             <div className="flex items-center justify-between mb-1.5">
