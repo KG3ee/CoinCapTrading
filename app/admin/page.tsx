@@ -1133,6 +1133,22 @@ export default function AdminPage() {
             );
           })}
         </nav>
+        <div className="p-2 border-t border-[var(--admin-border)] space-y-1.5">
+          <a
+            href="/"
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
+          >
+            <Home size={16} />
+            <span>Back to Site</span>
+          </a>
+          <button
+            onClick={handleAdminLogout}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-danger hover:bg-danger/10 transition-colors"
+          >
+            <LogOut size={16} />
+            <span>Logout</span>
+          </button>
+        </div>
       </aside>
 
       {/* MAIN CONTENT */}
@@ -2640,21 +2656,6 @@ export default function AdminPage() {
                         </div>
                       )}
 
-                      <div className="glass-card p-3 flex flex-col gap-2">
-                        <p className="text-xs font-semibold">Session</p>
-                        <a
-                          href="/"
-                          className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
-                        >
-                          <Home size={14} /> Back to Site
-                        </a>
-                        <button
-                          onClick={handleAdminLogout}
-                          className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
-                        >
-                          <LogOut size={14} /> Logout
-                        </button>
-                      </div>
                     </div>
                   </div>
                 </div>
