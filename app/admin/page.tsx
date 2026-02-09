@@ -1102,14 +1102,14 @@ export default function AdminPage() {
   // MAIN ADMIN PANEL
   // ══════════════════════════════════════════════════════
   return (
-    <div className={`min-h-[100dvh] admin-theme ${adminTheme === 'light' ? 'light' : ''} bg-[var(--admin-bg)] flex overflow-hidden`}>
+    <div className={`admin-shell admin-theme ${adminTheme === 'light' ? 'light' : ''} bg-[var(--admin-bg)]`}>
       {/* SIDEBAR (Desktop) */}
-      <aside className="hidden md:flex md:flex-col w-56 border-r border-[var(--admin-border)] admin-panel flex-shrink-0">
+      <aside className="hidden md:flex admin-sidebar border-r border-[var(--admin-border)] admin-panel flex-shrink-0">
         <div className="p-4 border-b border-[var(--admin-border)] flex items-center gap-2">
           <Shield size={20} className="text-accent" />
           <h1 className="text-sm font-bold">Admin Panel</h1>
         </div>
-        <nav className="flex-1 p-2 space-y-0.5">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
           {visibleNavItems.map(item => {
             const Icon = item.icon;
             const isActive = activeTab === item.key;
@@ -1133,7 +1133,7 @@ export default function AdminPage() {
             );
           })}
         </nav>
-        <div className="p-2 border-t border-[var(--admin-border)] space-y-1.5">
+        <div className="mt-auto shrink-0 p-2 border-t border-[var(--admin-border)] space-y-1.5">
           <a
             href="/"
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
@@ -1152,9 +1152,9 @@ export default function AdminPage() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="admin-main">
         {/* Top Bar */}
-        <header className="h-14 flex items-center justify-between px-4 py-3 border-b border-[var(--admin-border)] admin-panel flex-shrink-0">
+        <header className="admin-header flex items-center justify-between px-4 border-b border-[var(--admin-border)] admin-panel">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
@@ -1256,11 +1256,11 @@ export default function AdminPage() {
         )}
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-2.5 md:p-3">
-          <div className="flex flex-col gap-2.5">
+        <main className="admin-content">
+          <div className="admin-content-inner flex min-h-0 flex-col gap-4">
             {error && <div className="p-2.5 rounded-lg bg-danger/20 text-danger text-xs">{error}</div>}
             {success && <div className="p-2.5 rounded-lg bg-success/20 text-success text-xs">{success}</div>}
-            <div className="min-h-0">
+            <div className="min-h-0 flex-1">
 
           {/* ── TAB: OVERVIEW ─────────────────────────── */}
           {activeTab === 'overview' && (
@@ -1425,10 +1425,10 @@ export default function AdminPage() {
 
           {/* ── TAB: TRADE CONTROL ────────────────────── */}
           {activeTab === 'trades' && (
-            <div className="flex flex-col gap-3">
-              <div className="grid md:grid-cols-2 gap-3 flex-shrink-0">
+            <section className="flex h-full min-h-0 flex-col gap-3">
+              <div className="grid shrink-0 gap-3 xl:grid-cols-2">
                 {/* Global Mode */}
-                <div className="glass-card p-3 space-y-2 min-h-[200px] md:min-h-[260px] flex flex-col">
+                <div className="panel p-3 space-y-2 min-h-[200px] md:min-h-[260px] flex flex-col">
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
                     <TrendingUp size={12} className="text-accent" /> Global Trade Mode
                   </h3>
@@ -1481,7 +1481,7 @@ export default function AdminPage() {
                 </div>
 
                 {/* User Overrides */}
-                <div className="glass-card p-3 space-y-2 h-[200px] md:h-[260px] flex flex-col">
+                <div className="panel p-3 space-y-2 h-[200px] md:h-[260px] flex flex-col">
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
                     <Users size={12} className="text-accent" /> User Overrides
                   </h3>
@@ -1557,69 +1557,80 @@ export default function AdminPage() {
               </div>
 
               {/* All Trades Table */}
-              <div className="glass-card p-3 flex flex-col flex-1 min-h-0">
-                <h3 className="text-xs font-bold mb-2 flex items-center gap-1.5">
-                  <Clock size={12} className="text-accent" /> All Timed Trades
-                </h3>
+              <div className="panel flex flex-1 min-h-0 flex-col overflow-hidden">
+                <div className="panel-header">
+                  <h3 className="text-xs font-bold flex items-center gap-1.5">
+                    <Clock size={12} className="text-accent" /> All Timed Trades
+                  </h3>
+                </div>
                 {recentTrades.length === 0 ? (
-                  <p className="text-xs text-gray-500 italic">No trades yet</p>
+                  <div className="panel-body">
+                    <p className="text-xs text-gray-500 italic">No trades yet</p>
+                  </div>
                 ) : (
-                  <div className="flex-1 overflow-y-auto pr-1">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-[11px]">
-                        <thead>
-                          <tr className="text-gray-400 border-b border-white/10">
-                            <th className="text-left py-1 px-2">User</th>
-                            <th className="text-left py-1 px-2">Type</th>
-                            <th className="text-left py-1 px-2">Symbol</th>
-                            <th className="text-right py-1 px-2">Amount</th>
-                            <th className="text-center py-1 px-2">Period</th>
-                            <th className="text-center py-1 px-2">Result</th>
-                            <th className="text-right py-1 px-2">Profit</th>
-                            <th className="text-right py-1 px-2">Time</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {recentTrades.map(t => (
-                            <tr key={t.id} className="border-b border-white/5 hover:bg-white/5">
-                              <td className="py-1 px-2 truncate max-w-[100px]">{t.user}</td>
-                              <td className={`py-1 px-2 font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
-                                {t.type.toUpperCase()}
-                              </td>
-                              <td className="py-1 px-2">{t.cryptoSymbol}</td>
-                              <td className="py-1 px-2 text-right">{t.amount.toLocaleString()}</td>
-                              <td className="py-1 px-2 text-center">{t.period}s</td>
-                              <td className="py-1 px-2 text-center">
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold ${
-                                  t.result === 'win' ? 'bg-green-500/20 text-green-400' :
-                                  t.result === 'lose' ? 'bg-red-500/20 text-red-400' :
-                                  'bg-yellow-500/20 text-yellow-400'
-                                }`}>
-                                  {t.result.toUpperCase()}
-                                </span>
-                              </td>
-                              <td className={`py-1 px-2 text-right ${t.result === 'win' ? 'text-green-400' : ''}`}>
-                                {t.result === 'win' ? `+${t.profitAmount.toLocaleString()}` : '\u2014'}
-                              </td>
-                              <td className="py-1 px-2 text-right text-gray-400">
+                  <div
+                    tabIndex={0}
+                    aria-label="All timed trades"
+                    className="panel-body panel-scroll scrollbar-thin-dark flex-1 min-h-0 pr-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                  >
+                    <table className="w-full table-fixed text-[11px] md:text-xs">
+                      <thead className="sticky top-0 z-10 bg-[var(--admin-panel)]">
+                        <tr className="text-gray-400 border-b border-white/10">
+                          <th className="text-left py-2 pr-2 w-[34%] md:w-[22%]">User</th>
+                          <th className="text-left py-2 pr-2 w-[16%] md:w-[10%]">Type</th>
+                          <th className="text-left py-2 pr-2 w-[18%] md:w-[10%]">Symbol</th>
+                          <th className="text-right py-2 pr-2 w-[18%] md:w-[14%]">Amount</th>
+                          <th className="hidden md:table-cell text-center py-2 pr-2 w-[10%]">Period</th>
+                          <th className="text-center py-2 pr-2 w-[14%] md:w-[12%]">Result</th>
+                          <th className="hidden lg:table-cell text-right py-2 pr-2 w-[12%]">Profit</th>
+                          <th className="hidden lg:table-cell text-right py-2 pr-2 w-[20%]">Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentTrades.map(t => (
+                          <tr key={t.id} className="border-b border-white/5 hover:bg-white/5">
+                            <td className="py-2 pr-2">
+                              <p className="truncate">{t.user}</p>
+                              <p className="truncate text-[10px] text-gray-500 lg:hidden">
                                 {new Date(t.createdAt).toLocaleTimeString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                              </p>
+                            </td>
+                            <td className={`py-2 pr-2 font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                              {t.type.toUpperCase()}
+                            </td>
+                            <td className="py-2 pr-2 truncate">{t.cryptoSymbol}</td>
+                            <td className="py-2 pr-2 text-right truncate">{t.amount.toLocaleString()}</td>
+                            <td className="hidden md:table-cell py-2 pr-2 text-center">{t.period}s</td>
+                            <td className="py-2 pr-2 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold ${
+                                t.result === 'win' ? 'bg-green-500/20 text-green-400' :
+                                t.result === 'lose' ? 'bg-red-500/20 text-red-400' :
+                                'bg-yellow-500/20 text-yellow-400'
+                              }`}>
+                                {t.result.toUpperCase()}
+                              </span>
+                            </td>
+                            <td className={`hidden lg:table-cell py-2 pr-2 text-right ${t.result === 'win' ? 'text-green-400' : ''}`}>
+                              {t.result === 'win' ? `+${t.profitAmount.toLocaleString()}` : '\u2014'}
+                            </td>
+                            <td className="hidden lg:table-cell py-2 pr-2 text-right text-gray-400">
+                              {new Date(t.createdAt).toLocaleTimeString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
-            </div>
+            </section>
           )}
 
           {/* ── TAB: USER MANAGEMENT ──────────────────── */}
           {activeTab === 'users' && canViewUsers && (
-            <div className="flex flex-col gap-3">
+            <section className="flex h-full min-h-0 flex-col gap-3">
               {/* Account Actions */}
-              <div className="glass-card p-3 space-y-2 flex-shrink-0">
+              <div className="panel p-3 space-y-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
                     <Users size={12} className="text-accent" /> Account Actions
@@ -1741,8 +1752,8 @@ export default function AdminPage() {
               </div>
 
               {/* Account Search */}
-              <div className="glass-card p-3 flex flex-col flex-1 min-h-0">
-                <div className="flex items-center justify-between">
+              <div className="panel p-3 flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="flex items-center justify-between flex-shrink-0">
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
                     <Users size={12} className="text-accent" /> Account Search
                   </h3>
@@ -1780,7 +1791,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 flex-shrink-0">
                   <label className="block text-[10px] text-gray-400 mb-0.5">Search users</label>
                   <input
                     value={userSearch}
@@ -1854,13 +1865,16 @@ export default function AdminPage() {
                 </div>
 
                 {userBalances.length > 0 && (
-                  <div className="flex-1 min-h-0 overflow-y-auto mt-2 pr-1">
-                  <div className="overflow-x-auto">
-                      <table className="w-full text-[11px]">
-                        <thead>
-                          <tr className="text-gray-400 border-b border-gray-800">
+                  <div
+                    tabIndex={0}
+                    aria-label="Accounts table"
+                    className="flex-1 min-h-0 overflow-y-auto mt-2 pr-1 scrollbar-thin-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                  >
+                    <table className="w-full table-fixed text-[11px]">
+                      <thead className="sticky top-0 z-10 bg-[var(--admin-panel)]">
+                        <tr className="text-gray-400 border-b border-gray-800">
                             {canManageUsers && (
-                              <th className="text-left py-1.5 pr-2">
+                              <th className="text-left py-1.5 pr-2 w-[8%] md:w-[5%]">
                                 <input
                                   type="checkbox"
                                   aria-label="Select all filtered users"
@@ -1870,23 +1884,23 @@ export default function AdminPage() {
                                 />
                               </th>
                             )}
-                            <th className="text-left py-1.5 pr-2">User</th>
-                            <th className="text-left py-1.5 pr-2">Email</th>
-                            <th className="text-left py-1.5 pr-2">UID</th>
-                            <th className="text-left py-1.5 pr-2">Status</th>
-                            <th className="text-right py-1.5 pr-2">Balance</th>
-                            {canAccountAction && <th className="text-center py-1.5">Quick</th>}
-                            {canManageUsers && <th className="text-center py-1.5">Actions</th>}
+                            <th className="text-left py-1.5 pr-2 w-[38%] md:w-[24%]">User</th>
+                            <th className="hidden xl:table-cell text-left py-1.5 pr-2 w-[18%]">Email</th>
+                            <th className="hidden lg:table-cell text-left py-1.5 pr-2 w-[12%]">UID</th>
+                            <th className="hidden md:table-cell text-left py-1.5 pr-2 w-[18%]">Status</th>
+                            <th className="text-right py-1.5 pr-2 w-[24%] md:w-[13%]">Balance</th>
+                            {canAccountAction && <th className="text-center py-1.5 w-[14%] md:w-[12%]">Quick</th>}
+                            {canManageUsers && <th className="text-center py-1.5 w-[14%] md:w-[12%]">Actions</th>}
                           </tr>
-                        </thead>
-                        <tbody>
-                          {filteredUsers.map(u => (
-                            <tr
-                              key={u.id}
-                              className={`border-b border-gray-800/50 hover:bg-white/5 ${
-                                u.accountStatus === 'banned' ? 'bg-red-500/10' : ''
-                              }`}
-                            >
+                      </thead>
+                      <tbody>
+                        {filteredUsers.map(u => (
+                          <tr
+                            key={u.id}
+                            className={`border-b border-gray-800/50 hover:bg-white/5 ${
+                              u.accountStatus === 'banned' ? 'bg-red-500/10' : ''
+                            }`}
+                          >
                               {canManageUsers && (
                                 <td className="py-2 pr-2">
                                   <input
@@ -1898,10 +1912,14 @@ export default function AdminPage() {
                                   />
                                 </td>
                               )}
-                              <td className="py-2 pr-2 font-medium">{u.name || '\u2014'}</td>
-                              <td className="py-2 pr-2 text-gray-400">{u.email}</td>
-                              <td className="py-2 pr-2 text-gray-400 font-mono">{u.uid || '\u2014'}</td>
                               <td className="py-2 pr-2">
+                                <p className="font-medium truncate">{u.name || '\u2014'}</p>
+                                <p className="text-[10px] text-gray-400 truncate xl:hidden">{u.email}</p>
+                                <p className="text-[10px] text-gray-500 truncate lg:hidden">{u.uid || '\u2014'}</p>
+                              </td>
+                              <td className="hidden xl:table-cell py-2 pr-2 text-gray-400 truncate">{u.email}</td>
+                              <td className="hidden lg:table-cell py-2 pr-2 text-gray-400 font-mono truncate">{u.uid || '\u2014'}</td>
+                              <td className="hidden md:table-cell py-2 pr-2">
                                 <div className="flex flex-wrap gap-1">
                                   <span className={`px-1.5 py-0.5 rounded text-[9px] ${
                                     u.accountStatus === 'active' ? 'bg-green-500/20 text-green-400' :
@@ -1930,7 +1948,7 @@ export default function AdminPage() {
                                   </span>
                                 </div>
                               </td>
-                              <td className="py-2 pr-2 text-right font-mono text-accent">{u.balance.toLocaleString()}</td>
+                              <td className="py-2 pr-2 text-right font-mono text-accent truncate">{u.balance.toLocaleString()}</td>
                               {canAccountAction && (
                                 <td className="py-2 text-center">
                                   <div className="flex gap-1 justify-center">
@@ -2012,11 +2030,10 @@ export default function AdminPage() {
                                   )}
                                 </td>
                               )}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
 
@@ -2066,7 +2083,7 @@ export default function AdminPage() {
                   </div>
                 </details>
               </div>
-            </div>
+            </section>
           )}
 
           {/* ── TAB: CHAT ─────────────────────────────── */}
@@ -2413,7 +2430,7 @@ export default function AdminPage() {
 
           {/* ── TAB: SETTINGS ─────────────────────────── */}
           {activeTab === 'settings' && (
-            <div className="flex flex-col gap-3">
+            <section className="flex h-full min-h-0 flex-col gap-3">
               <div className="flex items-center justify-between flex-shrink-0">
                 <h3 className="text-sm font-bold">Admin Settings</h3>
                 {showSettingsControls && (
@@ -2427,12 +2444,12 @@ export default function AdminPage() {
               </div>
 
               {showSettingsControls && (settingsLoading || !adminSettings) ? (
-                <div className="glass-card p-4 text-xs text-gray-500">Loading settings...</div>
+                <div className="panel p-4 text-xs text-gray-500">Loading settings...</div>
               ) : (
-                <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-                  <div className="min-h-0 grid grid-cols-1 xl:grid-cols-5 gap-2">
+                <div className="flex-1 min-h-0">
+                  <div className="min-h-0 h-full grid grid-cols-1 xl:grid-cols-5 gap-3">
                     {showSettingsControls && adminSettings && (
-                      <div className="min-h-0 flex flex-col gap-2 xl:col-span-2">
+                      <div className="min-h-0 flex flex-col gap-3 xl:col-span-2">
                         {/* RBAC */}
                         <div className="glass-card p-3 min-h-[180px] xl:min-h-0 xl:flex-[1.35] flex flex-col gap-2">
                           <div className="flex items-center justify-between">
@@ -2500,10 +2517,10 @@ export default function AdminPage() {
                       </div>
                     )}
 
-                    <div className={`min-h-0 flex flex-col gap-2 ${showSettingsControls && adminSettings ? 'xl:col-span-3' : 'xl:col-span-5'}`}>
+                    <div className={`min-h-0 flex flex-col gap-3 ${showSettingsControls && adminSettings ? 'xl:col-span-3' : 'xl:col-span-5'}`}>
                       {/* Admin Management */}
                       {showAdminManagement && (
-                        <div className="glass-card p-3 min-h-[250px] xl:min-h-0 xl:flex-[1.2] flex flex-col gap-2">
+                        <div className="panel p-3 min-h-[250px] xl:min-h-0 xl:flex-[1.2] flex flex-col gap-2 overflow-hidden">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold">Admin Accounts</p>
                             <span className="text-[10px] text-gray-500">{adminUsers.length} total</span>
@@ -2608,8 +2625,8 @@ export default function AdminPage() {
 
                       {/* Activity Logs */}
                       {showAuditLogs && (
-                        <div className="glass-card p-3 min-h-[230px] xl:min-h-0 xl:flex-1 flex flex-col gap-2">
-                          <div className="flex items-center justify-between gap-2">
+                        <div className="panel min-h-[280px] xl:min-h-0 xl:flex-1 flex flex-col overflow-hidden">
+                          <div className="panel-header">
                             <p className="text-xs font-semibold">Activity Logs</p>
                             <input
                               value={auditLogQuery}
@@ -2618,7 +2635,11 @@ export default function AdminPage() {
                               className="w-36 text-[10px] rounded px-2 py-1 border"
                             />
                           </div>
-                          <div className="flex-1 min-h-0 overflow-y-auto pr-1 text-[10px]">
+                          <div
+                            tabIndex={0}
+                            aria-label="Activity logs"
+                            className="panel-body panel-scroll scrollbar-thin-dark flex-1 min-h-0 pr-1 text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                          >
                             {auditLogsLoading ? (
                               <p className="text-gray-500">Loading logs...</p>
                             ) : filteredAuditLogs.length === 0 ? (
@@ -2660,7 +2681,7 @@ export default function AdminPage() {
                   </div>
                 </div>
               )}
-            </div>
+            </section>
           )}
 
           {/* Account Action Modal */}
