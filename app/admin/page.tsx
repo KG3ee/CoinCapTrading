@@ -1277,7 +1277,7 @@ export default function AdminPage() {
           aria-hidden={!mobileNavOpen}
         />
         <aside
-          className={`fixed inset-y-0 left-0 z-50 h-dvh w-[80vw] max-w-[280px] border-r border-[var(--admin-border)] admin-panel flex flex-col transform transition-transform duration-300 ease-out lg:hidden ${
+          className={`fixed inset-y-0 left-0 z-50 h-dvh w-[80vw] max-w-[280px] border-r border-[var(--admin-border)] bg-[var(--admin-bg)] flex flex-col transform transition-transform duration-300 ease-out lg:hidden ${
             mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
           aria-hidden={!mobileNavOpen}
@@ -1558,7 +1558,7 @@ export default function AdminPage() {
                         className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs focus:border-accent focus:outline-none"
                       />
                       {overrideResults.length > 0 && overrideQuery.trim() && !selectedUser && (
-                        <div className="absolute z-10 mt-1 w-full max-h-32 overflow-y-auto rounded-lg border border-[var(--admin-border)] bg-[var(--admin-panel)] shadow-xl">
+                        <div className="absolute z-10 mt-1 w-full max-h-32 overflow-y-auto rounded-lg border border-[var(--admin-border)] bg-[var(--admin-bg)] shadow-xl">
                           {overrideResults.map(u => (
                             <button
                               key={u.id}
