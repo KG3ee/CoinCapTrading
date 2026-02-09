@@ -76,14 +76,14 @@ export default function TradeHistoryPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-[50vh] flex items-center justify-center">
         <Loader2 className="animate-spin text-accent" size={28} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pb-24 md:pb-6 md:pl-20">
+    <div className="pb-24 md:pb-6 md:pl-20">
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">

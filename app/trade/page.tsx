@@ -190,7 +190,7 @@ export default function TradePage() {
   };
 
   return (
-    <div className="min-h-screen p-2 md:p-3 space-y-1.5 max-w-7xl mx-auto flex flex-col">
+    <div className="p-2 md:p-3 space-y-1.5 max-w-7xl mx-auto">
       <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-base md:text-lg font-bold">Trade</h1>

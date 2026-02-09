@@ -1001,7 +1001,7 @@ export default function AdminPage() {
   // ══════════════════════════════════════════════════════
   if (!isAuthenticated) {
     return (
-      <div className={`min-h-screen admin-theme ${adminTheme === 'light' ? 'light' : ''} bg-[var(--admin-bg)] flex items-center justify-center p-4`}>
+      <div className={`min-h-[100dvh] admin-theme ${adminTheme === 'light' ? 'light' : ''} bg-[var(--admin-bg)] flex items-center justify-center p-4`}>
         <div className="glass-card w-full max-w-sm p-6 space-y-4">
           <div className="text-center">
             <Shield className="mx-auto mb-2 text-accent" size={32} />
@@ -1084,7 +1084,7 @@ export default function AdminPage() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0">
         {/* Top Bar */}
         <header className="flex items-center justify-between px-4 py-3 border-b border-[var(--admin-border)] admin-panel flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -1197,15 +1197,15 @@ export default function AdminPage() {
         )}
 
         {/* Content Area */}
-        <main className="flex-1 overflow-hidden p-2.5 md:p-3">
-          <div className="h-full flex flex-col gap-2.5">
+        <main className="flex-1 overflow-y-auto p-2.5 md:p-3">
+          <div className="flex flex-col gap-2.5">
             {error && <div className="p-2.5 rounded-lg bg-danger/20 text-danger text-xs">{error}</div>}
             {success && <div className="p-2.5 rounded-lg bg-success/20 text-success text-xs">{success}</div>}
-            <div className="flex-1 min-h-0 overflow-hidden">
+            <div className="min-h-0">
 
           {/* ── TAB: OVERVIEW ─────────────────────────── */}
           {activeTab === 'overview' && (
-            <div className="h-full flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
               {stats && (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 flex-shrink-0">
                   {[
@@ -1351,7 +1351,7 @@ export default function AdminPage() {
 
           {/* ── TAB: TRADE CONTROL ────────────────────── */}
           {activeTab === 'trades' && (
-            <div className="h-full flex flex-col gap-3">
+            <div className="flex flex-col gap-3">
               <div className="grid md:grid-cols-2 gap-3 flex-shrink-0">
                 {/* Global Mode */}
                 <div className="glass-card p-3 space-y-2 h-[200px] md:h-[260px] flex flex-col">
@@ -1543,7 +1543,7 @@ export default function AdminPage() {
 
           {/* ── TAB: USER MANAGEMENT ──────────────────── */}
           {activeTab === 'users' && canViewUsers && (
-            <div className="h-full flex flex-col gap-3">
+            <div className="flex flex-col gap-3">
               {/* Account Actions */}
               <div className="glass-card p-3 space-y-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
@@ -1997,7 +1997,7 @@ export default function AdminPage() {
 
           {/* ── TAB: CHAT ─────────────────────────────── */}
           {activeTab === 'chat' && (
-            <div className="glass-card p-3 flex flex-col h-full min-h-0">
+            <div className="glass-card p-3 flex flex-col min-h-0">
               <div className="flex items-center justify-between flex-shrink-0">
                 <h3 className="text-sm font-bold flex items-center gap-1.5">
                   <MessageCircle size={14} className="text-accent" /> Customer Chat
@@ -2149,7 +2149,7 @@ export default function AdminPage() {
 
           {/* ── TAB: KYC VERIFICATION ─────────────────── */}
           {activeTab === 'kyc' && (
-            <div className="h-full flex flex-col gap-3">
+            <div className="flex flex-col gap-3">
               {/* Filter Tabs */}
               <div className="flex gap-2 flex-shrink-0">
                 {(['pending', 'approved', 'rejected', 'all'] as const).map(f => (
@@ -2339,7 +2339,7 @@ export default function AdminPage() {
 
           {/* ── TAB: SETTINGS ─────────────────────────── */}
           {activeTab === 'settings' && (
-            <div className="h-full flex flex-col gap-3">
+            <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between flex-shrink-0">
                 <h3 className="text-sm font-bold">Admin Settings</h3>
                 {showSettingsControls && (
@@ -2355,8 +2355,8 @@ export default function AdminPage() {
               {showSettingsControls && (settingsLoading || !adminSettings) ? (
                 <div className="glass-card p-4 text-xs text-gray-500">Loading settings...</div>
               ) : (
-                <div className="flex-1 min-h-0 overflow-y-auto xl:overflow-hidden pr-1">
-                  <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-5 gap-2">
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                  <div className="min-h-0 grid grid-cols-1 xl:grid-cols-5 gap-2">
                     {showSettingsControls && adminSettings && (
                       <div className="min-h-0 flex flex-col gap-2 xl:col-span-2">
                         {/* RBAC */}

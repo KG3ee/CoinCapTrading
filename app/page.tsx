@@ -163,7 +163,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="responsive-container max-w-7xl mx-auto space-y-1.5 md:space-y-2 pb-2 min-h-screen flex flex-col">
+    <div className="responsive-container max-w-7xl mx-auto space-y-1.5 md:space-y-2 pb-2">
       {/* Price Ticker */}
       <div className="glass-card overflow-x-auto snap-x snap-mandatory p-2">
         <div className="flex gap-2 sm:gap-2.5 md:gap-3 min-w-max">
@@ -245,7 +245,7 @@ export default function HomePage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid md:grid-cols-3 lg:grid-cols-3 gap-1.5 md:gap-2 flex-1">
+      <div className="grid md:grid-cols-3 lg:grid-cols-3 gap-1.5 md:gap-2">
         {/* Chart Section */}
         <div className="md:col-span-2 space-y-1.5 md:space-y-2">
           {/* Trading Chart */}

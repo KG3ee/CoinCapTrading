@@ -100,7 +100,7 @@ function RootLayoutContent({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-[100dvh]">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:flex-col md:w-56 glass border-r border-white/10">
         <div className="p-4 border-b border-white/10">
@@ -203,7 +203,7 @@ function RootLayoutContent({
 
       {/* Main Content */}
       <main 
-        className="flex-1 overflow-auto md:pt-0 md:pb-0 min-h-screen mobile-content-padding"
+        className="flex-1 min-h-0 overflow-auto md:pt-0 md:pb-0 mobile-content-padding"
       >
         {children}
       </main>

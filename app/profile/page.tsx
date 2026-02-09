@@ -174,7 +174,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-[50vh] bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-2 border-accent border-t-transparent"></div>
       </div>
     );
@@ -182,7 +182,7 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-[50vh] bg-background flex items-center justify-center p-4">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-white mb-4">Profile Not Found</h2>
           <button
@@ -197,7 +197,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background">
       {/* Header */}
       <div className="sticky top-0 z-50 glass border-b border-white/10 backdrop-blur-md">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-center sm:justify-between gap-4">

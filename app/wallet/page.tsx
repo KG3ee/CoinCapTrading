@@ -286,7 +286,7 @@ export default function WalletPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="bg-background p-4 md:p-8">
         <div className="flex items-center justify-center h-64">
           <div className="text-center space-y-4">
             <Loader className="animate-spin text-accent mx-auto" size={40} />
@@ -299,7 +299,7 @@ export default function WalletPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="bg-background p-4 md:p-8">
         <div className="max-w-4xl mx-auto">
           <button
             onClick={() => router.back()}
@@ -340,7 +340,7 @@ export default function WalletPage() {
   `;
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
+    <div className="bg-background p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
