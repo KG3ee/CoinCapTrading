@@ -29,6 +29,9 @@ export async function PUT(request: NextRequest) {
   if ('error' in context) {
     return NextResponse.json({ error: context.error }, { status: context.status });
   }
+  if (context.admin.role === 'moderator') {
+    return NextResponse.json({ error: 'Moderators have monitor-only access' }, { status: 403 });
+  }
 
   try {
     await connectDB();

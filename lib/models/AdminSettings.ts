@@ -77,11 +77,7 @@ const DEFAULT_ROLES = [
     name: 'Moderator',
     permissions: [
       'view_dashboard',
-      'manage_trades',
-      'manage_kyc',
-      'manage_support',
       'view_logs',
-      'manage_admins',
     ],
   },
 ];

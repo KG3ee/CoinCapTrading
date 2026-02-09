@@ -548,6 +548,7 @@ export default function AdminPage() {
   const canBalanceAction = !isModerator && can('manage_financials');
   const canBanAction = canManageUsers;
   const canAccountAction = canBalanceAction || canBanAction;
+  const canToggleAdminTheme = !isModerator;
 
   useEffect(() => {
     if (accountActionType === 'balance' && !canBalanceAction && canBanAction) {
@@ -752,6 +753,7 @@ export default function AdminPage() {
   };
 
   const handleThemeChange = async (theme: 'dark' | 'light') => {
+    if (!canToggleAdminTheme) return;
     setAdminTheme(theme);
     setAdminProfile(prev => prev ? { ...prev, uiTheme: theme } : prev);
     if (typeof window !== 'undefined') {
@@ -1212,8 +1214,9 @@ export default function AdminPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => handleThemeChange(adminTheme === 'dark' ? 'light' : 'dark')}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-              title={adminTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              disabled={!canToggleAdminTheme}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={canToggleAdminTheme ? (adminTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode') : 'Moderators have monitor-only access'}
             >
               {adminTheme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
             </button>

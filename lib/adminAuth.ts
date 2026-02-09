@@ -42,13 +42,14 @@ const DEFAULT_ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
   ],
   moderator: [
     'view_dashboard',
-    'manage_trades',
-    'manage_kyc',
-    'manage_support',
     'view_logs',
-    'manage_admins',
   ],
 };
+
+const MODERATOR_READ_ONLY_PERMISSIONS: AdminPermission[] = [
+  'view_dashboard',
+  'view_logs',
+];
 
 const ROLE_NAME_MAP: Record<AdminRole, string> = {
   superadmin: 'Super Admin',
@@ -72,7 +73,9 @@ function normalizeRoleName(name: string) {
 
 function resolvePermissions(role: AdminRole, settings: any): AdminPermission[] {
   if (!settings?.rbacEnabled) {
-    return DEFAULT_ROLE_PERMISSIONS[role] || [];
+    return role === 'moderator'
+      ? MODERATOR_READ_ONLY_PERMISSIONS
+      : (DEFAULT_ROLE_PERMISSIONS[role] || []);
   }
 
   const roleKey = normalizeRoleName(ROLE_NAME_MAP[role]);
@@ -81,10 +84,16 @@ function resolvePermissions(role: AdminRole, settings: any): AdminPermission[] {
     : null;
 
   if (roleEntry && Array.isArray(roleEntry.permissions)) {
-    return roleEntry.permissions as AdminPermission[];
+    const resolved = roleEntry.permissions as AdminPermission[];
+    if (role === 'moderator') {
+      return resolved.filter((permission) => MODERATOR_READ_ONLY_PERMISSIONS.includes(permission));
+    }
+    return resolved;
   }
 
-  return DEFAULT_ROLE_PERMISSIONS[role] || [];
+  return role === 'moderator'
+    ? MODERATOR_READ_ONLY_PERMISSIONS
+    : (DEFAULT_ROLE_PERMISSIONS[role] || []);
 }
 
 async function ensureRootAdmin(secretKey: string) {
