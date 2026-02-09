@@ -136,6 +136,7 @@ type AdminPermission =
   | 'manage_users'
   | 'manage_financials'
   | 'manage_kyc'
+  | 'view_support'
   | 'manage_support'
   | 'view_logs'
   | 'manage_settings'
@@ -172,7 +173,7 @@ const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield; permission
   { key: 'trades', label: 'Trade Control', icon: TrendingUp, permissions: ['manage_trades'] },
   { key: 'users', label: 'Accounts', icon: Users, permissions: ['manage_users', 'view_dashboard'] },
   { key: 'kyc', label: 'KYC Verification', icon: BadgeCheck, permissions: ['manage_kyc'] },
-  { key: 'chat', label: 'Customer Chat', icon: MessageCircle, permissions: ['manage_support'] },
+  { key: 'chat', label: 'Customer Chat', icon: MessageCircle, permissions: ['manage_support', 'view_support'] },
   { key: 'settings', label: 'Settings', icon: Settings, permissions: ['manage_settings', 'manage_admins', 'view_logs'] },
 ];
 
@@ -383,7 +384,7 @@ export default function AdminPage() {
         );
       }
 
-      if (canLocal('manage_support')) {
+      if (canLocal('manage_support') || canLocal('view_support')) {
         tasks.push(
           fetch('/api/admin/chat', { headers: headers() })
             .then(r => r.ok ? r.json() : null)
@@ -549,6 +550,8 @@ export default function AdminPage() {
   const canBanAction = canManageUsers;
   const canAccountAction = canBalanceAction || canBanAction;
   const canToggleAdminTheme = !isModerator;
+  const canViewSupport = can('manage_support') || can('view_support');
+  const canReplySupport = can('manage_support');
 
   useEffect(() => {
     if (accountActionType === 'balance' && !canBalanceAction && canBanAction) {
@@ -972,15 +975,15 @@ export default function AdminPage() {
 
   // ── Chat ───────────────────────────────────────────────
   const fetchConversations = useCallback(async () => {
-    if (!can('manage_support')) return;
+    if (!canViewSupport) return;
     try {
       const r = await fetch('/api/admin/chat', { headers: headers() });
       if (r.ok) { const d = await r.json(); setChatConversations(d.conversations || []); }
     } catch { /* silent */ }
-  }, [headers, can]);
+  }, [headers, canViewSupport]);
 
   const fetchChatMessages = useCallback(async (userId: string) => {
-    if (!can('manage_support')) return;
+    if (!canViewSupport) return;
     try {
       const r = await fetch(`/api/admin/chat?userId=${userId}`, { headers: headers() });
       if (r.ok) {
@@ -989,7 +992,7 @@ export default function AdminPage() {
         setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
       }
     } catch { /* silent */ }
-  }, [headers, can]);
+  }, [headers, canViewSupport]);
 
   const openChat = (userId: string) => {
     setActiveChatUser(userId);
@@ -998,7 +1001,7 @@ export default function AdminPage() {
   };
 
   const sendAdminMessage = async () => {
-    if (!can('manage_support')) {
+    if (!canReplySupport) {
       setError('You do not have permission to manage support');
       return;
     }
@@ -1015,7 +1018,7 @@ export default function AdminPage() {
   };
 
   const deleteChatMessage = async (messageId: string) => {
-    if (!can('manage_support')) return;
+    if (!canReplySupport) return;
     try {
       const r = await fetch(`/api/admin/chat?messageId=${messageId}`, { method: 'DELETE', headers: headers() });
       if (r.ok) setChatMessages(prev => prev.filter(m => m._id !== messageId));
@@ -1023,7 +1026,7 @@ export default function AdminPage() {
   };
 
   const deleteConversation = async (userId: string) => {
-    if (!can('manage_support')) return;
+    if (!canReplySupport) return;
     if (!confirm('Delete entire conversation?')) return;
     try {
       const r = await fetch(`/api/admin/chat?userId=${userId}`, { method: 'DELETE', headers: headers() });
@@ -2204,12 +2207,14 @@ export default function AdminPage() {
                           <div className={`relative max-w-[75%] rounded-lg px-2.5 py-1.5 space-y-1 ${
                             msg.sender === 'admin' ? 'bg-accent/20 rounded-br-sm' : 'bg-white/10 rounded-bl-sm'
                           }`}>
-                            <button
-                              onClick={() => deleteChatMessage(msg._id)}
-                              className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-danger/80 text-white items-center justify-center text-[8px] hidden group-hover:flex hover:bg-danger"
-                            >
-                              &times;
-                            </button>
+                            {canReplySupport && (
+                              <button
+                                onClick={() => deleteChatMessage(msg._id)}
+                                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-danger/80 text-white items-center justify-center text-[8px] hidden group-hover:flex hover:bg-danger"
+                              >
+                                &times;
+                              </button>
+                            )}
                             <p className="text-[9px] text-gray-400 font-medium">{msg.senderName}</p>
                             {msg.attachments?.map((att, i) => (
                               <div key={i}>
@@ -2229,7 +2234,7 @@ export default function AdminPage() {
                     <div ref={chatEndRef} />
                   </div>
 
-                  {chatAttachments.length > 0 && (
+                  {canReplySupport && chatAttachments.length > 0 && (
                     <div className="flex gap-1.5 flex-shrink-0 mt-2">
                       {chatAttachments.map((att, i) => (
                         <div key={i} className="relative w-12 h-12 rounded overflow-hidden bg-white/5">
@@ -2249,29 +2254,33 @@ export default function AdminPage() {
                     </div>
                   )}
 
-                  <div className="flex gap-1.5 items-end flex-shrink-0 mt-2">
-                    <button
-                      onClick={() => chatFileRef.current?.click()}
-                      className="p-1.5 rounded bg-white/5 text-gray-400 hover:text-white"
-                    >
-                      <Paperclip size={14} />
-                    </button>
-                    <input ref={chatFileRef} type="file" accept="image/*,video/*" multiple onChange={handleChatFile} className="hidden" />
-                    <input
-                      value={chatInput}
-                      onChange={e => setChatInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAdminMessage(); } }}
-                      placeholder="Type a reply..."
-                      className="flex-1 bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                    />
-                    <button
-                      onClick={sendAdminMessage}
-                      disabled={chatSending || (!chatInput.trim() && chatAttachments.length === 0)}
-                      className="p-1.5 rounded bg-accent text-black disabled:opacity-30"
-                    >
-                      <Send size={14} />
-                    </button>
-                  </div>
+                  {canReplySupport ? (
+                    <div className="flex gap-1.5 items-end flex-shrink-0 mt-2">
+                      <button
+                        onClick={() => chatFileRef.current?.click()}
+                        className="p-1.5 rounded bg-white/5 text-gray-400 hover:text-white"
+                      >
+                        <Paperclip size={14} />
+                      </button>
+                      <input ref={chatFileRef} type="file" accept="image/*,video/*" multiple onChange={handleChatFile} className="hidden" />
+                      <input
+                        value={chatInput}
+                        onChange={e => setChatInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAdminMessage(); } }}
+                        placeholder="Type a reply..."
+                        className="flex-1 bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                      />
+                      <button
+                        onClick={sendAdminMessage}
+                        disabled={chatSending || (!chatInput.trim() && chatAttachments.length === 0)}
+                        className="p-1.5 rounded bg-accent text-black disabled:opacity-30"
+                      >
+                        <Send size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-[10px] text-gray-500">Read-only mode: moderators can view support messages but cannot reply.</p>
+                  )}
                 </>
               ) : chatConversations.length === 0 ? (
                 <p className="text-[10px] text-gray-500 italic">No conversations yet</p>

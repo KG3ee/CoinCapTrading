@@ -12,7 +12,9 @@ export async function GET(request: NextRequest) {
   if ('error' in context) {
     return NextResponse.json({ error: context.error }, { status: context.status });
   }
-  if (!hasPermission(context.permissions, 'manage_support')) {
+  const canManageSupport = hasPermission(context.permissions, 'manage_support');
+  const canViewSupport = hasPermission(context.permissions, 'view_support');
+  if (!canManageSupport && !canViewSupport) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -29,11 +31,13 @@ export async function GET(request: NextRequest) {
         .limit(200)
         .lean();
 
-      // Mark user messages as read
-      await ChatMessage.updateMany(
-        { conversationId: userId, sender: 'user', read: false },
-        { $set: { read: true } }
-      );
+      // Keep moderator access strictly read-only.
+      if (canManageSupport) {
+        await ChatMessage.updateMany(
+          { conversationId: userId, sender: 'user', read: false },
+          { $set: { read: true } }
+        );
+      }
 
       return NextResponse.json({ messages });
     }

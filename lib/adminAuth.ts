@@ -12,6 +12,7 @@ export type AdminPermission =
   | 'manage_users'
   | 'manage_financials'
   | 'manage_kyc'
+  | 'view_support'
   | 'manage_support'
   | 'view_logs'
   | 'manage_settings'
@@ -48,6 +49,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
 
 const MODERATOR_READ_ONLY_PERMISSIONS: AdminPermission[] = [
   'view_dashboard',
+  'view_support',
   'view_logs',
 ];
 

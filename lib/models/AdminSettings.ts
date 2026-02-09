@@ -77,6 +77,7 @@ const DEFAULT_ROLES = [
     name: 'Moderator',
     permissions: [
       'view_dashboard',
+      'view_support',
       'view_logs',
     ],
   },
