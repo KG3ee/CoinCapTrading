@@ -448,6 +448,25 @@ export default function AdminPage() {
     }
   }, [adminPermissions.length, activeTab, visibleNavItems]);
 
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileNavOpen(false);
+      }
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [mobileNavOpen]);
+
   const unreadNotifCount = notificationsUnread;
 
   const normalizedUserSearch = userSearch.trim().toLowerCase();
@@ -1097,6 +1116,34 @@ export default function AdminPage() {
   }
 
   const chatUnread = chatConversations.reduce((s, c) => s + c.unreadCount, 0);
+  const renderSidebarItems = (onSelect?: () => void) => (
+    visibleNavItems.map(item => {
+      const Icon = item.icon;
+      const isActive = activeTab === item.key;
+      const badge = item.key === 'chat' && chatUnread > 0 ? chatUnread
+        : item.key === 'kyc' && kycCounts.pending > 0 ? kycCounts.pending : 0;
+
+      return (
+        <button
+          key={item.key}
+          onClick={() => {
+            setActiveTab(item.key);
+            onSelect?.();
+          }}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 ${
+            isActive ? 'bg-accent/15 text-accent font-semibold' : 'text-gray-400 hover:bg-white/5 hover:text-white'
+          }`}
+        >
+          <Icon size={16} />
+          <span className="flex-1 text-left">{item.label}</span>
+          {badge > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-danger text-[9px] text-white font-bold">{badge}</span>
+          )}
+          {isActive && <ChevronRight size={14} className="text-accent/50" />}
+        </button>
+      );
+    })
+  );
 
   // ══════════════════════════════════════════════════════
   // MAIN ADMIN PANEL
@@ -1104,34 +1151,13 @@ export default function AdminPage() {
   return (
     <div className={`admin-shell admin-theme ${adminTheme === 'light' ? 'light' : ''} bg-[var(--admin-bg)]`}>
       {/* SIDEBAR (Desktop) */}
-      <aside className="hidden md:flex admin-sidebar admin-panel">
+      <aside className="hidden lg:flex admin-sidebar admin-panel">
         <div className="p-4 border-b border-[var(--admin-border)] flex items-center gap-2">
           <Shield size={20} className="text-accent" />
           <h1 className="text-sm font-bold">Admin Panel</h1>
         </div>
         <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
-          {visibleNavItems.map(item => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.key;
-            const badge = item.key === 'chat' && chatUnread > 0 ? chatUnread
-              : item.key === 'kyc' && kycCounts.pending > 0 ? kycCounts.pending : 0;
-            return (
-              <button
-                key={item.key}
-                onClick={() => setActiveTab(item.key)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
-                  isActive ? 'bg-accent/15 text-accent font-semibold' : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                <Icon size={16} />
-                <span className="flex-1 text-left">{item.label}</span>
-                {badge > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-danger text-[9px] text-white font-bold">{badge}</span>
-                )}
-                {isActive && <ChevronRight size={14} className="text-accent/50" />}
-              </button>
-            );
-          })}
+          {renderSidebarItems()}
         </nav>
         <div className="mt-auto shrink-0 p-3 border-t border-[var(--admin-border)] space-y-1.5">
           <a
@@ -1154,11 +1180,12 @@ export default function AdminPage() {
       {/* MAIN CONTENT */}
       <div className="admin-main">
         {/* Top Bar */}
-        <header className="admin-header flex items-center justify-between px-4 admin-panel">
+        <header className="admin-header flex items-center justify-between px-3 sm:px-4 admin-panel">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
-              className="md:hidden p-1.5 rounded-lg hover:bg-white/10"
+              className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+              aria-label="Open admin navigation menu"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="4" x2="20" y1="6" y2="6" />
@@ -1231,28 +1258,49 @@ export default function AdminPage() {
 
         {/* Mobile Nav Dropdown */}
         {mobileNavOpen && (
-          <div className="md:hidden bg-[var(--admin-panel)] border-b border-[var(--admin-border)] p-2 space-y-0.5">
-            {visibleNavItems.map(item => {
-              const Icon = item.icon;
-              return (
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Close admin navigation menu"
+            />
+            <aside className="fixed inset-y-0 left-0 z-50 h-dvh w-[80vw] max-w-[280px] admin-panel border-r border-[var(--admin-border)] lg:hidden flex flex-col">
+              <div className="h-16 px-4 border-b border-[var(--admin-border)] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield size={18} className="text-accent" />
+                  <h1 className="text-sm font-semibold">Admin Panel</h1>
+                </div>
                 <button
-                  key={item.key}
-                  onClick={() => { setActiveTab(item.key); setMobileNavOpen(false); }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm ${
-                    activeTab === item.key ? 'bg-accent/15 text-accent font-semibold' : 'text-gray-400'
-                  }`}
+                  type="button"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+                  aria-label="Close menu"
                 >
-                  <Icon size={16} /> {item.label}
-                  {item.key === 'chat' && chatUnread > 0 && (
-                    <span className="ml-auto px-1.5 py-0.5 rounded-full bg-danger text-[9px] text-white font-bold">{chatUnread}</span>
-                  )}
-                  {item.key === 'kyc' && kycCounts.pending > 0 && (
-                    <span className="ml-auto px-1.5 py-0.5 rounded-full bg-orange-500 text-[9px] text-white font-bold">{kycCounts.pending}</span>
-                  )}
+                  <XIcon size={16} />
                 </button>
-              );
-            })}
-          </div>
+              </div>
+              <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
+                {renderSidebarItems(() => setMobileNavOpen(false))}
+              </nav>
+              <div className="mt-auto shrink-0 p-3 border-t border-[var(--admin-border)] space-y-1.5">
+                <a
+                  href="/"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
+                >
+                  <Home size={16} />
+                  <span>Back to Site</span>
+                </a>
+                <button
+                  onClick={handleAdminLogout}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-danger hover:bg-danger/10 transition-colors"
+                >
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </button>
+              </div>
+            </aside>
+          </>
         )}
 
         {/* Content Area */}
@@ -1426,7 +1474,7 @@ export default function AdminPage() {
           {/* ── TAB: TRADE CONTROL ────────────────────── */}
           {activeTab === 'trades' && (
             <section className="flex h-full min-h-0 flex-col gap-3">
-              <div className="grid shrink-0 gap-3 xl:grid-cols-2">
+              <div className="grid shrink-0 gap-3 lg:grid-cols-2">
                 {/* Global Mode */}
                 <div className="panel p-3 space-y-2 min-h-[200px] md:min-h-[260px] flex flex-col">
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
@@ -1631,12 +1679,12 @@ export default function AdminPage() {
             <section className="flex h-full min-h-0 flex-col gap-3">
               {/* Account Actions */}
               <div className="panel p-3 space-y-2 flex-shrink-0">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
                     <Users size={12} className="text-accent" /> Account Actions
                   </h3>
                   {canManageUsers ? (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 self-start sm:self-auto">
                       <button
                         onClick={() => setAccountActionMode('create')}
                         className={`px-2 py-1 rounded text-[10px] font-semibold ${accountActionMode === 'create' ? 'bg-accent/20 text-accent' : 'bg-white/5 text-gray-400'}`}
@@ -1753,11 +1801,11 @@ export default function AdminPage() {
 
               {/* Account Search */}
               <div className="panel p-3 flex flex-col flex-1 min-h-0 overflow-hidden">
-                <div className="flex items-center justify-between flex-shrink-0">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
                     <Users size={12} className="text-accent" /> Account Search
                   </h3>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {canAccountAction && (
                       <button
                         onClick={() => {
@@ -1799,7 +1847,7 @@ export default function AdminPage() {
                     placeholder="Search by name, email, or UID"
                     className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
                   />
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[10px] text-gray-400 mb-0.5">Status</label>
                       <select
@@ -2088,22 +2136,23 @@ export default function AdminPage() {
 
           {/* ── TAB: CHAT ─────────────────────────────── */}
           {activeTab === 'chat' && (
-            <div className="glass-card p-3 flex flex-col min-h-0">
-              <div className="flex items-center justify-between flex-shrink-0">
+            <section className="flex h-full min-h-0 flex-col">
+            <div className="panel p-3 flex flex-col min-h-0 flex-1">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
                 <h3 className="text-sm font-bold flex items-center gap-1.5">
                   <MessageCircle size={14} className="text-accent" /> Customer Chat
                   {chatUnread > 0 && (
                     <span className="ml-1 px-1.5 py-0.5 rounded-full bg-danger text-[9px] text-white font-bold">{chatUnread}</span>
                   )}
                 </h3>
-                <button onClick={fetchConversations} className="text-[10px] text-gray-400 hover:text-white">
+                <button onClick={fetchConversations} className="text-[10px] text-gray-400 hover:text-white self-start sm:self-auto">
                   <RefreshCw size={12} />
                 </button>
               </div>
 
               {activeChatUser ? (
                 <>
-                  <div className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2 flex-shrink-0 mt-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-white/5 rounded-lg px-3 py-2 flex-shrink-0 mt-2">
                     <div>
                       <p className="text-xs font-bold">
                         {chatConversations.find(c => c.userId === activeChatUser)?.userName || 'User'}
@@ -2112,7 +2161,7 @@ export default function AdminPage() {
                         {chatConversations.find(c => c.userId === activeChatUser)?.userEmail}
                       </p>
                     </div>
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 self-start sm:self-auto">
                       <button
                         onClick={() => deleteConversation(activeChatUser)}
                         className="text-[10px] text-danger px-2 py-1 rounded bg-danger/10"
@@ -2236,13 +2285,14 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+            </section>
           )}
 
           {/* ── TAB: KYC VERIFICATION ─────────────────── */}
           {activeTab === 'kyc' && (
-            <div className="flex flex-col gap-3">
+            <section className="flex h-full min-h-0 flex-col gap-3">
               {/* Filter Tabs */}
-              <div className="flex gap-2 flex-shrink-0">
+              <div className="flex flex-wrap gap-2 flex-shrink-0">
                 {(['pending', 'approved', 'rejected', 'all'] as const).map(f => (
                   <button
                     key={f}
@@ -2310,7 +2360,7 @@ export default function AdminPage() {
                         {/* Expanded View */}
                         {isViewing && (
                           <div className="space-y-3 pt-2 border-t border-white/10">
-                            <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                               <div>
                                 <p className="text-[10px] text-gray-400 mb-0.5">Nationality</p>
                                 <p className="text-white">{kyc.nationality}</p>
@@ -2328,7 +2378,7 @@ export default function AdminPage() {
                             {/* Document Images */}
                             <div>
                               <p className="text-[10px] text-gray-400 mb-1.5 font-semibold">Uploaded Documents</p>
-                              <div className="grid grid-cols-3 gap-2">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                                 <div>
                                   <p className="text-[9px] text-gray-500 mb-1">Front</p>
                                   <img
@@ -2366,7 +2416,7 @@ export default function AdminPage() {
 
                             {/* Action Buttons */}
                             {kyc.status === 'pending' && (
-                              <div className="flex gap-2 pt-1">
+                              <div className="flex flex-col sm:flex-row gap-2 pt-1">
                                 <button
                                   onClick={() => handleKycAction(kyc.id, 'approve')}
                                   className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-xs font-bold flex items-center justify-center gap-1.5"
@@ -2425,18 +2475,18 @@ export default function AdminPage() {
                   </div>
                 </div>
               )}
-            </div>
+            </section>
           )}
 
           {/* ── TAB: SETTINGS ─────────────────────────── */}
           {activeTab === 'settings' && (
             <section className="flex h-full min-h-0 flex-col gap-3">
-              <div className="flex items-center justify-between flex-shrink-0">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
                 <h3 className="text-sm font-bold">Admin Settings</h3>
                 {showSettingsControls && (
                   <button
                     onClick={handleSaveAdminSettings}
-                    className="px-3 py-1.5 rounded bg-accent text-black text-xs font-semibold"
+                    className="w-full sm:w-auto px-3 py-1.5 rounded bg-accent text-black text-xs font-semibold"
                   >
                     Save Changes
                   </button>
