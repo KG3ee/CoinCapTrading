@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import {
   Shield, RefreshCw, Users, TrendingUp, Clock, AlertCircle,
   Plus, Minus, MessageCircle, Send, Paperclip, X as XIcon,
   Trash2, LogOut, Home, Bell, Settings, BarChart3, ChevronRight,
   BadgeCheck, Eye, XCircle, CheckCircle2, Sun, Moon,
+  type LucideIcon,
 } from 'lucide-react';
 
 interface TradeSettingsData {
@@ -174,6 +175,61 @@ const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield; permission
   { key: 'chat', label: 'Customer Chat', icon: MessageCircle, permissions: ['manage_support'] },
   { key: 'settings', label: 'Settings', icon: Settings, permissions: ['manage_settings', 'manage_admins', 'view_logs'] },
 ];
+
+function OverviewKpiCard({
+  label,
+  value,
+  valueClassName = '',
+}: {
+  label: string;
+  value: string | number;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="glass-card h-[102px] px-4 py-3 md:px-5 md:py-4 flex flex-col items-center justify-center text-center border border-[var(--admin-border)] shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+      <p className="text-[11px] font-medium text-gray-400">{label}</p>
+      <p className={`mt-1 text-2xl font-bold leading-tight ${valueClassName}`}>{value}</p>
+    </div>
+  );
+}
+
+interface OverviewScrollCardProps {
+  title: string;
+  icon: LucideIcon;
+  children: ReactNode;
+  action?: ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  ariaLabel?: string;
+}
+
+function OverviewScrollCard({
+  title,
+  icon: Icon,
+  children,
+  action,
+  className = '',
+  bodyClassName = '',
+  ariaLabel,
+}: OverviewScrollCardProps) {
+  return (
+    <section className={`glass-card p-4 md:p-5 flex flex-col overflow-hidden border border-[var(--admin-border)] shadow-[0_10px_28px_rgba(0,0,0,0.2)] ${className}`}>
+      <header className="flex items-center justify-between gap-2 pb-3 border-b border-[var(--admin-border)] flex-shrink-0">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Icon size={14} className="text-accent" /> {title}
+        </h3>
+        {action ? <div className="text-xs">{action}</div> : null}
+      </header>
+      <div
+        tabIndex={0}
+        aria-label={ariaLabel || title}
+        className={`mt-3 flex-1 min-h-0 overflow-y-auto pr-1.5 overview-scroll rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${bodyClassName}`}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
 
 export default function AdminPage() {
   const [adminKey, setAdminKey] = useState('');
@@ -1082,7 +1138,7 @@ export default function AdminPage() {
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col min-h-0">
         {/* Top Bar */}
-        <header className="flex items-center justify-between px-4 py-3 border-b border-[var(--admin-border)] admin-panel flex-shrink-0">
+        <header className="h-14 flex items-center justify-between px-4 py-3 border-b border-[var(--admin-border)] admin-panel flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
@@ -1192,148 +1248,163 @@ export default function AdminPage() {
 
           {/* ── TAB: OVERVIEW ─────────────────────────── */}
           {activeTab === 'overview' && (
-            <div className="flex flex-col gap-2">
-              {stats && (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 flex-shrink-0">
-                  {[
-                    { label: 'Total Trades', value: stats.totalTrades, color: 'text-white' },
-                    { label: 'Pending', value: stats.pendingTrades, color: 'text-yellow-400' },
-                    { label: 'Wins', value: stats.wins, color: 'text-green-400' },
-                    { label: 'Losses', value: stats.losses, color: 'text-red-400' },
-                  ].map(s => (
-                    <div key={s.label} className="glass-card p-2 text-center">
-                      <p className="text-[10px] text-gray-400 mb-0.5">{s.label}</p>
-                      <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5 flex-shrink-0">
-                <div className="glass-card p-2 text-center">
-                  <p className="text-[10px] text-gray-400 mb-0.5">Registered Users</p>
-                  <p className="text-lg font-bold text-accent">{userBalances.length}</p>
-                </div>
-                <div className="glass-card p-2 text-center">
-                  <p className="text-[10px] text-gray-400 mb-0.5">Open Chats</p>
-                  <p className="text-lg font-bold text-purple-400">{chatConversations.length}</p>
-                </div>
-                <div className="glass-card p-2 text-center col-span-2 lg:col-span-1">
-                  <p className="text-[10px] text-gray-400 mb-0.5">Current Mode</p>
-                  <p className="text-sm font-bold capitalize">
-                    {settings?.globalMode?.replace('_', ' ') || '\u2014'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid lg:grid-cols-3 gap-2">
-                {/* Recent Registrations */}
-                <div className="glass-card p-2.5 flex flex-col min-h-0 h-[176px] md:h-[212px]">
-                  <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-                    <Bell size={12} className="text-accent" /> Recent Registrations
-                  </h3>
-                  {notifications.length === 0 ? (
-                    <p className="text-xs text-gray-500 italic">No recent registrations</p>
-                  ) : (
-                    <div className="space-y-1.5 flex-1 overflow-y-auto pr-1">
-                      {notifications.slice(0, 10).map(n => (
-                        <div key={n.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 text-[11px]">
-                          <div className="min-w-0">
-                            <span className="font-medium">{n.name}</span>
-                            <span className="text-gray-400 ml-1.5 truncate">{n.email}</span>
-                          </div>
-                          <span className="text-[9px] text-gray-500 flex-shrink-0">{new Date(n.timestamp).toLocaleDateString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+            <section className="w-full max-w-[1400px] mx-auto px-3 md:px-4 xl:px-6 pb-1">
+              <div className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <OverviewKpiCard label="Total Trades" value={stats?.totalTrades ?? 0} />
+                  <OverviewKpiCard label="Pending" value={stats?.pendingTrades ?? 0} valueClassName="text-yellow-400" />
+                  <OverviewKpiCard label="Wins" value={stats?.wins ?? 0} valueClassName="text-green-400" />
+                  <OverviewKpiCard label="Losses" value={stats?.losses ?? 0} valueClassName="text-red-400" />
+                  <OverviewKpiCard label="Registered Users" value={userBalances.length} valueClassName="text-accent" />
+                  <OverviewKpiCard label="Open Chats" value={chatConversations.length} valueClassName="text-purple-400" />
+                  <OverviewKpiCard
+                    label="Current Mode"
+                    value={(settings?.globalMode?.replace('_', ' ') || '\u2014').replace(/\b\w/g, char => char.toUpperCase())}
+                    valueClassName="text-lg md:text-xl"
+                  />
                 </div>
 
-                {/* Online Admins */}
-                <div className="glass-card p-2.5 flex flex-col min-h-0 h-[176px] md:h-[212px]">
-                  <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-                    <Shield size={12} className="text-accent" /> Online Admins
-                  </h3>
-                  {onlineAdmins.length === 0 ? (
-                    <p className="text-xs text-gray-500 italic">No active admins</p>
-                  ) : (
-                    <div className="space-y-1.5 flex-1 overflow-y-auto pr-1 text-[11px]">
-                      {onlineAdmins.slice(0, 10).map(a => (
-                        <div key={a.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className={`w-2 h-2 rounded-full ${
-                                a.status === 'online' ? 'bg-green-400' :
-                                a.status === 'idle' ? 'bg-yellow-400' : 'bg-gray-500'
-                              }`} />
-                              <span className="font-medium truncate">{a.name}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <OverviewScrollCard
+                    title="Recent Registrations"
+                    icon={Bell}
+                    className="h-[300px] md:h-[360px] xl:h-[390px]"
+                    ariaLabel="Recent registrations"
+                  >
+                    {notifications.length === 0 ? (
+                      <p className="text-sm text-gray-500 italic px-2 py-3">No recent registrations</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {notifications.slice(0, 25).map(n => (
+                          <article key={n.id} className="group flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-transparent hover:border-[var(--admin-border)] transition-colors">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{n.name}</p>
+                              <p className="text-xs text-gray-400 truncate">{n.email}</p>
                             </div>
-                            <p className="text-[10px] text-gray-400 truncate">{a.role} · {a.email}</p>
-                          </div>
-                          <div className="text-[9px] text-gray-500 text-right">
-                            <div>{a.statusLabel}</div>
-                            {a.lastActiveAt && (
-                              <div>{new Date(a.lastActiveAt).toLocaleTimeString()}</div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                            <time className="text-[11px] text-gray-500 shrink-0">
+                              {new Date(n.timestamp).toLocaleDateString()}
+                            </time>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </OverviewScrollCard>
 
-                {/* Recent Trades */}
-                <div className="glass-card p-2.5 flex flex-col min-h-0 h-[176px] md:h-[212px]">
-                  <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
-                    <Clock size={12} className="text-accent" /> Recent Trades
-                  </h3>
-                  {recentTrades.length === 0 ? (
-                    <p className="text-xs text-gray-500 italic">No trades yet</p>
-                  ) : (
-                    <div className="flex-1 overflow-y-auto pr-1">
-                      <table className="w-full table-fixed text-[11px]">
-                        <thead>
-                          <tr className="text-gray-400 border-b border-white/10">
-                            <th className="text-left py-1 px-2 w-[34%]">User</th>
-                            <th className="text-left py-1 px-2 w-[28%]">Pair</th>
-                            <th className="text-right py-1 px-2 w-[18%]">Amt</th>
-                            <th className="text-center py-1 px-2 w-[20%]">Result</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {recentTrades.slice(0, 8).map(t => (
-                            <tr key={t.id} className="border-b border-white/5 hover:bg-white/5">
-                              <td className="py-1 px-2">
-                                <div className="truncate">{t.user}</div>
-                                <div className="text-[9px] text-gray-500 truncate">
-                                  {new Date(t.createdAt).toLocaleTimeString()}
-                                </div>
-                              </td>
-                              <td className="py-1 px-2">
-                                <span className={`font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
-                                  {t.type.toUpperCase()}
-                                </span>{' '}
-                                <span className="text-gray-300">{t.cryptoSymbol}</span>
-                              </td>
-                              <td className="py-1 px-2 text-right truncate">{t.amount.toLocaleString()}</td>
-                              <td className="py-1 px-2 text-center">
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold ${
+                  <OverviewScrollCard
+                    title="Online Admins"
+                    icon={Shield}
+                    className="h-[300px] md:h-[360px] xl:h-[390px]"
+                    ariaLabel="Online admins"
+                  >
+                    {onlineAdmins.length === 0 ? (
+                      <p className="text-sm text-gray-500 italic px-2 py-3">No active admins</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {onlineAdmins.slice(0, 25).map(a => (
+                          <article key={a.id} className="group flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-transparent hover:border-[var(--admin-border)] transition-colors">
+                            <div className="min-w-0">
+                              <p className="flex items-center gap-2 text-sm font-medium truncate">
+                                <span className={`w-2 h-2 rounded-full ${
+                                  a.status === 'online' ? 'bg-green-400' :
+                                  a.status === 'idle' ? 'bg-yellow-400' : 'bg-gray-500'
+                                }`} />
+                                {a.name}
+                              </p>
+                              <p className="text-xs text-gray-400 truncate">{a.role} · {a.email}</p>
+                            </div>
+                            <div className="text-right text-[11px] text-gray-500 shrink-0">
+                              <p>{a.statusLabel}</p>
+                              {a.lastActiveAt && <p>{new Date(a.lastActiveAt).toLocaleTimeString()}</p>}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </OverviewScrollCard>
+
+                  <OverviewScrollCard
+                    title="Recent Trades"
+                    icon={Clock}
+                    className="h-[300px] md:h-[360px] xl:h-[390px] md:col-span-2 xl:col-span-1"
+                    bodyClassName="pr-0"
+                    ariaLabel="Recent trades"
+                  >
+                    {recentTrades.length === 0 ? (
+                      <p className="text-sm text-gray-500 italic px-2 py-3">No trades yet</p>
+                    ) : (
+                      <>
+                        <div className="md:hidden space-y-2 pr-1.5">
+                          {recentTrades.slice(0, 20).map(t => (
+                            <article key={t.id} className="px-3 py-2.5 rounded-lg bg-white/5 border border-transparent hover:border-[var(--admin-border)] hover:bg-white/10 transition-colors">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-medium truncate">{t.user}</p>
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                                   t.result === 'win' ? 'bg-green-500/20 text-green-400' :
                                   t.result === 'lose' ? 'bg-red-500/20 text-red-400' :
                                   'bg-yellow-500/20 text-yellow-400'
                                 }`}>
                                   {t.result.toUpperCase()}
                                 </span>
-                              </td>
-                            </tr>
+                              </div>
+                              <div className="mt-1.5 flex items-center justify-between gap-2 text-xs">
+                                <p className="truncate">
+                                  <span className={`font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                                    {t.type.toUpperCase()}
+                                  </span>{' '}
+                                  <span className="text-gray-300">{t.cryptoSymbol}</span>
+                                </p>
+                                <p className="text-gray-300 shrink-0">{t.amount.toLocaleString()}</p>
+                              </div>
+                              <p className="text-[11px] text-gray-500 mt-1">
+                                {new Date(t.createdAt).toLocaleString()}
+                              </p>
+                            </article>
                           ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                        </div>
+                        <div className="hidden md:block pr-1.5">
+                          <table className="w-full table-fixed text-xs">
+                            <thead className="sticky top-0 z-10 bg-[var(--admin-panel)]">
+                              <tr className="text-gray-400 border-b border-[var(--admin-border)]">
+                                <th scope="col" className="text-left py-2 px-2 w-[34%] font-medium">User</th>
+                                <th scope="col" className="text-left py-2 px-2 w-[28%] font-medium">Pair</th>
+                                <th scope="col" className="text-right py-2 px-2 w-[18%] font-medium">Amount</th>
+                                <th scope="col" className="text-center py-2 px-2 w-[20%] font-medium">Result</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {recentTrades.slice(0, 20).map(t => (
+                                <tr key={t.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                  <td className="py-2 px-2">
+                                    <p className="truncate text-sm">{t.user}</p>
+                                    <p className="text-[11px] text-gray-500 truncate">{new Date(t.createdAt).toLocaleTimeString()}</p>
+                                  </td>
+                                  <td className="py-2 px-2">
+                                    <span className={`font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                                      {t.type.toUpperCase()}
+                                    </span>{' '}
+                                    <span className="text-gray-300">{t.cryptoSymbol}</span>
+                                  </td>
+                                  <td className="py-2 px-2 text-right truncate text-sm">{t.amount.toLocaleString()}</td>
+                                  <td className="py-2 px-2 text-center">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                      t.result === 'win' ? 'bg-green-500/20 text-green-400' :
+                                      t.result === 'lose' ? 'bg-red-500/20 text-red-400' :
+                                      'bg-yellow-500/20 text-yellow-400'
+                                    }`}>
+                                      {t.result.toUpperCase()}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
+                  </OverviewScrollCard>
                 </div>
               </div>
-            </div>
+            </section>
           )}
 
           {/* ── TAB: TRADE CONTROL ────────────────────── */}
