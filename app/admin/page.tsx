@@ -1104,7 +1104,7 @@ export default function AdminPage() {
   return (
     <div className={`admin-shell admin-theme ${adminTheme === 'light' ? 'light' : ''} bg-[var(--admin-bg)]`}>
       {/* SIDEBAR (Desktop) */}
-      <aside className="hidden md:flex admin-sidebar border-r border-[var(--admin-border)] admin-panel flex-shrink-0">
+      <aside className="hidden md:flex admin-sidebar admin-panel">
         <div className="p-4 border-b border-[var(--admin-border)] flex items-center gap-2">
           <Shield size={20} className="text-accent" />
           <h1 className="text-sm font-bold">Admin Panel</h1>
@@ -1133,7 +1133,7 @@ export default function AdminPage() {
             );
           })}
         </nav>
-        <div className="mt-auto shrink-0 p-2 border-t border-[var(--admin-border)] space-y-1.5">
+        <div className="mt-auto shrink-0 p-3 border-t border-[var(--admin-border)] space-y-1.5">
           <a
             href="/"
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
@@ -1154,7 +1154,7 @@ export default function AdminPage() {
       {/* MAIN CONTENT */}
       <div className="admin-main">
         {/* Top Bar */}
-        <header className="admin-header flex items-center justify-between px-4 border-b border-[var(--admin-border)] admin-panel">
+        <header className="admin-header flex items-center justify-between px-4 admin-panel">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileNavOpen(!mobileNavOpen)}
@@ -2447,11 +2447,11 @@ export default function AdminPage() {
                 <div className="panel p-4 text-xs text-gray-500">Loading settings...</div>
               ) : (
                 <div className="flex-1 min-h-0">
-                  <div className="min-h-0 h-full grid grid-cols-1 xl:grid-cols-5 gap-3">
+                  <div className="min-h-0 h-full grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {showSettingsControls && adminSettings && (
-                      <div className="min-h-0 flex flex-col gap-3 xl:col-span-2">
+                      <div className="min-h-0 flex flex-col gap-3 lg:col-span-1">
                         {/* RBAC */}
-                        <div className="glass-card p-3 min-h-[180px] xl:min-h-0 xl:flex-[1.35] flex flex-col gap-2">
+                        <div className="panel p-3 min-h-[180px] lg:min-h-0 lg:flex-[1.35] flex flex-col gap-2">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold">Role-Based Access Control</p>
                             <label className="flex items-center gap-2 text-[10px] text-gray-400">
@@ -2475,7 +2475,7 @@ export default function AdminPage() {
                         </div>
 
                         {/* System Notifications */}
-                        <div className="glass-card p-3 min-h-[120px] xl:min-h-0 xl:flex-[0.85] flex flex-col gap-2">
+                        <div className="panel p-3 min-h-[120px] lg:min-h-0 lg:flex-[0.85] flex flex-col gap-2">
                           <p className="text-xs font-semibold">System Notifications</p>
                           <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1">
                             {(['newUsers', 'largeWithdrawals', 'flaggedTrades'] as const).map(key => (
@@ -2494,7 +2494,7 @@ export default function AdminPage() {
                         </div>
 
                         {/* Maintenance Mode */}
-                        <div className="glass-card p-3 min-h-[120px] xl:min-h-0 xl:flex-[0.8] flex flex-col gap-2">
+                        <div className="panel p-3 min-h-[120px] lg:min-h-0 lg:flex-[0.8] flex flex-col gap-2">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold">Maintenance Mode</p>
                             <label className="flex items-center gap-2 text-[10px] text-gray-400">
@@ -2517,10 +2517,10 @@ export default function AdminPage() {
                       </div>
                     )}
 
-                    <div className={`min-h-0 flex flex-col gap-3 ${showSettingsControls && adminSettings ? 'xl:col-span-3' : 'xl:col-span-5'}`}>
+                    <div className={`min-h-0 flex flex-col gap-3 ${showSettingsControls && adminSettings ? 'lg:col-span-1' : 'lg:col-span-2'}`}>
                       {/* Admin Management */}
                       {showAdminManagement && (
-                        <div className="panel p-3 min-h-[250px] xl:min-h-0 xl:flex-[1.2] flex flex-col gap-2 overflow-hidden">
+                        <div className="panel p-3 min-h-[250px] lg:min-h-0 lg:flex-[0.9] flex flex-col gap-2 overflow-hidden">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold">Admin Accounts</p>
                             <span className="text-[10px] text-gray-500">{adminUsers.length} total</span>
@@ -2625,7 +2625,7 @@ export default function AdminPage() {
 
                       {/* Activity Logs */}
                       {showAuditLogs && (
-                        <div className="panel min-h-[280px] xl:min-h-0 xl:flex-1 flex flex-col overflow-hidden">
+                        <div className="panel min-h-[320px] lg:min-h-0 lg:flex-1 flex flex-col overflow-hidden">
                           <div className="panel-header">
                             <p className="text-xs font-semibold">Activity Logs</p>
                             <input

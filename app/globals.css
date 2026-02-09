@@ -322,11 +322,11 @@ html {
 
 @layer utilities {
   .admin-shell {
-    @apply h-screen h-dvh overflow-hidden flex;
+    @apply h-screen h-dvh w-full overflow-hidden flex;
   }
 
   .admin-sidebar {
-    @apply h-full w-[260px] flex flex-col overflow-hidden;
+    @apply h-full w-[260px] shrink-0 flex flex-col border-r border-white/10 overflow-hidden;
   }
 
   .admin-main {
@@ -334,7 +334,7 @@ html {
   }
 
   .admin-header {
-    @apply h-16 shrink-0;
+    @apply h-16 shrink-0 border-b border-white/10;
   }
 
   .admin-content {
