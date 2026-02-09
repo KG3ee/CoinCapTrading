@@ -467,6 +467,18 @@ export default function AdminPage() {
     };
   }, [mobileNavOpen]);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const onDesktop = () => {
+      if (mediaQuery.matches) {
+        setMobileNavOpen(false);
+      }
+    };
+    onDesktop();
+    mediaQuery.addEventListener('change', onDesktop);
+    return () => mediaQuery.removeEventListener('change', onDesktop);
+  }, []);
+
   const unreadNotifCount = notificationsUnread;
 
   const normalizedUserSearch = userSearch.trim().toLowerCase();
@@ -1151,7 +1163,7 @@ export default function AdminPage() {
   return (
     <div className={`admin-shell admin-theme ${adminTheme === 'light' ? 'light' : ''} bg-[var(--admin-bg)]`}>
       {/* SIDEBAR (Desktop) */}
-      <aside className="hidden lg:flex admin-sidebar admin-panel">
+      <aside className="hidden lg:flex lg:flex-col admin-sidebar admin-panel">
         <div className="p-4 border-b border-[var(--admin-border)] flex items-center gap-2">
           <Shield size={20} className="text-accent" />
           <h1 className="text-sm font-bold">Admin Panel</h1>
@@ -1256,52 +1268,55 @@ export default function AdminPage() {
           </div>
         </header>
 
-        {/* Mobile Nav Dropdown */}
-        {mobileNavOpen && (
-          <>
+        {/* Mobile Nav Drawer */}
+        <div
+          className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-300 lg:hidden ${
+            mobileNavOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+          }`}
+          onClick={() => setMobileNavOpen(false)}
+          aria-hidden={!mobileNavOpen}
+        />
+        <aside
+          className={`fixed inset-y-0 left-0 z-50 h-dvh w-[80vw] max-w-[280px] border-r border-[var(--admin-border)] admin-panel flex flex-col transform transition-transform duration-300 ease-out lg:hidden ${
+            mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+          aria-hidden={!mobileNavOpen}
+        >
+          <div className="h-16 px-4 border-b border-[var(--admin-border)] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield size={18} className="text-accent" />
+              <h1 className="text-sm font-semibold">Admin Panel</h1>
+            </div>
             <button
               type="button"
-              className="fixed inset-0 z-40 bg-black/60 lg:hidden"
               onClick={() => setMobileNavOpen(false)}
-              aria-label="Close admin navigation menu"
-            />
-            <aside className="fixed inset-y-0 left-0 z-50 h-dvh w-[80vw] max-w-[280px] admin-panel border-r border-[var(--admin-border)] lg:hidden flex flex-col">
-              <div className="h-16 px-4 border-b border-[var(--admin-border)] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Shield size={18} className="text-accent" />
-                  <h1 className="text-sm font-semibold">Admin Panel</h1>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setMobileNavOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
-                  aria-label="Close menu"
-                >
-                  <XIcon size={16} />
-                </button>
-              </div>
-              <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
-                {renderSidebarItems(() => setMobileNavOpen(false))}
-              </nav>
-              <div className="mt-auto shrink-0 p-3 border-t border-[var(--admin-border)] space-y-1.5">
-                <a
-                  href="/"
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
-                >
-                  <Home size={16} />
-                  <span>Back to Site</span>
-                </a>
-                <button
-                  onClick={handleAdminLogout}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-danger hover:bg-danger/10 transition-colors"
-                >
-                  <LogOut size={16} />
-                  <span>Logout</span>
-                </button>
-              </div>
-            </aside>
-          </>
-        )}
+              className="p-1.5 rounded-lg hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+              aria-label="Close menu"
+            >
+              <XIcon size={16} />
+            </button>
+          </div>
+          <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
+            {renderSidebarItems(() => setMobileNavOpen(false))}
+          </nav>
+          <div className="mt-auto shrink-0 p-3 border-t border-[var(--admin-border)] space-y-1.5">
+            <a
+              href="/"
+              onClick={() => setMobileNavOpen(false)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition-colors"
+            >
+              <Home size={16} />
+              <span>Back to Site</span>
+            </a>
+            <button
+              onClick={handleAdminLogout}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-danger hover:bg-danger/10 transition-colors"
+            >
+              <LogOut size={16} />
+              <span>Logout</span>
+            </button>
+          </div>
+        </aside>
 
         {/* Content Area */}
         <main className="admin-content">
