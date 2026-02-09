@@ -682,6 +682,13 @@ export default function AdminPage() {
     } catch { /* silent */ }
   };
 
+  const handleAdminLogout = () => {
+    setIsAuthenticated(false);
+    setAdminKey('');
+    setMobileNavOpen(false);
+    setShowNotifications(false);
+  };
+
   const handleSaveAdminSettings = async () => {
     if (!can('manage_settings')) {
       setError('You do not have permission to update settings');
@@ -1070,17 +1077,6 @@ export default function AdminPage() {
             );
           })}
         </nav>
-        <div className="p-2 border-t border-[var(--admin-border)] space-y-1">
-          <a href="/" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
-            <Home size={14} /> Back to Site
-          </a>
-          <button
-            onClick={() => { setIsAuthenticated(false); setAdminKey(''); }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-danger hover:bg-danger/10 transition-colors"
-          >
-            <LogOut size={14} /> Logout
-          </button>
-        </div>
       </aside>
 
       {/* MAIN CONTENT */}
@@ -1158,9 +1154,6 @@ export default function AdminPage() {
             <button onClick={fetchData} className="p-2 rounded-lg hover:bg-white/10 transition-colors" title="Refresh">
               <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
             </button>
-            <a href="/" className="md:hidden p-2 rounded-lg hover:bg-white/10">
-              <Home size={14} />
-            </a>
           </div>
         </header>
 
@@ -1187,12 +1180,6 @@ export default function AdminPage() {
                 </button>
               );
             })}
-            <button
-              onClick={() => { setIsAuthenticated(false); setAdminKey(''); }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-gray-400 hover:text-danger"
-            >
-              <LogOut size={16} /> Logout
-            </button>
           </div>
         )}
 
@@ -1239,7 +1226,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="grid lg:grid-cols-3 gap-2 flex-1 min-h-0">
+              <div className="grid lg:grid-cols-3 gap-2">
                 {/* Recent Registrations */}
                 <div className="glass-card p-2.5 flex flex-col min-h-0 h-[176px] md:h-[212px]">
                   <h3 className="text-xs font-semibold mb-2 flex items-center gap-1.5">
@@ -1304,44 +1291,44 @@ export default function AdminPage() {
                     <p className="text-xs text-gray-500 italic">No trades yet</p>
                   ) : (
                     <div className="flex-1 overflow-y-auto pr-1">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-[11px]">
-                          <thead>
-                            <tr className="text-gray-400 border-b border-white/10">
-                              <th className="text-left py-1 px-2">User</th>
-                              <th className="text-left py-1 px-2">Type</th>
-                              <th className="text-left py-1 px-2">Symbol</th>
-                              <th className="text-right py-1 px-2">Amount</th>
-                              <th className="text-center py-1 px-2">Result</th>
-                              <th className="text-right py-1 px-2">Time</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {recentTrades.slice(0, 8).map(t => (
-                              <tr key={t.id} className="border-b border-white/5 hover:bg-white/5">
-                                <td className="py-1 px-2 truncate max-w-[100px]">{t.user}</td>
-                                <td className={`py-1 px-2 font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
-                                  {t.type.toUpperCase()}
-                                </td>
-                                <td className="py-1 px-2">{t.cryptoSymbol}</td>
-                                <td className="py-1 px-2 text-right">{t.amount.toLocaleString()}</td>
-                                <td className="py-1 px-2 text-center">
-                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold ${
-                                    t.result === 'win' ? 'bg-green-500/20 text-green-400' :
-                                    t.result === 'lose' ? 'bg-red-500/20 text-red-400' :
-                                    'bg-yellow-500/20 text-yellow-400'
-                                  }`}>
-                                    {t.result.toUpperCase()}
-                                  </span>
-                                </td>
-                                <td className="py-1 px-2 text-right text-gray-400">
+                      <table className="w-full table-fixed text-[11px]">
+                        <thead>
+                          <tr className="text-gray-400 border-b border-white/10">
+                            <th className="text-left py-1 px-2 w-[34%]">User</th>
+                            <th className="text-left py-1 px-2 w-[28%]">Pair</th>
+                            <th className="text-right py-1 px-2 w-[18%]">Amt</th>
+                            <th className="text-center py-1 px-2 w-[20%]">Result</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recentTrades.slice(0, 8).map(t => (
+                            <tr key={t.id} className="border-b border-white/5 hover:bg-white/5">
+                              <td className="py-1 px-2">
+                                <div className="truncate">{t.user}</div>
+                                <div className="text-[9px] text-gray-500 truncate">
                                   {new Date(t.createdAt).toLocaleTimeString()}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                                </div>
+                              </td>
+                              <td className="py-1 px-2">
+                                <span className={`font-semibold ${t.type === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                                  {t.type.toUpperCase()}
+                                </span>{' '}
+                                <span className="text-gray-300">{t.cryptoSymbol}</span>
+                              </td>
+                              <td className="py-1 px-2 text-right truncate">{t.amount.toLocaleString()}</td>
+                              <td className="py-1 px-2 text-center">
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold ${
+                                  t.result === 'win' ? 'bg-green-500/20 text-green-400' :
+                                  t.result === 'lose' ? 'bg-red-500/20 text-red-400' :
+                                  'bg-yellow-500/20 text-yellow-400'
+                                }`}>
+                                  {t.result.toUpperCase()}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
@@ -1354,11 +1341,11 @@ export default function AdminPage() {
             <div className="flex flex-col gap-3">
               <div className="grid md:grid-cols-2 gap-3 flex-shrink-0">
                 {/* Global Mode */}
-                <div className="glass-card p-3 space-y-2 h-[200px] md:h-[260px] flex flex-col">
+                <div className="glass-card p-3 space-y-2 min-h-[200px] md:min-h-[260px] flex flex-col">
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
                     <TrendingUp size={12} className="text-accent" /> Global Trade Mode
                   </h3>
-                  <div className="space-y-2 flex-1 overflow-y-auto pr-1">
+                  <div className="space-y-2">
                     {[
                       { value: 'random', label: 'Random', desc: 'Uses win rate % below' },
                       { value: 'all_win', label: 'All Win', desc: 'Every trade wins' },
@@ -2581,6 +2568,22 @@ export default function AdminPage() {
                           </div>
                         </div>
                       )}
+
+                      <div className="glass-card p-3 flex flex-col gap-2">
+                        <p className="text-xs font-semibold">Session</p>
+                        <a
+                          href="/"
+                          className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                        >
+                          <Home size={14} /> Back to Site
+                        </a>
+                        <button
+                          onClick={handleAdminLogout}
+                          className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
+                        >
+                          <LogOut size={14} /> Logout
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
