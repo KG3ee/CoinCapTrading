@@ -1,9 +1,9 @@
 'use client';
 
-import { Home, ArrowLeftRight, Wallet, Menu, X, User, BarChart3, Bell, Newspaper, Eye, EyeOff } from 'lucide-react';
+import { Home, ArrowLeftRight, Wallet, Menu, X, User, BarChart3, Bell, Newspaper, Eye, EyeOff, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, type UIEvent } from 'react';
 import { NextIntlClientProvider } from 'next-intl';
 import { SessionProvider, useSession } from 'next-auth/react';
 import ChatWidget from '@/lib/components/ChatWidget';
@@ -52,6 +52,8 @@ function RootLayoutContent({
   const [userNotificationsSeenAt, setUserNotificationsSeenAt] = useState('');
   const [showUserNotifications, setShowUserNotifications] = useState(false);
   const [showPortfolioValue, setShowPortfolioValue] = useState(true);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  const mainContentRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -181,6 +183,14 @@ function RootLayoutContent({
       return next;
     });
   }, []);
+
+  const handleMainScroll = useCallback((event: UIEvent<HTMLElement>) => {
+    setShowBackToTop(event.currentTarget.scrollTop > 320);
+  }, []);
+
+  const scrollMainToTop = useCallback(() => {
+    mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
   // Check if current page is auth page or admin page (these get their own layout)
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/verify-email';
   const isAdminPage = pathname.startsWith('/admin');
@@ -221,7 +231,7 @@ function RootLayoutContent({
               )}
             </button>
             {showUserNotifications && (
-              <div className="menu-surface absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-50">
+              <div className="menu-surface absolute left-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-50">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                   <p className="text-xs font-semibold text-white">Notifications</p>
                   <button onClick={handleMarkUserNotificationsRead} className="text-[10px] text-accent hover:underline">
@@ -400,10 +410,22 @@ function RootLayoutContent({
 
       {/* Main Content */}
       <main 
+        ref={mainContentRef}
+        onScroll={handleMainScroll}
         className="flex-1 h-full min-h-0 overflow-y-auto md:pt-0 md:pb-0 mobile-content-padding"
       >
         {children}
       </main>
+
+      {showBackToTop && (
+        <button
+          onClick={scrollMainToTop}
+          className="fixed right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-6 z-[60] w-10 h-10 rounded-full bg-accent text-white shadow-lg hover:bg-accent/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          aria-label="Back to top"
+        >
+          <ChevronUp size={18} className="mx-auto" />
+        </button>
+      )}
 
       {/* Mobile Bottom Nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10" style={{paddingBottom: 'env(safe-area-inset-bottom)'}}>

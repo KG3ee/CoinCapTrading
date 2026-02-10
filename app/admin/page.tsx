@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, type ReactNode, type UIEvent } from 'react';
 import {
   Shield, RefreshCw, Users, TrendingUp, Clock, AlertCircle,
   Plus, Minus, MessageCircle, Send, Paperclip, X as XIcon,
   Trash2, LogOut, Home, Bell, Settings, BarChart3, ChevronRight,
   BadgeCheck, Eye, XCircle, CheckCircle2, Sun, Moon, ArrowLeftRight,
-  type LucideIcon,
+  ChevronUp, type LucideIcon,
 } from 'lucide-react';
 import { DEPOSIT_WALLET_OPTIONS, type DepositWalletOption } from '@/lib/constants/funding';
 
@@ -353,6 +353,8 @@ export default function AdminPage() {
   const [chatAttachments, setChatAttachments] = useState<{ type: 'image' | 'video'; name: string; data: string }[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatFileRef = useRef<HTMLInputElement>(null);
+  const adminContentRef = useRef<HTMLElement | null>(null);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   // KYC state
   const [kycSubmissions, setKycSubmissions] = useState<KycSubmission[]>([]);
@@ -953,6 +955,14 @@ export default function AdminPage() {
     setShowNotifications(false);
   };
 
+  const handleAdminContentScroll = useCallback((event: UIEvent<HTMLElement>) => {
+    setShowBackToTop(event.currentTarget.scrollTop > 320);
+  }, []);
+
+  const scrollAdminToTop = useCallback(() => {
+    adminContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   const handleSaveAdminSettings = async () => {
     if (!can('manage_settings')) {
       setError('You do not have permission to update settings');
@@ -1535,7 +1545,7 @@ export default function AdminPage() {
         </aside>
 
         {/* Content Area */}
-        <main className="admin-content">
+        <main ref={adminContentRef} onScroll={handleAdminContentScroll} className="admin-content">
           <div className="admin-content-inner flex min-h-0 flex-col gap-4">
             {error && <div className="p-2.5 rounded-lg bg-danger/20 text-danger text-xs">{error}</div>}
             {success && <div className="p-2.5 rounded-lg bg-success/20 text-success text-xs">{success}</div>}
@@ -1707,11 +1717,11 @@ export default function AdminPage() {
             <section className="flex h-full min-h-0 flex-col gap-3">
               <div className="grid shrink-0 gap-3 lg:grid-cols-2">
                 {/* Global Mode */}
-                <div className="panel p-3 space-y-2 min-h-[200px] md:min-h-[260px] flex flex-col">
+                <div className="panel p-3 space-y-2 h-[200px] md:h-[260px] flex flex-col">
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
                     <TrendingUp size={12} className="text-accent" /> Global Trade Mode
                   </h3>
-                  <div className="space-y-2">
+                  <div className="flex-1 overflow-y-auto pr-1 space-y-2">
                     {[
                       { value: 'random', label: 'Random', desc: 'Uses win rate % below' },
                       { value: 'all_win', label: 'All Win', desc: 'Every trade wins' },
@@ -3389,6 +3399,16 @@ export default function AdminPage() {
           </div>
         </main>
       </div>
+
+      {showBackToTop && (
+        <button
+          onClick={scrollAdminToTop}
+          className="fixed right-5 bottom-5 z-[70] w-10 h-10 rounded-full bg-accent text-white shadow-lg hover:bg-accent/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          aria-label="Back to top"
+        >
+          <ChevronUp size={18} className="mx-auto" />
+        </button>
+      )}
     </div>
   );
 }

@@ -4,10 +4,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/nextAuth';
 import { withRateLimit } from '@/lib/middleware/rateLimit';
 import config from '@/lib/config';
+import { AVAILABLE_CRYPTOS } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 
 const SWAP_FEE_PERCENT = 0.5; // 0.5% fee
+const PRICE_ID_BY_SYMBOL: Record<string, string> = AVAILABLE_CRYPTOS.reduce<Record<string, string>>(
+  (acc, crypto) => {
+    acc[crypto.symbol.toUpperCase()] = crypto.id;
+    return acc;
+  },
+  { USDT: 'tether' }
+);
 
 // GET /api/wallet/swap — get conversion rate preview
 export async function GET(request: NextRequest) {
@@ -25,25 +33,18 @@ export async function GET(request: NextRequest) {
 
     const amount = Number(amountStr) || 1;
 
-    // Fetch live prices for both coins
-    const coinMap: Record<string, string> = {
-      BTC: 'bitcoin', ETH: 'ethereum', XRP: 'ripple',
-      ADA: 'cardano', SOL: 'solana', DOT: 'polkadot',
-      USDT: 'tether',
-    };
+    const fromId = PRICE_ID_BY_SYMBOL[from];
+    const toId = PRICE_ID_BY_SYMBOL[to];
 
-    const fromId = coinMap[from];
-    const toId = coinMap[to];
-
-    if (!fromId && from !== 'USDT') {
+    if (!fromId) {
       return NextResponse.json({ error: `Unsupported currency: ${from}` }, { status: 400 });
     }
-    if (!toId && to !== 'USDT') {
+    if (!toId) {
       return NextResponse.json({ error: `Unsupported currency: ${to}` }, { status: 400 });
     }
 
     // Get prices from our price API
-    const idsToFetch = [fromId, toId].filter(Boolean).join(',');
+    const idsToFetch = [from === 'USDT' ? '' : fromId, to === 'USDT' ? '' : toId].filter(Boolean).join(',');
     let fromPriceUsd = 1; // Default USDT = $1
     let toPriceUsd = 1;
 
@@ -148,16 +149,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fetch live prices
-    const coinMap: Record<string, string> = {
-      BTC: 'bitcoin', ETH: 'ethereum', XRP: 'ripple',
-      ADA: 'cardano', SOL: 'solana', DOT: 'polkadot',
-    };
-
     let fromPriceUsd = 1;
     let toPriceUsd = 1;
 
-    const idsToFetch = [coinMap[fromUpper], coinMap[toUpper]].filter(Boolean).join(',');
+    const fromId = PRICE_ID_BY_SYMBOL[fromUpper];
+    const toId = PRICE_ID_BY_SYMBOL[toUpper];
+    if (!fromId || !toId) {
+      return NextResponse.json({
+        error: `Unsupported currency pair: ${fromUpper} to ${toUpper}`,
+      }, { status: 400 });
+    }
+
+    const idsToFetch = [fromUpper === 'USDT' ? '' : fromId, toUpper === 'USDT' ? '' : toId].filter(Boolean).join(',');
     if (idsToFetch) {
       try {
         const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -166,8 +169,8 @@ export async function POST(request: NextRequest) {
           const priceData = await priceRes.json();
           if (priceData.data && Array.isArray(priceData.data)) {
             for (const asset of priceData.data) {
-              if (asset.id === coinMap[fromUpper]) fromPriceUsd = Number(asset.priceUsd) || 1;
-              if (asset.id === coinMap[toUpper]) toPriceUsd = Number(asset.priceUsd) || 1;
+              if (asset.id === fromId) fromPriceUsd = Number(asset.priceUsd) || 1;
+              if (asset.id === toId) toPriceUsd = Number(asset.priceUsd) || 1;
             }
           }
         }
