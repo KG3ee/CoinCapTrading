@@ -568,6 +568,9 @@ export default function AdminPage() {
     return true;
   });
 
+  const demoUserCount = userBalances.reduce((sum, user) => sum + (user.isDemoUser ? 1 : 0), 0);
+  const liveUserCount = userBalances.length - demoUserCount;
+
   const selectedUsers = userBalances.filter(u => selectedUserIds.includes(u.id));
   const allFilteredSelected = filteredUsers.length > 0 && filteredUsers.every(u => selectedUserIds.includes(u.id));
   const parsedBalanceAmount = Number(balanceAmount);
@@ -1824,7 +1827,8 @@ export default function AdminPage() {
                   <OverviewKpiCard label="Pending" value={stats?.pendingTrades ?? 0} valueClassName="text-yellow-400" />
                   <OverviewKpiCard label="Wins" value={stats?.wins ?? 0} valueClassName="text-green-400" />
                   <OverviewKpiCard label="Losses" value={stats?.losses ?? 0} valueClassName="text-red-400" />
-                  <OverviewKpiCard label="Registered Users" value={userBalances.length} valueClassName="text-accent" />
+                  <OverviewKpiCard label="Live Users" value={liveUserCount} valueClassName="text-accent" />
+                  <OverviewKpiCard label="Demo Users" value={demoUserCount} valueClassName="text-amber-400" />
                   <OverviewKpiCard label="Open Chats" value={chatConversations.length} valueClassName="text-purple-400" />
                   <OverviewKpiCard
                     label="Current Mode"
