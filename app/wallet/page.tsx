@@ -149,6 +149,7 @@ export default function WalletPage() {
 
   const resetFundingForm = () => {
     setFundingAmount('');
+    setFundingPlatformWalletId('');
     setFundingSenderWalletAddress('');
     setFundingProofImageData('');
     setFundingProofImageName('');
@@ -393,20 +394,25 @@ export default function WalletPage() {
     }
     setFundingSubmitting(true);
     try {
+      const payload: Record<string, unknown> = {
+        type: fundingType,
+        amount: parsedAmount,
+        asset: fundingAsset,
+        network: fundingNetwork,
+      };
+      if (fundingType === 'deposit') {
+        payload.platformWalletId = fundingPlatformWalletId;
+        payload.senderWalletAddress = fundingSenderWalletAddress;
+        payload.proofImageData = fundingProofImageData;
+        payload.proofImageName = fundingProofImageName;
+      } else {
+        payload.withdrawPassword = withdrawPassword;
+      }
+
       const res = await fetch('/api/wallet/funding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: fundingType,
-          amount: parsedAmount,
-          asset: fundingAsset,
-          network: fundingNetwork,
-          platformWalletId: fundingPlatformWalletId,
-          senderWalletAddress: fundingSenderWalletAddress,
-          proofImageData: fundingProofImageData,
-          proofImageName: fundingProofImageName,
-          withdrawPassword,
-        }),
+        body: JSON.stringify(payload),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || 'Failed to submit request');

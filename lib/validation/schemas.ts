@@ -71,13 +71,25 @@ export const fundingRequestSchema = z.object({
     .positive('Amount must be positive')
     .max(1000000000, 'Amount is too large')
     .refine(val => Number.isFinite(val), 'Amount must be a valid number'),
-  asset: z.string().trim().min(2).max(10).transform(v => v.toUpperCase()).optional(),
-  network: z.string().trim().min(2).max(20).transform(v => v.toUpperCase()).optional(),
-  platformWalletId: z.string().trim().min(2).max(64).optional(),
+  asset: z.preprocess(
+    value => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().trim().min(2).max(10).transform(v => v.toUpperCase()).optional()
+  ),
+  network: z.preprocess(
+    value => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().trim().min(2).max(20).transform(v => v.toUpperCase()).optional()
+  ),
+  platformWalletId: z.preprocess(
+    value => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().trim().min(2).max(64).optional()
+  ),
   senderWalletAddress: z.string().trim().max(200).optional().default(''),
   proofImageData: z.string().optional().default(''),
   proofImageName: z.string().trim().max(255).optional().default(''),
-  withdrawPassword: z.string().min(1).max(200).optional(),
+  withdrawPassword: z.preprocess(
+    value => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+    z.string().min(1).max(200).optional()
+  ),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
