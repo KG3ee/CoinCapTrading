@@ -172,9 +172,15 @@ interface FundingRequestItem {
   type: 'deposit' | 'withdraw';
   amount: number;
   asset: string;
+  network: string;
   status: 'pending' | 'approved' | 'rejected';
   method?: string;
+  platformWalletId?: string;
+  platformWalletAddress?: string;
+  senderWalletAddress?: string;
   address?: string;
+  proofImageData?: string;
+  proofImageName?: string;
   reason?: string;
   createdAt: string;
   resolvedAt?: string | null;
@@ -2440,7 +2446,7 @@ export default function AdminPage() {
                             </div>
                             <div className="text-right">
                               <p className="text-xs font-semibold">{req.amount.toLocaleString()} {req.asset}</p>
-                              <p className="text-[10px] text-gray-400">{req.type.toUpperCase()}</p>
+                              <p className="text-[10px] text-gray-400">{req.type.toUpperCase()} · {req.network}</p>
                             </div>
                           </div>
 
@@ -2461,6 +2467,27 @@ export default function AdminPage() {
                             <p className="text-[10px] text-gray-400 break-all">
                               Address: {req.address}
                             </p>
+                          )}
+                          {req.type === 'deposit' && req.platformWalletAddress && (
+                            <p className="text-[10px] text-gray-400 break-all">
+                              Platform Wallet: {req.platformWalletAddress}
+                            </p>
+                          )}
+                          {req.type === 'deposit' && req.senderWalletAddress && (
+                            <p className="text-[10px] text-gray-400 break-all">
+                              Sender Wallet: {req.senderWalletAddress}
+                            </p>
+                          )}
+                          {req.type === 'deposit' && req.proofImageData && (
+                            <div className="flex flex-col gap-1">
+                              <p className="text-[10px] text-gray-400">Proof Image{req.proofImageName ? ` · ${req.proofImageName}` : ''}</p>
+                              <img
+                                src={req.proofImageData}
+                                alt="Deposit proof"
+                                className="w-28 h-20 object-cover rounded border border-white/10 cursor-pointer hover:border-accent/40"
+                                onClick={() => window.open(req.proofImageData, '_blank', 'noopener,noreferrer')}
+                              />
+                            </div>
                           )}
                           {req.reason && (
                             <p className="text-[10px] text-gray-500">Reason: {req.reason}</p>

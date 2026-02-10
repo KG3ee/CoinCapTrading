@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { fetchRealCryptoData, formatPrice, formatLargeNumber } from '@/lib/mockCryptoData';
 import { useSession, signOut } from 'next-auth/react';
+import { DEPOSIT_WALLET_OPTIONS, FUNDING_NETWORKS_BY_ASSET, SUPPORTED_FUNDING_ASSETS } from '@/lib/constants/funding';
 
 interface Holding {
   cryptoSymbol: string;
@@ -64,6 +65,12 @@ interface FundingRequestItem {
   type: 'deposit' | 'withdraw';
   amount: number;
   asset: string;
+  network: string;
+  platformWalletAddress?: string;
+  senderWalletAddress?: string;
+  proofImageName?: string;
+  hasProofImage?: boolean;
+  address?: string;
   status: 'pending' | 'approved' | 'rejected';
   reason?: string;
   createdAt: string;
@@ -125,6 +132,28 @@ export default function WalletPage() {
   const [fundingAmount, setFundingAmount] = useState('');
   const [fundingSubmitting, setFundingSubmitting] = useState(false);
   const [withdrawalAddress, setWithdrawalAddress] = useState('');
+  const [fundingAsset, setFundingAsset] = useState<string>('USDT');
+  const [fundingNetwork, setFundingNetwork] = useState<string>('TRC20');
+  const [fundingPlatformWalletId, setFundingPlatformWalletId] = useState<string>('');
+  const [fundingSenderWalletAddress, setFundingSenderWalletAddress] = useState('');
+  const [fundingProofImageData, setFundingProofImageData] = useState('');
+  const [fundingProofImageName, setFundingProofImageName] = useState('');
+  const [withdrawPassword, setWithdrawPassword] = useState('');
+
+  const availableFundingNetworks = FUNDING_NETWORKS_BY_ASSET[fundingAsset] || [];
+  const availableDepositWallets = DEPOSIT_WALLET_OPTIONS.filter(
+    (item) => item.asset === fundingAsset && item.network === fundingNetwork
+  );
+
+  const resetFundingForm = () => {
+    setFundingAmount('');
+    setFundingSenderWalletAddress('');
+    setFundingProofImageData('');
+    setFundingProofImageName('');
+    setWithdrawPassword('');
+    setFundingError('');
+    setFundingSuccess('');
+  };
 
   // Swap state
   const [swapFrom, setSwapFrom] = useState('USDT');
@@ -331,8 +360,30 @@ export default function WalletPage() {
       setFundingError('Enter a valid amount');
       return;
     }
+    if (!SUPPORTED_FUNDING_ASSETS.includes(fundingAsset as any)) {
+      setFundingError('Choose a valid crypto type');
+      return;
+    }
+    if (!fundingNetwork) {
+      setFundingError('Choose a network');
+      return;
+    }
+    if (fundingType === 'deposit') {
+      if (!fundingPlatformWalletId) {
+        setFundingError('Choose a platform wallet address');
+        return;
+      }
+      if (!fundingProofImageData) {
+        setFundingError('Upload proof image for deposit');
+        return;
+      }
+    }
     if (fundingType === 'withdraw' && !withdrawalAddress) {
       setFundingError('Set a withdrawal address before withdrawing');
+      return;
+    }
+    if (fundingType === 'withdraw' && !withdrawPassword) {
+      setFundingError('Enter your password to submit withdrawal');
       return;
     }
     setFundingSubmitting(true);
@@ -340,12 +391,22 @@ export default function WalletPage() {
       const res = await fetch('/api/wallet/funding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: fundingType, amount: parsedAmount }),
+        body: JSON.stringify({
+          type: fundingType,
+          amount: parsedAmount,
+          asset: fundingAsset,
+          network: fundingNetwork,
+          platformWalletId: fundingPlatformWalletId,
+          senderWalletAddress: fundingSenderWalletAddress,
+          proofImageData: fundingProofImageData,
+          proofImageName: fundingProofImageName,
+          withdrawPassword,
+        }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || 'Failed to submit request');
       setFundingSuccess('Request submitted. Processing may take a few minutes.');
-      setFundingAmount('');
+      resetFundingForm();
       setShowFundingModal(false);
       loadFundingRequests();
       loadWalletData();
@@ -354,6 +415,27 @@ export default function WalletPage() {
     } finally {
       setFundingSubmitting(false);
     }
+  };
+
+  const handleFundingProofFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setFundingError('Only image files are allowed');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setFundingError('Image must be 5MB or less');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFundingProofImageData(reader.result as string);
+      setFundingProofImageName(file.name);
+      setFundingError('');
+    };
+    reader.readAsDataURL(file);
   };
 
   useEffect(() => {
@@ -370,10 +452,37 @@ export default function WalletPage() {
   useEffect(() => {
     const action = searchParams.get('action');
     if (action === 'deposit' || action === 'withdraw') {
+      resetFundingForm();
       setFundingType(action);
+      if (action === 'deposit') {
+        setFundingAsset('USDT');
+        setFundingNetwork('TRC20');
+      } else {
+        setFundingAsset('USDT');
+        setFundingNetwork('TRC20');
+      }
       setShowFundingModal(true);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (availableFundingNetworks.length === 0) return;
+    if (!availableFundingNetworks.includes(fundingNetwork)) {
+      setFundingNetwork(availableFundingNetworks[0]);
+    }
+  }, [fundingAsset, fundingNetwork, availableFundingNetworks]);
+
+  useEffect(() => {
+    if (fundingType !== 'deposit') return;
+    if (availableDepositWallets.length === 0) {
+      setFundingPlatformWalletId('');
+      return;
+    }
+    const exists = availableDepositWallets.some(item => item.id === fundingPlatformWalletId);
+    if (!exists) {
+      setFundingPlatformWalletId(availableDepositWallets[0].id);
+    }
+  }, [fundingType, availableDepositWallets, fundingPlatformWalletId]);
 
   if (isLoading) {
     return (
@@ -461,13 +570,25 @@ export default function WalletPage() {
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
-                onClick={() => { setFundingType('deposit'); setShowFundingModal(true); }}
+                onClick={() => {
+                  resetFundingForm();
+                  setFundingType('deposit');
+                  setFundingAsset('USDT');
+                  setFundingNetwork('TRC20');
+                  setShowFundingModal(true);
+                }}
                 className="px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-xs font-semibold transition-colors"
               >
                 Deposit
               </button>
               <button
-                onClick={() => { setFundingType('withdraw'); setShowFundingModal(true); }}
+                onClick={() => {
+                  resetFundingForm();
+                  setFundingType('withdraw');
+                  setFundingAsset('USDT');
+                  setFundingNetwork('TRC20');
+                  setShowFundingModal(true);
+                }}
                 className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors border border-white/10"
               >
                 Withdraw
@@ -672,7 +793,7 @@ export default function WalletPage() {
                           <p className="text-xs font-semibold text-white">
                             {req.type.toUpperCase()} {req.amount.toLocaleString()} {req.asset}
                           </p>
-                          <p className="text-[10px] text-gray-400">#{req.requestId}</p>
+                          <p className="text-[10px] text-gray-400">#{req.requestId} · {req.network}</p>
                         </div>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                           req.status === 'approved' ? 'bg-green-500/20 text-green-400' :
@@ -684,6 +805,9 @@ export default function WalletPage() {
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500">
                         <span>{new Date(req.createdAt).toLocaleString()}</span>
+                        {req.type === 'deposit' && req.platformWalletAddress && <span>To: {req.platformWalletAddress}</span>}
+                        {req.type === 'withdraw' && req.address && <span>To: {req.address}</span>}
+                        {req.hasProofImage && <span>Proof attached</span>}
                         {req.reason && <span>Reason: {req.reason}</span>}
                       </div>
                     </div>
@@ -857,8 +981,35 @@ export default function WalletPage() {
               {fundingError && <div className="p-2 rounded bg-danger/20 text-danger text-xs">{fundingError}</div>}
               {fundingSuccess && <div className="p-2 rounded bg-success/20 text-success text-xs">{fundingSuccess}</div>}
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-gray-400">Crypto Type</label>
+                  <select
+                    value={fundingAsset}
+                    onChange={e => setFundingAsset(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  >
+                    {SUPPORTED_FUNDING_ASSETS.map(asset => (
+                      <option key={asset} value={asset}>{asset}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] text-gray-400">Network</label>
+                  <select
+                    value={fundingNetwork}
+                    onChange={e => setFundingNetwork(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  >
+                    {availableFundingNetworks.map(network => (
+                      <option key={network} value={network}>{network}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="space-y-1">
-                <label className="text-[11px] text-gray-400">Amount (USDT)</label>
+                <label className="text-[11px] text-gray-400">Amount ({fundingAsset})</label>
                 <input
                   type="number"
                   min="0"
@@ -870,20 +1021,82 @@ export default function WalletPage() {
                 />
               </div>
 
-              {fundingType === 'withdraw' && (
-                <div className="space-y-1">
-                  <label className="text-[11px] text-gray-400">Withdrawal Address</label>
-                  <div className="text-[11px] text-gray-300 break-all bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-                    {withdrawalAddress || 'Not set'}
-                  </div>
-                  {!withdrawalAddress && (
-                    <button
-                      onClick={() => router.push('/account')}
-                      className="text-[11px] text-accent hover:underline"
+              {fundingType === 'deposit' && (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-gray-400">Platform Wallet Address</label>
+                    <select
+                      value={fundingPlatformWalletId}
+                      onChange={e => setFundingPlatformWalletId(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-accent focus:outline-none"
                     >
-                      Set withdrawal address in profile
-                    </button>
-                  )}
+                      {availableDepositWallets.map(option => (
+                        <option key={option.id} value={option.id}>
+                          {option.label} · {option.address}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-gray-400">Your Sending Wallet Address (Optional)</label>
+                    <input
+                      type="text"
+                      value={fundingSenderWalletAddress}
+                      onChange={e => setFundingSenderWalletAddress(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                      placeholder="Sender wallet address"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-gray-400">Upload Proof (Screenshot/Image)</label>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleFundingProofFile}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-300 file:mr-3 file:px-3 file:py-1.5 file:border-0 file:rounded file:bg-accent/20 file:text-accent"
+                    />
+                    {fundingProofImageName && (
+                      <p className="text-[10px] text-gray-500">Selected: {fundingProofImageName}</p>
+                    )}
+                    {fundingProofImageData && (
+                      <img
+                        src={fundingProofImageData}
+                        alt="Proof preview"
+                        className="w-28 h-20 rounded border border-white/10 object-cover"
+                      />
+                    )}
+                  </div>
+                </>
+              )}
+
+              {fundingType === 'withdraw' && (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-gray-400">Withdrawal Address</label>
+                    <div className="text-[11px] text-gray-300 break-all bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                      {withdrawalAddress || 'Not set'}
+                    </div>
+                    {!withdrawalAddress && (
+                      <button
+                        onClick={() => router.push('/account')}
+                        className="text-[11px] text-accent hover:underline"
+                      >
+                        Set withdrawal address in profile
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-gray-400">Account Password</label>
+                    <input
+                      type="password"
+                      value={withdrawPassword}
+                      onChange={e => setWithdrawPassword(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                      placeholder="Enter your password"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -896,7 +1109,7 @@ export default function WalletPage() {
                   {fundingSubmitting ? 'Submitting...' : 'Submit Request'}
                 </button>
                 <button
-                  onClick={() => setShowFundingModal(false)}
+                  onClick={() => { resetFundingForm(); setShowFundingModal(false); }}
                   className="px-4 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold border border-white/10"
                 >
                   Cancel

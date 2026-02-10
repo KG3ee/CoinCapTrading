@@ -31,7 +31,32 @@ const fundingRequestSchema = new mongoose.Schema(
       type: String,
       default: 'manual',
     },
+    network: {
+      type: String,
+      default: 'TRC20',
+      uppercase: true,
+    },
+    platformWalletId: {
+      type: String,
+      default: '',
+    },
+    platformWalletAddress: {
+      type: String,
+      default: '',
+    },
+    senderWalletAddress: {
+      type: String,
+      default: '',
+    },
     address: {
+      type: String,
+      default: '',
+    },
+    proofImageData: {
+      type: String,
+      default: '',
+    },
+    proofImageName: {
       type: String,
       default: '',
     },

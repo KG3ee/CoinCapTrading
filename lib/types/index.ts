@@ -63,8 +63,14 @@ export interface FundingRequest {
   type: 'deposit' | 'withdraw';
   amount: number;
   asset: string;
+  network: string;
   method: string;
+  platformWalletId?: string;
+  platformWalletAddress?: string;
+  senderWalletAddress?: string;
   address: string;
+  proofImageData?: string;
+  proofImageName?: string;
   status: 'pending' | 'approved' | 'rejected';
   reason?: string;
   createdAt: Date;
