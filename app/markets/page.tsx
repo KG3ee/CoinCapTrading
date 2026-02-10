@@ -65,6 +65,7 @@ const markets = [
 
 export default function MarketsPage() {
   const [filter, setFilter] = useState<'all' | 'gainers' | 'losers'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const { prices, isLoading: pricesLoading } = useCoinCapPrices(markets.map((coin) => coin.id));
   
   const formatVolume = (value: number) => {
@@ -77,6 +78,7 @@ export default function MarketsPage() {
   };
 
   const liveMarkets = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
     const withPrices = markets.map((coin) => {
       const live = prices[coin.id];
       if (!live) return { ...coin, changePercent: 0 };
@@ -91,20 +93,28 @@ export default function MarketsPage() {
       };
     });
 
-    if (filter === 'gainers') {
-      return withPrices
-        .filter((coin) => coin.changePercent > 0)
-        .sort((a, b) => b.changePercent - a.changePercent);
-    }
-    
-    if (filter === 'losers') {
-      return withPrices
-        .filter((coin) => coin.changePercent < 0)
-        .sort((a, b) => a.changePercent - b.changePercent);
-    }
-    
-    return withPrices;
-  }, [prices, filter]);
+    const filteredByDirection = (() => {
+      if (filter === 'gainers') {
+        return withPrices
+          .filter((coin) => coin.changePercent > 0)
+          .sort((a, b) => b.changePercent - a.changePercent);
+      }
+
+      if (filter === 'losers') {
+        return withPrices
+          .filter((coin) => coin.changePercent < 0)
+          .sort((a, b) => a.changePercent - b.changePercent);
+      }
+
+      return withPrices;
+    })();
+
+    if (!normalizedQuery) return filteredByDirection;
+
+    return filteredByDirection.filter((coin) => (
+      `${coin.name} ${coin.symbol} ${coin.id}`.toLowerCase().includes(normalizedQuery)
+    ));
+  }, [prices, filter, searchQuery]);
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
@@ -118,6 +128,8 @@ export default function MarketsPage() {
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
               type="text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search coins"
               className="w-full sm:w-64 pl-9 pr-4 py-2 rounded-lg bg-white/5 border border-white/10 focus:border-accent focus:outline-none min-h-[44px]"
             />
@@ -173,6 +185,12 @@ export default function MarketsPage() {
           </h2>
           <button className="text-xs text-gray-400 hover:text-white">View All</button>
         </div>
+
+        {liveMarkets.length === 0 && (
+          <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-gray-400">
+            No coins found for "{searchQuery.trim()}".
+          </div>
+        )}
 
         <div className="md:hidden space-y-3">
           {liveMarkets.map((coin) => (

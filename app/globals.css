@@ -232,6 +232,28 @@ html {
   background-color: rgba(15, 23, 42, 0.7) !important;
 }
 
+.theme-dark select {
+  color-scheme: dark;
+}
+
+.theme-light select {
+  color-scheme: light;
+}
+
+.theme-dark select,
+.theme-dark select option,
+.theme-dark select optgroup {
+  background-color: #111827;
+  color: #f9fafb;
+}
+
+.theme-light select,
+.theme-light select option,
+.theme-light select optgroup {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
 .theme-root [class*='text-[8px]'] {
   font-size: 0.675rem !important;
 }
