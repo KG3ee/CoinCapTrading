@@ -69,12 +69,17 @@ interface ChatMsg {
 }
 interface Notification {
   id: string;
-  type: string;
-  userId: string;
-  uid: string;
-  email: string;
-  name: string;
+  type: 'new_registration' | 'funding' | string;
+  userId?: string;
+  uid?: string;
+  email?: string;
+  name?: string;
   timestamp: string;
+  message?: string;
+  fundingType?: 'deposit' | 'withdraw';
+  asset?: string;
+  amount?: number;
+  status?: 'pending' | 'approved' | 'rejected' | string;
 }
 interface KycSubmission {
   id: string;
@@ -522,6 +527,7 @@ export default function AdminPage() {
   }, []);
 
   const unreadNotifCount = notificationsUnread;
+  const registrationNotifications = notifications.filter((item) => item.type === 'new_registration');
 
   const normalizedUserSearch = userSearch.trim().toLowerCase();
   const filteredUsers = userBalances.filter(u => {
@@ -1414,15 +1420,25 @@ export default function AdminPage() {
                   ) : (
                     notifications.slice(0, 20).map(n => {
                       const isUnread = !notificationsSeenAt || new Date(n.timestamp) > new Date(notificationsSeenAt);
+                      const isFunding = n.type === 'funding';
+                      const title = isFunding
+                        ? `${n.fundingType === 'withdraw' ? 'Withdrawal' : 'Deposit'} request`
+                        : 'New user registered';
+                      const subtitle = isFunding
+                        ? `${n.name || 'User'}${n.email ? ` (${n.email})` : ''}`
+                        : `${n.name || 'Unknown'}${n.email ? ` (${n.email})` : ''}`;
+                      const detail = isFunding
+                        ? `${n.amount ?? 0} ${n.asset || ''}${n.status ? ` • ${n.status}` : ''}`
+                        : `UID: ${n.uid || '-'}`;
                       return (
                         <div key={n.id} className={`px-3 py-2.5 border-b border-white/5 ${isUnread ? 'bg-accent/5' : ''}`}>
                           <div className="flex items-start gap-2">
                             <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${isUnread ? 'bg-accent' : 'bg-gray-600'}`} />
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs font-medium">New user registered</p>
-                              <p className="text-[10px] text-gray-400 truncate">{n.name} ({n.email})</p>
+                              <p className="text-xs font-medium">{title}</p>
+                              <p className="text-[10px] text-gray-400 truncate">{subtitle}</p>
                               <p className="text-[9px] text-gray-500 mt-0.5">
-                                UID: {n.uid} &middot; {new Date(n.timestamp).toLocaleString()}
+                                {detail} &middot; {new Date(n.timestamp).toLocaleString()}
                               </p>
                             </div>
                           </div>
@@ -1521,15 +1537,15 @@ export default function AdminPage() {
                     className="h-[300px] md:h-[360px] xl:h-[390px]"
                     ariaLabel="Recent registrations"
                   >
-                    {notifications.length === 0 ? (
+                    {registrationNotifications.length === 0 ? (
                       <p className="text-sm text-gray-500 italic px-2 py-3">No recent registrations</p>
                     ) : (
                       <div className="space-y-2">
-                        {notifications.slice(0, 25).map(n => (
+                        {registrationNotifications.slice(0, 25).map(n => (
                           <article key={n.id} className="group flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-transparent hover:border-[var(--admin-border)] transition-colors">
                             <div className="min-w-0">
-                              <p className="text-sm font-medium truncate">{n.name}</p>
-                              <p className="text-xs text-gray-400 truncate">{n.email}</p>
+                              <p className="text-sm font-medium truncate">{n.name || 'Unknown'}</p>
+                              <p className="text-xs text-gray-400 truncate">{n.email || '-'}</p>
                             </div>
                             <time className="text-[11px] text-gray-500 shrink-0">
                               {new Date(n.timestamp).toLocaleDateString()}

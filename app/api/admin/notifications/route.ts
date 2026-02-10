@@ -41,6 +41,14 @@ export async function GET(request: NextRequest) {
         .limit(limit),
     ]);
 
+    const fundingUserIds = Array.from(
+      new Set(recentFundings.map((funding: any) => funding.userId?.toString()).filter(Boolean))
+    );
+    const fundingUsers = fundingUserIds.length > 0
+      ? await User.find({ _id: { $in: fundingUserIds } }, 'fullName email uid').lean()
+      : [];
+    const fundingUserMap = new Map(fundingUsers.map((user: any) => [user._id.toString(), user]));
+
     const notifications = [
       ...recentUsers.map((u: any) => ({
         id: `user-${u._id.toString()}`,
@@ -52,17 +60,23 @@ export async function GET(request: NextRequest) {
         timestamp: u.createdAt,
         message: `${u.fullName || u.email} joined`,
       })),
-      ...recentFundings.map((funding: any) => ({
-        id: `funding-${funding._id.toString()}`,
-        type: 'funding',
-        fundingType: funding.type,
-        asset: funding.asset,
-        amount: funding.amount,
-        status: funding.status,
-        userId: funding.userId.toString(),
-        timestamp: funding.createdAt,
-        message: `${funding.type === 'withdraw' ? 'Withdrawal' : 'Deposit'} request (${funding.asset})`,
-      })),
+      ...recentFundings.map((funding: any) => {
+        const fundingUser = fundingUserMap.get(funding.userId.toString());
+        return {
+          id: `funding-${funding._id.toString()}`,
+          type: 'funding',
+          fundingType: funding.type,
+          asset: funding.asset,
+          amount: funding.amount,
+          status: funding.status,
+          userId: funding.userId.toString(),
+          name: fundingUser?.fullName || fundingUser?.email || 'Unknown user',
+          email: fundingUser?.email || '',
+          uid: fundingUser?.uid || '',
+          timestamp: funding.createdAt,
+          message: `${funding.type === 'withdraw' ? 'Withdrawal' : 'Deposit'} request • ${funding.amount} ${funding.asset}`,
+        };
+      }),
     ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
     const unreadQuery = lastSeenAt ? { createdAt: { $gt: lastSeenAt } } : {};

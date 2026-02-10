@@ -12,6 +12,20 @@ import { fetchRealCryptoData } from '@/lib/mockCryptoData';
 export const dynamic = 'force-dynamic';
 
 const log = logger.child({ module: 'AdminFunding' });
+const FALLBACK_ASSET_PRICES: Record<string, number> = {
+  USDT: 1,
+  BTC: 60000,
+  ETH: 3000,
+};
+
+function toFiniteNumber(value: unknown, fallback = 0) {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function roundToSix(value: number) {
+  return Number(toFiniteNumber(value).toFixed(6));
+}
 
 export async function GET(request: NextRequest) {
   const context = await getAdminContext(request);
@@ -111,46 +125,93 @@ export async function PUT(request: NextRequest) {
     if (action === 'approve') {
       if (funding.type === 'deposit') {
         const cryptoSymbol = (funding.asset || 'USDT').toUpperCase();
-    let assetPrice = 0;
-    try {
-      const priceData = await fetchRealCryptoData();
-      const priceRecord = priceData.find((record) => record.symbol === cryptoSymbol);
-      assetPrice = priceRecord?.currentPrice || 0;
-    } catch (error: any) {
-      log.warn({ error }, 'Failed to fetch crypto price, falling back to zero');
-      assetPrice = 0;
-    }
-        const depositValue = Number((assetPrice * funding.amount).toFixed(6));
+        const fundingAmount = toFiniteNumber(funding.amount);
+        if (fundingAmount <= 0) {
+          return NextResponse.json({ error: 'Invalid funding amount' }, { status: 400 });
+        }
 
-        portfolio.accountBalance = Number((portfolio.accountBalance + depositValue).toFixed(6));
+        let assetPrice = 0;
+        try {
+          const priceData = await fetchRealCryptoData();
+          const priceRecord = priceData.find((record) => record.symbol === cryptoSymbol);
+          assetPrice = toFiniteNumber(priceRecord?.currentPrice);
+        } catch (error: any) {
+          log.warn({ error }, 'Failed to fetch crypto price, falling back to defaults');
+          assetPrice = 0;
+        }
 
-        const holdings = portfolio.holdings || [];
-        const existingIndex = holdings.findIndex((item: any) => item.cryptoSymbol === cryptoSymbol);
+        if (assetPrice <= 0) {
+          if (cryptoSymbol === 'USDT') {
+            assetPrice = 1;
+          } else {
+            const existingHolding = (portfolio.holdings || []).find(
+              (item: any) => item?.cryptoSymbol === cryptoSymbol
+            );
+            assetPrice = toFiniteNumber(existingHolding?.currentPrice, 0);
+          }
+        }
+        if (assetPrice <= 0) {
+          assetPrice = toFiniteNumber(FALLBACK_ASSET_PRICES[cryptoSymbol], 0);
+        }
+
+        const normalizedAssetPrice = assetPrice > 0 ? assetPrice : 0;
+        const holdings: Array<{
+          cryptoSymbol: string;
+          amount: number;
+          averageBuyPrice: number;
+          currentPrice: number;
+          totalValue: number;
+          gainLoss: number;
+          gainLossPercent: number;
+        }> = (portfolio.holdings || []).map((item: any) => ({
+          cryptoSymbol: (item?.cryptoSymbol || 'USDT').toUpperCase(),
+          amount: toFiniteNumber(item?.amount),
+          averageBuyPrice: toFiniteNumber(item?.averageBuyPrice),
+          currentPrice: toFiniteNumber(item?.currentPrice),
+          totalValue: toFiniteNumber(item?.totalValue),
+          gainLoss: toFiniteNumber(item?.gainLoss),
+          gainLossPercent: toFiniteNumber(item?.gainLossPercent),
+        }));
+
+        const depositValue = roundToSix(normalizedAssetPrice * fundingAmount);
+        portfolio.accountBalance = roundToSix(
+          toFiniteNumber(portfolio.accountBalance, config.app.defaultBalance) + depositValue
+        );
+
+        const existingIndex = holdings.findIndex((item) => item.cryptoSymbol === cryptoSymbol);
         if (existingIndex >= 0) {
           const existing = holdings[existingIndex];
-          const previousCost = existing.averageBuyPrice * existing.amount;
-          const depositCost = assetPrice * funding.amount;
-          const newAmount = existing.amount + funding.amount;
-          const newAverageBuy = newAmount > 0 ? (previousCost + depositCost) / newAmount : assetPrice;
-          const newTotalValue = Number((newAmount * assetPrice).toFixed(6));
-          const newGainLoss = Number((newTotalValue - newAverageBuy * newAmount).toFixed(6));
-          const newGainLossPercent = newAverageBuy > 0 ? Number((((newGainLoss) / (newAverageBuy * newAmount || 1)) * 100).toFixed(2)) : 0;
+          const previousAmount = toFiniteNumber(existing.amount);
+          const previousAverageBuy = toFiniteNumber(existing.averageBuyPrice, normalizedAssetPrice);
+          const previousCost = previousAverageBuy * previousAmount;
+          const depositCost = normalizedAssetPrice * fundingAmount;
+          const newAmount = previousAmount + fundingAmount;
+          const newAverageBuy = newAmount > 0
+            ? (previousCost + depositCost) / newAmount
+            : normalizedAssetPrice;
+          const newTotalValue = roundToSix(newAmount * normalizedAssetPrice);
+          const newCostBasis = roundToSix(newAverageBuy * newAmount);
+          const newGainLoss = roundToSix(newTotalValue - newCostBasis);
+          const newGainLossPercent = newCostBasis > 0
+            ? Number(((newGainLoss / newCostBasis) * 100).toFixed(2))
+            : 0;
+
           holdings[existingIndex] = {
             ...existing,
-            amount: newAmount,
-            averageBuyPrice: Number(newAverageBuy.toFixed(6)),
-            currentPrice: Number(assetPrice.toFixed(6)),
+            amount: roundToSix(newAmount),
+            averageBuyPrice: roundToSix(newAverageBuy),
+            currentPrice: roundToSix(normalizedAssetPrice),
             totalValue: newTotalValue,
             gainLoss: newGainLoss,
-            gainLossPercent: newGainLossPercent,
+            gainLossPercent: toFiniteNumber(newGainLossPercent),
           };
         } else {
-          const totalValue = Number((funding.amount * assetPrice).toFixed(6));
+          const totalValue = roundToSix(fundingAmount * normalizedAssetPrice);
           holdings.push({
             cryptoSymbol,
-            amount: funding.amount,
-            averageBuyPrice: Number(assetPrice.toFixed(6)),
-            currentPrice: Number(assetPrice.toFixed(6)),
+            amount: roundToSix(fundingAmount),
+            averageBuyPrice: roundToSix(normalizedAssetPrice),
+            currentPrice: roundToSix(normalizedAssetPrice),
             totalValue,
             gainLoss: 0,
             gainLossPercent: 0,
@@ -158,12 +219,15 @@ export async function PUT(request: NextRequest) {
         }
 
         portfolio.holdings = holdings;
+        portfolio.markModified('holdings');
         await portfolio.save();
       }
       funding.status = 'approved';
     } else {
       if (funding.type === 'withdraw') {
-        portfolio.accountBalance = Number((portfolio.accountBalance + funding.amount).toFixed(6));
+        portfolio.accountBalance = roundToSix(
+          toFiniteNumber(portfolio.accountBalance, config.app.defaultBalance) + toFiniteNumber(funding.amount)
+        );
         await portfolio.save();
       }
       funding.status = 'rejected';
@@ -177,10 +241,10 @@ export async function PUT(request: NextRequest) {
     await AdminAuditLog.create({
       actionType: 'funding_request',
       action: funding.status,
-      userId: funding.userId.toString(),
+      userId: funding.userId,
       userName: user?.fullName || '',
       userEmail: user?.email || '',
-      amount: funding.amount,
+      amount: toFiniteNumber(funding.amount),
       reason: funding.reason || (action === 'approve' ? 'Approved funding request' : 'Rejected funding request'),
       actor: context.admin._id.toString(),
       actorName: context.admin.name,
@@ -193,6 +257,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ message: `Request ${funding.status}`, requestId });
   } catch (error: any) {
     log.error({ error }, 'Failed to update funding request');
-    return NextResponse.json({ error: 'Failed to update request' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to update request' }, { status: 500 });
   }
 }
