@@ -8,6 +8,7 @@ import { logger } from '@/lib/utils/logger';
 import { registerSchema } from '@/lib/validation/schemas';
 import { getAdminContext, hasPermission } from '@/lib/adminAuth';
 import { applyDefaultNewUserTradeOverride } from '@/lib/utils/tradeDefaults';
+import config from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -219,14 +220,57 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'userId and isDemoUser are required' }, { status: 400 });
     }
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { isDemoUser },
-      { new: true, select: 'fullName email uid isDemoUser' }
-    );
+    const user = await User.findById(userId).select('fullName email uid isDemoUser liveModeLocked liveModeActivatedAt');
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    if (isDemoUser && user.liveModeLocked) {
+      return NextResponse.json(
+        { error: 'This account has already switched to live mode and cannot return to demo' },
+        { status: 400 }
+      );
+    }
+
+    if (isDemoUser) {
+      user.isDemoUser = true;
+      await user.save();
+
+      await Portfolio.findOneAndUpdate(
+        { userId },
+        {
+          $set: {
+            accountBalance: config.app.defaultBalance,
+            totalInvested: 0,
+            totalReturns: 0,
+            holdings: [],
+          },
+          $setOnInsert: { userId },
+        },
+        { upsert: true }
+      );
+    } else {
+      user.isDemoUser = false;
+      user.liveModeLocked = true;
+      if (!user.liveModeActivatedAt) {
+        user.liveModeActivatedAt = new Date();
+      }
+      await user.save();
+
+      await Portfolio.findOneAndUpdate(
+        { userId },
+        {
+          $set: {
+            accountBalance: 0,
+            totalInvested: 0,
+            totalReturns: 0,
+            holdings: [],
+          },
+          $setOnInsert: { userId },
+        },
+        { upsert: true }
+      );
     }
 
     await AdminAuditLog.create({

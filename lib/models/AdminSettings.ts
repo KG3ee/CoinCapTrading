@@ -56,6 +56,8 @@ const promotionSchema = new mongoose.Schema(
     message: { type: String, default: '' },
     targetPath: { type: String, default: '/news' },
     enabled: { type: Boolean, default: false },
+    targetAll: { type: Boolean, default: true },
+    targetUserIds: { type: [String], default: [] },
     updatedAt: { type: Date, default: null },
   },
   { _id: false }
@@ -210,9 +212,24 @@ adminSettingsSchema.statics.getSettings = async function () {
       message: '',
       targetPath: '/news',
       enabled: false,
+      targetAll: true,
+      targetUserIds: [],
       updatedAt: null,
     };
     await settings.save();
+  } else {
+    let promotionUpdated = false;
+    if (typeof settings.promotion.targetAll !== 'boolean') {
+      settings.promotion.targetAll = true;
+      promotionUpdated = true;
+    }
+    if (!Array.isArray(settings.promotion.targetUserIds)) {
+      settings.promotion.targetUserIds = [];
+      promotionUpdated = true;
+    }
+    if (promotionUpdated) {
+      await settings.save();
+    }
   }
   return settings;
 };

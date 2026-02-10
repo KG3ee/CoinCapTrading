@@ -83,6 +83,7 @@ interface FundingRequestItem {
 }
 
 type TabType = 'overview' | 'assets' | 'transactions' | 'convert';
+type KycStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
 const SWAP_COINS = [
   { symbol: 'BTC', name: 'Bitcoin' },
@@ -145,6 +146,8 @@ export default function WalletPage() {
   const [fundingProofImageName, setFundingProofImageName] = useState('');
   const [withdrawPassword, setWithdrawPassword] = useState('');
   const [depositWalletOptions, setDepositWalletOptions] = useState<DepositWalletOption[]>(DEPOSIT_WALLET_OPTIONS);
+  const [isDemoUser, setIsDemoUser] = useState(false);
+  const [kycStatus, setKycStatus] = useState<KycStatus>('none');
 
   const fundingMeta = useMemo(() => getFundingMetaFromWalletOptions(depositWalletOptions), [depositWalletOptions]);
   const availableFundingNetworks = fundingMeta.networksByAsset[fundingAsset] || [];
@@ -161,6 +164,23 @@ export default function WalletPage() {
     setWithdrawPassword('');
     setFundingError('');
     setFundingSuccess('');
+  };
+
+  const redirectToLiveUpgrade = () => {
+    router.push('/account?upgrade=live');
+  };
+
+  const openFundingModal = (type: 'deposit' | 'withdraw') => {
+    if (isDemoUser) {
+      setFundingError('Demo accounts cannot use deposit or withdraw. Complete KYC and switch to live account.');
+      redirectToLiveUpgrade();
+      return;
+    }
+    resetFundingForm();
+    setFundingType(type);
+    setFundingAsset('USDT');
+    setFundingNetwork('TRC20');
+    setShowFundingModal(true);
   };
 
   // Swap state
@@ -354,10 +374,12 @@ export default function WalletPage() {
 
   const loadProfile = async () => {
     try {
-      const res = await fetch('/api/user/profile');
+      const res = await fetch('/api/auth/me');
       if (res.ok) {
         const d = await res.json();
         setWithdrawalAddress(d.user?.withdrawalAddress || '');
+        setIsDemoUser(!!d.user?.isDemoUser);
+        setKycStatus((d.user?.kycStatus as KycStatus) || 'none');
       }
     } catch {
       // silent
@@ -367,6 +389,11 @@ export default function WalletPage() {
   const submitFundingRequest = async () => {
     setFundingError('');
     setFundingSuccess('');
+    if (isDemoUser) {
+      setFundingError('Demo accounts cannot use deposit or withdraw. Complete KYC and switch to live account.');
+      redirectToLiveUpgrade();
+      return;
+    }
     const parsedAmount = Number(fundingAmount);
     if (!parsedAmount || parsedAmount <= 0) {
       setFundingError('Enter a valid amount');
@@ -480,18 +507,18 @@ export default function WalletPage() {
   useEffect(() => {
     const action = searchParams.get('action');
     if (action === 'deposit' || action === 'withdraw') {
+      if (isDemoUser) {
+        setFundingError('Demo accounts cannot use deposit or withdraw. Complete KYC and switch to live account.');
+        redirectToLiveUpgrade();
+        return;
+      }
       resetFundingForm();
       setFundingType(action);
-      if (action === 'deposit') {
-        setFundingAsset('USDT');
-        setFundingNetwork('TRC20');
-      } else {
-        setFundingAsset('USDT');
-        setFundingNetwork('TRC20');
-      }
+      setFundingAsset('USDT');
+      setFundingNetwork('TRC20');
       setShowFundingModal(true);
     }
-  }, [searchParams]);
+  }, [searchParams, isDemoUser]);
 
   useEffect(() => {
     if (fundingMeta.assets.length === 0) return;
@@ -564,6 +591,12 @@ export default function WalletPage() {
   const totalInvested = data.portfolio.totalInvested;
   const totalReturns = data.portfolio.totalReturns;
   const isPositive = totalReturns >= 0;
+  const demoFundingHint =
+    kycStatus === 'approved'
+      ? 'KYC approved. Your account will move to live mode shortly.'
+      : kycStatus === 'pending'
+        ? 'KYC under review. Deposit/withdraw unlocks after live mode is activated.'
+        : 'Complete KYC verification to unlock live deposit/withdraw.';
 
   // Tab styles
   const tabClass = (tab: TabType) => `
@@ -605,30 +638,32 @@ export default function WalletPage() {
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
-                onClick={() => {
-                  resetFundingForm();
-                  setFundingType('deposit');
-                  setFundingAsset('USDT');
-                  setFundingNetwork('TRC20');
-                  setShowFundingModal(true);
-                }}
-                className="inline-flex flex-1 sm:flex-none min-w-0 sm:min-w-[112px] items-center justify-center px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-xs font-semibold transition-colors"
+                onClick={() => openFundingModal('deposit')}
+                className="inline-flex h-9 flex-1 sm:flex-none min-w-0 sm:min-w-[112px] items-center justify-center px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-xs font-semibold transition-colors"
               >
                 Deposit
               </button>
               <button
-                onClick={() => {
-                  resetFundingForm();
-                  setFundingType('withdraw');
-                  setFundingAsset('USDT');
-                  setFundingNetwork('TRC20');
-                  setShowFundingModal(true);
-                }}
-                className="inline-flex flex-1 sm:flex-none min-w-0 sm:min-w-[112px] items-center justify-center px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors border border-white/10"
+                onClick={() => openFundingModal('withdraw')}
+                className="inline-flex h-9 flex-1 sm:flex-none min-w-0 sm:min-w-[112px] items-center justify-center px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors border border-white/10"
               >
                 Withdraw
               </button>
             </div>
+            {isDemoUser && (
+              <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2">
+                <p className="text-[11px] text-amber-300">
+                  Demo mode: deposit/withdraw is disabled. {demoFundingHint}
+                </p>
+                <button
+                  type="button"
+                  onClick={redirectToLiveUpgrade}
+                  className="mt-2 text-[11px] font-semibold text-amber-200 hover:text-amber-100 underline underline-offset-2"
+                >
+                  Go to live account setup
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Portfolio Value */}

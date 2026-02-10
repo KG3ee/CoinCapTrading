@@ -137,7 +137,14 @@ interface AdminSettingsState {
   maintenance: { enabled: boolean; message: string };
   news: { title: string; url: string; items: NewsSettingsItem[] };
   chatFaqs: { id: string; question: string; answer: string }[];
-  promotion: { message: string; targetPath: string; enabled: boolean; updatedAt: string | null };
+  promotion: {
+    message: string;
+    targetPath: string;
+    enabled: boolean;
+    targetAll: boolean;
+    targetUserIds: string[];
+    updatedAt: string | null;
+  };
   ui: { theme: 'dark' | 'light' };
 }
 
@@ -348,6 +355,7 @@ export default function AdminPage() {
   const [newAdminRole, setNewAdminRole] = useState<'admin' | 'moderator'>('admin');
   const [newAdminKey, setNewAdminKey] = useState<string | null>(null);
   const [sendingPromotion, setSendingPromotion] = useState(false);
+  const [promotionUserSearch, setPromotionUserSearch] = useState('');
 
   const [createFullName, setCreateFullName] = useState('');
   const [createEmail, setCreateEmail] = useState('');
@@ -567,6 +575,14 @@ export default function AdminPage() {
     if (filterKyc !== 'all' && u.kycStatus !== filterKyc) return false;
     return true;
   });
+  const normalizedPromotionUserSearch = promotionUserSearch.trim().toLowerCase();
+  const promotionTargetUsers = userBalances
+    .filter((user) => {
+      if (!normalizedPromotionUserSearch) return true;
+      const haystack = `${user.name || ''} ${user.email || ''} ${user.uid || ''}`.toLowerCase();
+      return haystack.includes(normalizedPromotionUserSearch);
+    })
+    .slice(0, 200);
 
   const demoUserCount = userBalances.reduce((sum, user) => sum + (user.isDemoUser ? 1 : 0), 0);
   const liveUserCount = userBalances.length - demoUserCount;
@@ -929,6 +945,10 @@ export default function AdminPage() {
             message: data.settings?.promotion?.message || '',
             targetPath: data.settings?.promotion?.targetPath || '/news',
             enabled: !!data.settings?.promotion?.enabled,
+            targetAll: data.settings?.promotion?.targetAll !== false,
+            targetUserIds: Array.isArray(data.settings?.promotion?.targetUserIds)
+              ? data.settings.promotion.targetUserIds
+              : [],
             updatedAt: data.settings?.promotion?.updatedAt || null,
           },
         });
@@ -1117,6 +1137,10 @@ export default function AdminPage() {
     const message = adminSettings.promotion.message.trim();
     if (!message) {
       setError('Promotion message is required');
+      return;
+    }
+    if (!adminSettings.promotion.targetAll && adminSettings.promotion.targetUserIds.length === 0) {
+      setError('Choose at least one recipient or enable "Send to all users"');
       return;
     }
 
@@ -3442,6 +3466,66 @@ export default function AdminPage() {
                               {sendingPromotion ? 'Sending...' : 'Send'}
                             </button>
                           </div>
+                          <label className="flex items-center gap-2 text-[10px] text-gray-400">
+                            <input
+                              type="checkbox"
+                              checked={adminSettings.promotion.targetAll}
+                              onChange={(e) => setAdminSettings(s => s ? {
+                                ...s,
+                                promotion: {
+                                  ...s.promotion,
+                                  targetAll: e.target.checked,
+                                  targetUserIds: e.target.checked ? [] : s.promotion.targetUserIds,
+                                },
+                              } : s)}
+                              className="accent-accent"
+                            />
+                            Send to all users
+                          </label>
+                          {!adminSettings.promotion.targetAll && (
+                            <div className="rounded border border-white/10 bg-white/5 p-2 space-y-2">
+                              <input
+                                value={promotionUserSearch}
+                                onChange={(e) => setPromotionUserSearch(e.target.value)}
+                                className="w-full text-xs rounded px-2 py-1.5 border"
+                                placeholder="Search recipients by name/email/uid"
+                              />
+                              <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
+                                {promotionTargetUsers.length === 0 ? (
+                                  <p className="text-[10px] text-gray-500">No users found</p>
+                                ) : (
+                                  promotionTargetUsers.map((user) => (
+                                    <label key={user.id} className="flex items-center gap-2 text-[10px] text-gray-300">
+                                      <input
+                                        type="checkbox"
+                                        checked={adminSettings.promotion.targetUserIds.includes(user.id)}
+                                        onChange={(e) => setAdminSettings((current) => {
+                                          if (!current) return current;
+                                          const existing = current.promotion.targetUserIds;
+                                          const nextTargets = e.target.checked
+                                            ? Array.from(new Set([...existing, user.id]))
+                                            : existing.filter((id) => id !== user.id);
+                                          return {
+                                            ...current,
+                                            promotion: {
+                                              ...current.promotion,
+                                              targetUserIds: nextTargets,
+                                            },
+                                          };
+                                        })}
+                                        className="accent-accent"
+                                      />
+                                      <span className="truncate">{user.name}</span>
+                                      <span className="text-gray-500 truncate">{user.email}</span>
+                                    </label>
+                                  ))
+                                )}
+                              </div>
+                              <p className="text-[10px] text-gray-500">
+                                Selected recipients: {adminSettings.promotion.targetUserIds.length}
+                              </p>
+                            </div>
+                          )}
                           <textarea
                             value={adminSettings.promotion.message}
                             onChange={(e) => setAdminSettings(s => s ? {
@@ -3449,7 +3533,9 @@ export default function AdminPage() {
                               promotion: { ...s.promotion, message: e.target.value },
                             } : s)}
                             className="w-full text-xs rounded px-2 py-1.5 border min-h-[72px]"
-                            placeholder="Type in-app promotion message for all users"
+                            placeholder={adminSettings.promotion.targetAll
+                              ? 'Type in-app promotion message for all users'
+                              : 'Type in-app promotion message for selected users'}
                           />
                           <input
                             value={adminSettings.promotion.targetPath}

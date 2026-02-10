@@ -84,11 +84,18 @@ export async function GET() {
 
     const promotionMessage = typeof settings?.promotion?.message === 'string' ? settings.promotion.message.trim() : '';
     const promotionEnabled = Boolean(settings?.promotion?.enabled);
+    const promotionTargetAll = typeof settings?.promotion?.targetAll === 'boolean'
+      ? settings.promotion.targetAll
+      : true;
+    const promotionTargetUserIds = Array.isArray(settings?.promotion?.targetUserIds)
+      ? settings.promotion.targetUserIds.map((id: unknown) => String(id))
+      : [];
     const promotionTargetPath = typeof settings?.promotion?.targetPath === 'string' && settings.promotion.targetPath.startsWith('/')
       ? settings.promotion.targetPath
       : '/news';
+    const promotionVisibleForUser = promotionTargetAll || promotionTargetUserIds.includes(session.user.id);
 
-    if (promotionEnabled && promotionMessage) {
+    if (promotionEnabled && promotionMessage && promotionVisibleForUser) {
       systemNotifications.push({
         id: `promotion-message-${parseDate(settings?.promotion?.updatedAt || settings?.updatedAt || new Date()).toISOString()}`,
         type: 'promotion',

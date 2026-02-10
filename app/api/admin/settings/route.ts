@@ -69,6 +69,17 @@ function sanitizeFaqItems(value: unknown) {
     .slice(0, 20);
 }
 
+function sanitizeTargetUserIds(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item) => item.length > 0)
+    )
+  ).slice(0, 500);
+}
+
 export async function GET(request: NextRequest) {
   const context = await getAdminContext(request);
   if ('error' in context) {
@@ -107,6 +118,8 @@ export async function GET(request: NextRequest) {
           message: '',
           targetPath: '/news',
           enabled: false,
+          targetAll: true,
+          targetUserIds: [],
           updatedAt: null,
         },
         apiKeys: settings.apiKeys?.map((k: any) => ({
@@ -188,6 +201,12 @@ export async function PUT(request: NextRequest) {
       }
       if (typeof body.promotion.enabled === 'boolean') {
         settings.promotion.enabled = body.promotion.enabled;
+      }
+      if (typeof body.promotion.targetAll === 'boolean') {
+        settings.promotion.targetAll = body.promotion.targetAll;
+      }
+      if (Array.isArray(body.promotion.targetUserIds)) {
+        settings.promotion.targetUserIds = sanitizeTargetUserIds(body.promotion.targetUserIds);
       }
       if (typeof body.promotion.targetPath === 'string') {
         const nextPath = body.promotion.targetPath.trim();

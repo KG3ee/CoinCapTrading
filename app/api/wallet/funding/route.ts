@@ -118,6 +118,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    if (user.isDemoUser) {
+      return NextResponse.json(
+        { error: 'Demo accounts cannot submit deposit or withdraw. Complete KYC to switch to live account.' },
+        { status: 403 }
+      );
+    }
+
     let portfolio = await Portfolio.findOne({ userId: session.user.id });
     if (!portfolio) {
       portfolio = new Portfolio({

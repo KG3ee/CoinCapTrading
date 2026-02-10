@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useLanguageSwitch } from '@/lib/useLanguageSwitch';
 import { useSession, signOut } from 'next-auth/react';
@@ -42,6 +42,7 @@ interface UserProfile {
   withdrawalAddress: string;
   profilePicture: string | null;
   isTwoFactorEnabled: boolean;
+  isDemoUser: boolean;
   kycStatus: 'none' | 'pending' | 'approved' | 'rejected';
   createdAt: string;
 }
@@ -66,6 +67,7 @@ type TabType = 'profile' | 'settings' | 'security';
 export default function AccountPage() {
   const t = useTranslations('account');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { status } = useSession();
   const { changeLanguage, locale } = useLanguageSwitch();
   const [activeTab, setActiveTab] = useState<TabType>('profile');
@@ -92,6 +94,7 @@ export default function AccountPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [upgradeHintShown, setUpgradeHintShown] = useState(false);
 
   // KYC verification states
   const [showKycModal, setShowKycModal] = useState(false);
@@ -145,6 +148,19 @@ export default function AccountPage() {
       setWithdrawalAddress(data.user.withdrawalAddress || '');
       setProfilePicture(data.user.profilePicture || null);
       setPreviewPicture(data.user.profilePicture || null);
+
+      if (!upgradeHintShown && searchParams.get('upgrade') === 'live') {
+        if (data.user.isDemoUser) {
+          if (data.user.kycStatus === 'approved') {
+            setSuccess('KYC approved. Your account will switch to live mode shortly.');
+          } else {
+            setError('Demo accounts cannot deposit or withdraw. Complete KYC verification first.');
+          }
+        } else {
+          setSuccess('Your account is already in live mode.');
+        }
+        setUpgradeHintShown(true);
+      }
     } catch (error) {
       console.error('Load profile error:', error);
       setError('An error occurred while loading your profile');
@@ -594,6 +610,13 @@ export default function AccountPage() {
                       <p className="text-white font-semibold flex items-center gap-2">
                         <Shield size={16} className={user.isTwoFactorEnabled ? 'text-green-400' : 'text-gray-400'} />
                         {user.isTwoFactorEnabled ? 'Enabled' : 'Disabled'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-sm mb-1">Account Type</p>
+                      <p className="text-white font-semibold flex items-center gap-2">
+                        <BadgeCheck size={16} className={user.isDemoUser ? 'text-amber-400' : 'text-green-400'} />
+                        {user.isDemoUser ? 'Demo' : 'Live'}
                       </p>
                     </div>
                     <div className="col-span-2">

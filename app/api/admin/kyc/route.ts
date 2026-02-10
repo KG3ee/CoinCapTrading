@@ -1,6 +1,7 @@
 import { connectDB } from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import KycVerification from '@/lib/models/KycVerification';
+import Portfolio from '@/lib/models/Portfolio';
 import { NextRequest, NextResponse } from 'next/server';
 import AdminAuditLog from '@/lib/models/AdminAuditLog';
 import { getAdminContext, hasPermission } from '@/lib/adminAuth';
@@ -105,7 +106,7 @@ export async function PUT(request: NextRequest) {
     if (kyc.status !== 'pending') {
       return NextResponse.json({ error: 'This submission has already been reviewed' }, { status: 400 });
     }
-    const user = await User.findById(kyc.userId, 'fullName email');
+    const user = await User.findById(kyc.userId, 'fullName email isDemoUser');
 
     const newStatus = action === 'approve' ? 'approved' : 'rejected';
 
@@ -117,8 +118,32 @@ export async function PUT(request: NextRequest) {
     }
     await kyc.save();
 
-    // Update user's kycStatus
-    await User.findByIdAndUpdate(kyc.userId, { kycStatus: newStatus });
+    if (action === 'approve' && user?.isDemoUser) {
+      // Promote approved demo users to live mode and remove demo budget/holdings.
+      await User.findByIdAndUpdate(kyc.userId, {
+        kycStatus: newStatus,
+        isDemoUser: false,
+        liveModeLocked: true,
+        liveModeActivatedAt: new Date(),
+      });
+
+      await Portfolio.findOneAndUpdate(
+        { userId: kyc.userId },
+        {
+          $set: {
+            accountBalance: 0,
+            totalInvested: 0,
+            totalReturns: 0,
+            holdings: [],
+          },
+          $setOnInsert: { userId: kyc.userId },
+        },
+        { upsert: true, new: false }
+      );
+    } else {
+      // Update user's kycStatus
+      await User.findByIdAndUpdate(kyc.userId, { kycStatus: newStatus });
+    }
 
     await AdminAuditLog.create({
       actionType: 'kyc_review',
