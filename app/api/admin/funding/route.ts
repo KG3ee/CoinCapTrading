@@ -7,6 +7,7 @@ import User from '@/lib/models/User';
 import AdminAuditLog from '@/lib/models/AdminAuditLog';
 import config from '@/lib/config';
 import { logger } from '@/lib/utils/logger';
+import { fetchRealCryptoData } from '@/lib/mockCryptoData';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,7 +110,48 @@ export async function PUT(request: NextRequest) {
 
     if (action === 'approve') {
       if (funding.type === 'deposit') {
-        portfolio.accountBalance = Number((portfolio.accountBalance + funding.amount).toFixed(6));
+        const cryptoSymbol = (funding.asset || 'USDT').toUpperCase();
+        const priceData = await fetchRealCryptoData();
+        const priceRecord = priceData.find((record) => record.symbol === cryptoSymbol);
+        const assetPrice = priceRecord?.currentPrice || 0;
+        const depositValue = Number((assetPrice * funding.amount).toFixed(6));
+
+        portfolio.accountBalance = Number((portfolio.accountBalance + depositValue).toFixed(6));
+
+        const holdings = portfolio.holdings || [];
+        const existingIndex = holdings.findIndex((item: any) => item.cryptoSymbol === cryptoSymbol);
+        if (existingIndex >= 0) {
+          const existing = holdings[existingIndex];
+          const previousCost = existing.averageBuyPrice * existing.amount;
+          const depositCost = assetPrice * funding.amount;
+          const newAmount = existing.amount + funding.amount;
+          const newAverageBuy = newAmount > 0 ? (previousCost + depositCost) / newAmount : assetPrice;
+          const newTotalValue = Number((newAmount * assetPrice).toFixed(6));
+          const newGainLoss = Number((newTotalValue - newAverageBuy * newAmount).toFixed(6));
+          const newGainLossPercent = newAverageBuy > 0 ? Number((((newGainLoss) / (newAverageBuy * newAmount || 1)) * 100).toFixed(2)) : 0;
+          holdings[existingIndex] = {
+            ...existing,
+            amount: newAmount,
+            averageBuyPrice: Number(newAverageBuy.toFixed(6)),
+            currentPrice: Number(assetPrice.toFixed(6)),
+            totalValue: newTotalValue,
+            gainLoss: newGainLoss,
+            gainLossPercent: newGainLossPercent,
+          };
+        } else {
+          const totalValue = Number((funding.amount * assetPrice).toFixed(6));
+          holdings.push({
+            cryptoSymbol,
+            amount: funding.amount,
+            averageBuyPrice: Number(assetPrice.toFixed(6)),
+            currentPrice: Number(assetPrice.toFixed(6)),
+            totalValue,
+            gainLoss: 0,
+            gainLossPercent: 0,
+          });
+        }
+
+        portfolio.holdings = holdings;
         await portfolio.save();
       }
       funding.status = 'approved';
