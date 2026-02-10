@@ -10,6 +10,7 @@ interface TradingViewChartProps {
   height?: string;
   showPrice?: boolean;
   currentPrice?: number;
+  className?: string;
 }
 
 function getSymbolFromCoinId(coinId: string) {
@@ -25,6 +26,7 @@ export const TradingViewChart = memo(function TradingViewChart({
   height = 'h-96',
   showPrice = true,
   currentPrice,
+  className = '',
 }: TradingViewChartProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -74,9 +76,9 @@ export const TradingViewChart = memo(function TradingViewChart({
   }, [iframeSrc]);
 
   return (
-    <div className={`${height} rounded-lg border border-white/10 bg-white/5 p-3 md:p-4 flex flex-col overflow-hidden`}>
+    <div className={`${height} ${className} flex min-h-0 flex-col overflow-hidden`}>
       {showPrice && (
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-2.5 flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-400">{coinName}/USDT</p>
             <p className="text-base md:text-lg font-semibold text-white">
@@ -87,9 +89,9 @@ export const TradingViewChart = memo(function TradingViewChart({
         </div>
       )}
 
-      <div className="relative flex-1 min-h-0 rounded-lg overflow-hidden border border-white/10 bg-black/20">
+      <div className="relative flex-1 min-h-0 rounded-xl overflow-hidden border border-white/10 bg-[var(--app-panel)]">
         {isLoading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--app-panel)]/90">
             <div className="flex items-center gap-2 text-xs text-gray-300">
               <Loader2 size={14} className="animate-spin" />
               Loading chart...

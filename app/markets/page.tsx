@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Search, Star, TrendingDown, TrendingUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCoinCapPrices } from '@/lib/hooks/useCoinCapPrices';
+import { TradingViewChart } from '@/lib/components/TradingViewChart';
 
 const formatPrice = (value: number) => {
   if (Number.isNaN(value)) return '0.00';
@@ -120,6 +121,8 @@ export default function MarketsPage() {
     });
   }, [prices, filter, searchQuery]);
 
+  const spotlightCoin = useMemo(() => liveMarkets[0] ?? markets[0], [liveMarkets]);
+
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -178,6 +181,27 @@ export default function MarketsPage() {
             </p>
           </div>
         ))}
+      </div>
+
+      <div className="glass-card p-3 md:p-4">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm md:text-base font-semibold">Market Spotlight</h2>
+            <p className="text-xs text-gray-400">{spotlightCoin.name} ({spotlightCoin.symbol})</p>
+          </div>
+          <button
+            onClick={() => router.push(`/trade?asset=${encodeURIComponent(spotlightCoin.symbol)}`)}
+            className="w-full sm:w-auto px-3 py-2 rounded-lg bg-accent/20 text-accent text-xs font-semibold hover:bg-accent/30 transition-colors"
+          >
+            Trade {spotlightCoin.symbol}
+          </button>
+        </div>
+        <TradingViewChart
+          coinId={spotlightCoin.id}
+          coinName={spotlightCoin.name}
+          height="h-[280px] md:h-[360px]"
+          showPrice={false}
+        />
       </div>
 
       <div className="glass-card">

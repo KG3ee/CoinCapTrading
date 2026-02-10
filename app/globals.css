@@ -301,10 +301,12 @@ select optgroup {
 
   .menu-surface {
     background-color: var(--app-panel) !important;
+    background-image: none !important;
     color: var(--app-text);
     border-color: var(--app-border);
     opacity: 1 !important;
     backdrop-filter: none !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
   }
 
   .theme-dark .menu-surface {

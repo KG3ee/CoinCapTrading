@@ -9,6 +9,7 @@ import { TradingViewChart } from '@/lib/components/TradingViewChart';
 import { useSession } from 'next-auth/react';
 import TradeModal from '@/lib/components/TradeModal';
 import CountdownPopup from '@/lib/components/CountdownPopup';
+import { getPortfolioVisibility, subscribePortfolioVisibility } from '@/lib/utils/portfolioVisibility';
 
 const formatPrice = (value: number) => {
   if (Number.isNaN(value)) return '0.00';
@@ -36,6 +37,7 @@ export default function HomePage() {
   const [quickTradeType, setQuickTradeType] = useState<'buy' | 'sell'>('buy');
   const [tradeModalOpen, setTradeModalOpen] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [showBalance, setShowBalance] = useState<boolean>(() => getPortfolioVisibility());
   const [quickTradeMessage, setQuickTradeMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Countdown popup state
@@ -63,6 +65,8 @@ export default function HomePage() {
       fetchBalance();
     }
   }, [status, fetchBalance]);
+
+  useEffect(() => subscribePortfolioVisibility(setShowBalance), []);
   
   const cryptoPrices = [
     { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', price: '--', change: '--', isUp: true, logo: 'https://assets.coingecko.com/coins/images/1/large/bitcoin.png' },
@@ -254,7 +258,12 @@ export default function HomePage() {
             onClick={() => router.push('/trade')}
           >
             <h2 className="text-xs sm:text-sm font-semibold mb-1.5">BTC/USD</h2>
-            <TradingViewChart coinId="bitcoin" coinName="Bitcoin" height="h-40 sm:h-48 md:h-52" />
+            <TradingViewChart
+              coinId="bitcoin"
+              coinName="Bitcoin"
+              height="h-[250px] sm:h-[300px] md:h-[340px]"
+              showPrice={false}
+            />
           </div>
 
           {/* Market Prices */}
@@ -336,7 +345,9 @@ export default function HomePage() {
               {status === 'authenticated' && (
                 <div className="flex items-center justify-between py-1 border-t border-white/10 text-xs">
                   <p className="text-gray-400">Wallet Balance</p>
-                  <p className="font-bold text-accent">${walletBalance.toLocaleString()} USDT</p>
+                  <p className="font-bold text-accent">
+                    {showBalance ? `$${walletBalance.toLocaleString()} USDT` : '••••••'}
+                  </p>
                 </div>
               )}
 

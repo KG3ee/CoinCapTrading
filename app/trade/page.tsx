@@ -9,6 +9,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import TradeModal from '@/lib/components/TradeModal';
 import CountdownPopup from '@/lib/components/CountdownPopup';
+import { getPortfolioVisibility, subscribePortfolioVisibility } from '@/lib/utils/portfolioVisibility';
 
 interface TradeHistoryItem {
   id: string;
@@ -106,6 +107,7 @@ export default function TradePage() {
   const [tradeModalOpen, setTradeModalOpen] = useState(false);
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [walletBalance, setWalletBalance] = useState(0);
+  const [showBalance, setShowBalance] = useState<boolean>(() => getPortfolioVisibility());
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [tradeHistory, setTradeHistory] = useState<TradeHistoryItem[]>([]);
   const [tradeHistoryFilter, setTradeHistoryFilter] = useState<HistoryFilterType>('all');
@@ -163,6 +165,8 @@ export default function TradePage() {
       fetchTradeHistory(tradeHistoryFilter);
     }
   }, [status, fetchBalance, fetchTradeHistory, tradeHistoryFilter]);
+
+  useEffect(() => subscribePortfolioVisibility(setShowBalance), []);
 
   useEffect(() => {
     const requestedAsset = searchParams.get('asset')?.trim().toUpperCase();
@@ -253,7 +257,7 @@ export default function TradePage() {
           <div className="relative">
             <button 
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-sm min-h-[32px] flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="px-2.5 py-1.5 rounded-lg border border-white/10 bg-[var(--app-panel)] hover:bg-white/10 text-sm min-h-[32px] flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {selectedCrypto.symbol}/USDT
               <ChevronDown size={12} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
@@ -270,8 +274,10 @@ export default function TradePage() {
                     <button
                       key={crypto.id}
                       onClick={() => handleCryptoSelect(crypto)}
-                      className={`w-full text-left px-2.5 py-1.5 rounded text-sm hover:bg-white/10 transition-colors ${
-                        selectedCrypto.id === crypto.id ? 'bg-accent text-white' : ''
+                      className={`w-full text-left px-2.5 py-1.5 rounded text-sm transition-colors ${
+                        selectedCrypto.id === crypto.id
+                          ? 'bg-accent/20 text-accent border border-accent/30'
+                          : 'bg-[var(--app-panel)] hover:bg-white/10 text-[var(--app-text)]'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -301,7 +307,12 @@ export default function TradePage() {
               </div>
             </div>
             <div className="mb-1.5">
-              <TradingViewChart coinId={selectedCrypto.id} coinName={selectedCrypto.name} height="h-48 md:h-56" showPrice={false} />
+              <TradingViewChart
+                coinId={selectedCrypto.id}
+                coinName={selectedCrypto.name}
+                height="h-[300px] md:h-[360px]"
+                showPrice={false}
+              />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
               <div className="p-1.5 rounded-lg bg-white/5">
@@ -336,7 +347,12 @@ export default function TradePage() {
             {/* Wallet Balance */}
             <div className="mb-3 p-2 rounded-lg bg-white/5 border border-white/10">
               <p className="text-xs text-gray-400">Wallet Balance</p>
-              <p className="text-base font-bold">{walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })} <span className="text-xs text-gray-400">USDT</span></p>
+              <p className="text-base font-bold">
+                {showBalance
+                  ? `${walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })} `
+                  : '•••••• '}
+                <span className="text-xs text-gray-400">USDT</span>
+              </p>
             </div>
 
             {/* Buy/Sell Buttons */}

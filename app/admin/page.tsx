@@ -5,7 +5,7 @@ import {
   Shield, RefreshCw, Users, TrendingUp, Clock, AlertCircle,
   Plus, Minus, MessageCircle, Send, Paperclip, X as XIcon,
   Trash2, LogOut, Home, Bell, Settings, BarChart3, ChevronRight,
-  BadgeCheck, Eye, XCircle, CheckCircle2, Sun, Moon, ArrowLeftRight,
+  BadgeCheck, Eye, XCircle, CheckCircle2, Sun, Moon, ArrowLeftRight, Newspaper,
   ChevronUp, type LucideIcon,
 } from 'lucide-react';
 import { DEPOSIT_WALLET_OPTIONS, type DepositWalletOption } from '@/lib/constants/funding';
@@ -223,7 +223,7 @@ interface FundingRequestItem {
   userUid?: string;
 }
 
-type AdminTab = 'overview' | 'trades' | 'users' | 'chat' | 'kyc' | 'settings' | 'funding';
+type AdminTab = 'overview' | 'trades' | 'users' | 'chat' | 'kyc' | 'settings' | 'content' | 'funding';
 
 const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield; permissions: AdminPermission[] }[] = [
   { key: 'overview', label: 'Overview', icon: BarChart3, permissions: ['view_dashboard'] },
@@ -232,6 +232,7 @@ const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield; permission
   { key: 'kyc', label: 'KYC Verification', icon: BadgeCheck, permissions: ['manage_kyc'] },
   { key: 'chat', label: 'Customer Chat', icon: MessageCircle, permissions: ['manage_support', 'view_support'] },
   { key: 'funding', label: 'Funding', icon: ArrowLeftRight, permissions: ['manage_financials'] },
+  { key: 'content', label: 'Content Hub', icon: Newspaper, permissions: ['manage_settings'] },
   { key: 'settings', label: 'Settings', icon: Settings, permissions: ['manage_settings', 'manage_admins', 'view_logs'] },
 ];
 
@@ -1311,8 +1312,10 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    if (activeTab === 'settings') {
+    if (activeTab === 'settings' || activeTab === 'content') {
       if (can('manage_settings')) fetchAdminSettings();
+    }
+    if (activeTab === 'settings') {
       if (can('view_logs')) fetchAuditLogs('all');
       if (can('manage_admins')) fetchAdminUsers();
     }
@@ -3409,209 +3412,6 @@ export default function AdminPage() {
                           />
                         </div>
 
-                        <div className="panel p-3 flex flex-col gap-2">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-semibold">News Sources (User News page)</p>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={handleAddNewsItem}
-                                className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold hover:bg-accent/30"
-                              >
-                                Add Link
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleSaveAdminSettings}
-                                className="px-2 py-1 rounded bg-accent text-black text-[10px] font-semibold hover:bg-accent/80"
-                              >
-                                Save
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            {adminSettings.news.items.map((item, index) => (
-                              <div key={item.id} className="rounded border border-white/10 bg-white/5 p-2 space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-[10px] text-gray-400">Item {index + 1}</p>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveNewsItem(item.id)}
-                                    disabled={adminSettings.news.items.length <= 1}
-                                    className="text-[10px] text-danger disabled:text-gray-500"
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                                <input
-                                  value={item.title}
-                                  onChange={(e) => handleNewsItemChange(item.id, 'title', e.target.value)}
-                                  className="w-full text-xs rounded px-2 py-1.5 border"
-                                  placeholder="Headline"
-                                />
-                                <input
-                                  value={item.url}
-                                  onChange={(e) => handleNewsItemChange(item.id, 'url', e.target.value)}
-                                  className="w-full text-xs rounded px-2 py-1.5 border"
-                                  placeholder="https://news-site.com/article"
-                                />
-                              </div>
-                            ))}
-                          </div>
-
-                          <p className="text-[10px] text-gray-500">
-                            Users will see headline + auto-fetched image cards and open the original source link.
-                          </p>
-                        </div>
-
-                        <div className="panel p-3 flex flex-col gap-2">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-semibold">Promotion Message</p>
-                            <button
-                              type="button"
-                              onClick={handleSendPromotion}
-                              disabled={sendingPromotion || !adminSettings.promotion.message.trim()}
-                              className="px-2 py-1 rounded bg-accent text-black text-[10px] font-semibold disabled:opacity-40"
-                            >
-                              {sendingPromotion ? 'Sending...' : 'Send'}
-                            </button>
-                          </div>
-                          <label className="flex items-center gap-2 text-[10px] text-gray-400">
-                            <input
-                              type="checkbox"
-                              checked={adminSettings.promotion.targetAll}
-                              onChange={(e) => setAdminSettings(s => s ? {
-                                ...s,
-                                promotion: {
-                                  ...s.promotion,
-                                  targetAll: e.target.checked,
-                                  targetUserIds: e.target.checked ? [] : s.promotion.targetUserIds,
-                                },
-                              } : s)}
-                              className="accent-accent"
-                            />
-                            Send to all users
-                          </label>
-                          {!adminSettings.promotion.targetAll && (
-                            <div className="rounded border border-white/10 bg-white/5 p-2 space-y-2">
-                              <input
-                                value={promotionUserSearch}
-                                onChange={(e) => setPromotionUserSearch(e.target.value)}
-                                className="w-full text-xs rounded px-2 py-1.5 border"
-                                placeholder="Search recipients by name/email/uid"
-                              />
-                              <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
-                                {promotionTargetUsers.length === 0 ? (
-                                  <p className="text-[10px] text-gray-500">No users found</p>
-                                ) : (
-                                  promotionTargetUsers.map((user) => (
-                                    <label key={user.id} className="flex items-center gap-2 text-[10px] text-gray-300">
-                                      <input
-                                        type="checkbox"
-                                        checked={adminSettings.promotion.targetUserIds.includes(user.id)}
-                                        onChange={(e) => setAdminSettings((current) => {
-                                          if (!current) return current;
-                                          const existing = current.promotion.targetUserIds;
-                                          const nextTargets = e.target.checked
-                                            ? Array.from(new Set([...existing, user.id]))
-                                            : existing.filter((id) => id !== user.id);
-                                          return {
-                                            ...current,
-                                            promotion: {
-                                              ...current.promotion,
-                                              targetUserIds: nextTargets,
-                                            },
-                                          };
-                                        })}
-                                        className="accent-accent"
-                                      />
-                                      <span className="truncate">{user.name}</span>
-                                      <span className="text-gray-500 truncate">{user.email}</span>
-                                    </label>
-                                  ))
-                                )}
-                              </div>
-                              <p className="text-[10px] text-gray-500">
-                                Selected recipients: {adminSettings.promotion.targetUserIds.length}
-                              </p>
-                            </div>
-                          )}
-                          <textarea
-                            value={adminSettings.promotion.message}
-                            onChange={(e) => setAdminSettings(s => s ? {
-                              ...s,
-                              promotion: { ...s.promotion, message: e.target.value },
-                            } : s)}
-                            className="w-full text-xs rounded px-2 py-1.5 border min-h-[72px]"
-                            placeholder={adminSettings.promotion.targetAll
-                              ? 'Type in-app promotion message for all users'
-                              : 'Type in-app promotion message for selected users'}
-                          />
-                          <input
-                            value={adminSettings.promotion.targetPath}
-                            onChange={(e) => setAdminSettings(s => s ? {
-                              ...s,
-                              promotion: { ...s.promotion, targetPath: e.target.value || '/messages' },
-                            } : s)}
-                            className="w-full text-xs rounded px-2 py-1.5 border"
-                            placeholder="/messages"
-                          />
-                          <label className="flex items-center gap-2 text-[10px] text-gray-400">
-                            <input
-                              type="checkbox"
-                              checked={adminSettings.promotion.enabled}
-                              onChange={(e) => setAdminSettings(s => s ? {
-                                ...s,
-                                promotion: { ...s.promotion, enabled: e.target.checked },
-                              } : s)}
-                              className="accent-accent"
-                            />
-                            Promotion enabled
-                          </label>
-                        </div>
-
-                        <div className="panel p-3 flex flex-col gap-2">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-semibold">Customer Chat FAQ Presets</p>
-                            <button
-                              type="button"
-                              onClick={handleAddFaq}
-                              className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold hover:bg-accent/30"
-                            >
-                              Add FAQ
-                            </button>
-                          </div>
-                          <div className="space-y-2">
-                            {adminSettings.chatFaqs.map((faq, index) => (
-                              <div key={faq.id} className="rounded border border-white/10 bg-white/5 p-2 space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-[10px] text-gray-400">FAQ {index + 1}</p>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveFaq(faq.id)}
-                                    disabled={adminSettings.chatFaqs.length <= 1}
-                                    className="text-[10px] text-danger disabled:text-gray-500"
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                                <input
-                                  value={faq.question}
-                                  onChange={(e) => handleFaqChange(faq.id, 'question', e.target.value)}
-                                  className="w-full text-xs rounded px-2 py-1.5 border"
-                                  placeholder="Question"
-                                />
-                                <textarea
-                                  value={faq.answer}
-                                  onChange={(e) => handleFaqChange(faq.id, 'answer', e.target.value)}
-                                  className="w-full text-xs rounded px-2 py-1.5 border min-h-[58px]"
-                                  placeholder="Answer"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
                       </div>
                     )}
 
@@ -3779,6 +3579,240 @@ export default function AdminPage() {
                   </div>
                 </div>
               )}
+            </section>
+          )}
+
+          {/* ── TAB: CONTENT HUB ─────────────────────────── */}
+          {activeTab === 'content' && (
+            <section className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
+                <h3 className="text-sm font-bold">Content Hub</h3>
+                {showSettingsControls && (
+                  <button
+                    onClick={handleSaveAdminSettings}
+                    className="w-full sm:w-auto px-3 py-1.5 rounded bg-accent text-black text-xs font-semibold"
+                  >
+                    Save Changes
+                  </button>
+                )}
+              </div>
+
+              {showSettingsControls && (settingsLoading || !adminSettings) ? (
+                <div className="panel p-4 text-xs text-gray-500">Loading content settings...</div>
+              ) : !showSettingsControls ? (
+                <div className="panel p-4 text-xs text-gray-500">
+                  You do not have permission to manage content.
+                </div>
+              ) : adminSettings ? (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
+                  <div className="panel p-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold">News Sources (User News page)</p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleAddNewsItem}
+                          className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold hover:bg-accent/30"
+                        >
+                          Add Link
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveAdminSettings}
+                          className="px-2 py-1 rounded bg-accent text-black text-[10px] font-semibold hover:bg-accent/80"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {adminSettings.news.items.map((item, index) => (
+                        <div key={item.id} className="rounded border border-white/10 bg-white/5 p-2 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] text-gray-400">Item {index + 1}</p>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveNewsItem(item.id)}
+                              disabled={adminSettings.news.items.length <= 1}
+                              className="text-[10px] text-danger disabled:text-gray-500"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <input
+                            value={item.title}
+                            onChange={(e) => handleNewsItemChange(item.id, 'title', e.target.value)}
+                            className="w-full text-xs rounded px-2 py-1.5 border"
+                            placeholder="Headline"
+                          />
+                          <input
+                            value={item.url}
+                            onChange={(e) => handleNewsItemChange(item.id, 'url', e.target.value)}
+                            className="w-full text-xs rounded px-2 py-1.5 border"
+                            placeholder="https://news-site.com/article"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <p className="text-[10px] text-gray-500">
+                      Users will see headline + auto-fetched image cards and open the original source link.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-4">
+                    <div className="panel p-3 flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold">Promotion Message</p>
+                        <button
+                          type="button"
+                          onClick={handleSendPromotion}
+                          disabled={sendingPromotion || !adminSettings.promotion.message.trim()}
+                          className="px-2 py-1 rounded bg-accent text-black text-[10px] font-semibold disabled:opacity-40"
+                        >
+                          {sendingPromotion ? 'Sending...' : 'Send'}
+                        </button>
+                      </div>
+                      <label className="flex items-center gap-2 text-[10px] text-gray-400">
+                        <input
+                          type="checkbox"
+                          checked={adminSettings.promotion.targetAll}
+                          onChange={(e) => setAdminSettings(s => s ? {
+                            ...s,
+                            promotion: {
+                              ...s.promotion,
+                              targetAll: e.target.checked,
+                              targetUserIds: e.target.checked ? [] : s.promotion.targetUserIds,
+                            },
+                          } : s)}
+                          className="accent-accent"
+                        />
+                        Send to all users
+                      </label>
+                      {!adminSettings.promotion.targetAll && (
+                        <div className="rounded border border-white/10 bg-white/5 p-2 space-y-2">
+                          <input
+                            value={promotionUserSearch}
+                            onChange={(e) => setPromotionUserSearch(e.target.value)}
+                            className="w-full text-xs rounded px-2 py-1.5 border"
+                            placeholder="Search recipients by name/email/uid"
+                          />
+                          <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
+                            {promotionTargetUsers.length === 0 ? (
+                              <p className="text-[10px] text-gray-500">No users found</p>
+                            ) : (
+                              promotionTargetUsers.map((user) => (
+                                <label key={user.id} className="flex items-center gap-2 text-[10px] text-gray-300">
+                                  <input
+                                    type="checkbox"
+                                    checked={adminSettings.promotion.targetUserIds.includes(user.id)}
+                                    onChange={(e) => setAdminSettings((current) => {
+                                      if (!current) return current;
+                                      const existing = current.promotion.targetUserIds;
+                                      const nextTargets = e.target.checked
+                                        ? Array.from(new Set([...existing, user.id]))
+                                        : existing.filter((id) => id !== user.id);
+                                      return {
+                                        ...current,
+                                        promotion: {
+                                          ...current.promotion,
+                                          targetUserIds: nextTargets,
+                                        },
+                                      };
+                                    })}
+                                    className="accent-accent"
+                                  />
+                                  <span className="truncate">{user.name}</span>
+                                  <span className="text-gray-500 truncate">{user.email}</span>
+                                </label>
+                              ))
+                            )}
+                          </div>
+                          <p className="text-[10px] text-gray-500">
+                            Selected recipients: {adminSettings.promotion.targetUserIds.length}
+                          </p>
+                        </div>
+                      )}
+                      <textarea
+                        value={adminSettings.promotion.message}
+                        onChange={(e) => setAdminSettings(s => s ? {
+                          ...s,
+                          promotion: { ...s.promotion, message: e.target.value },
+                        } : s)}
+                        className="w-full text-xs rounded px-2 py-1.5 border min-h-[72px]"
+                        placeholder={adminSettings.promotion.targetAll
+                          ? 'Type in-app promotion message for all users'
+                          : 'Type in-app promotion message for selected users'}
+                      />
+                      <input
+                        value={adminSettings.promotion.targetPath}
+                        onChange={(e) => setAdminSettings(s => s ? {
+                          ...s,
+                          promotion: { ...s.promotion, targetPath: e.target.value || '/messages' },
+                        } : s)}
+                        className="w-full text-xs rounded px-2 py-1.5 border"
+                        placeholder="/messages"
+                      />
+                      <label className="flex items-center gap-2 text-[10px] text-gray-400">
+                        <input
+                          type="checkbox"
+                          checked={adminSettings.promotion.enabled}
+                          onChange={(e) => setAdminSettings(s => s ? {
+                            ...s,
+                            promotion: { ...s.promotion, enabled: e.target.checked },
+                          } : s)}
+                          className="accent-accent"
+                        />
+                        Promotion enabled
+                      </label>
+                    </div>
+
+                    <div className="panel p-3 flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold">Customer Chat FAQ Presets</p>
+                        <button
+                          type="button"
+                          onClick={handleAddFaq}
+                          className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold hover:bg-accent/30"
+                        >
+                          Add FAQ
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {adminSettings.chatFaqs.map((faq, index) => (
+                          <div key={faq.id} className="rounded border border-white/10 bg-white/5 p-2 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] text-gray-400">FAQ {index + 1}</p>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveFaq(faq.id)}
+                                disabled={adminSettings.chatFaqs.length <= 1}
+                                className="text-[10px] text-danger disabled:text-gray-500"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                            <input
+                              value={faq.question}
+                              onChange={(e) => handleFaqChange(faq.id, 'question', e.target.value)}
+                              className="w-full text-xs rounded px-2 py-1.5 border"
+                              placeholder="Question"
+                            />
+                            <textarea
+                              value={faq.answer}
+                              onChange={(e) => handleFaqChange(faq.id, 'answer', e.target.value)}
+                              className="w-full text-xs rounded px-2 py-1.5 border min-h-[58px]"
+                              placeholder="Answer"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null
+              }
             </section>
           )}
 
