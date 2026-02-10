@@ -48,6 +48,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    liveModeLocked: {
+      type: Boolean,
+      default: false,
+    },
+    liveModeActivatedAt: {
+      type: Date,
+      default: null,
+    },
     isVerified: {
       type: Boolean,
       default: false,
