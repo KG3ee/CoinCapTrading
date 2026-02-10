@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Loader2,
   ChevronDown,
+  X,
 } from 'lucide-react';
 import { fetchRealCryptoData, formatPrice, formatLargeNumber } from '@/lib/mockCryptoData';
 import { useSession, signOut } from 'next-auth/react';
@@ -55,6 +56,18 @@ interface WalletData {
     totalHoldings: number;
     totalTrades: number;
   };
+}
+
+interface FundingRequestItem {
+  id: string;
+  requestId: string;
+  type: 'deposit' | 'withdraw';
+  amount: number;
+  asset: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reason?: string;
+  createdAt: string;
+  resolvedAt?: string | null;
 }
 
 type TabType = 'overview' | 'assets' | 'transactions' | 'swap';
@@ -96,12 +109,22 @@ const SWAP_COINS = [
 
 export default function WalletPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { status } = useSession();
   const [data, setData] = useState<WalletData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showBalance, setShowBalance] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [fundingRequests, setFundingRequests] = useState<FundingRequestItem[]>([]);
+  const [fundingLoading, setFundingLoading] = useState(false);
+  const [fundingError, setFundingError] = useState('');
+  const [fundingSuccess, setFundingSuccess] = useState('');
+  const [showFundingModal, setShowFundingModal] = useState(false);
+  const [fundingType, setFundingType] = useState<'deposit' | 'withdraw'>('deposit');
+  const [fundingAmount, setFundingAmount] = useState('');
+  const [fundingSubmitting, setFundingSubmitting] = useState(false);
+  const [withdrawalAddress, setWithdrawalAddress] = useState('');
 
   // Swap state
   const [swapFrom, setSwapFrom] = useState('USDT');
@@ -226,63 +249,131 @@ export default function WalletPage() {
     setSwapPreview(null);
   };
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        if (status !== 'authenticated') {
-          return;
-        }
+  const loadWalletData = async () => {
+    try {
+      if (status !== 'authenticated') {
+        return;
+      }
 
-        const response = await fetch('/api/dashboard', {
-          method: 'GET',
+      const response = await fetch('/api/dashboard', {
+        method: 'GET',
+      });
+
+      if (response.status === 401) {
+        await signOut({ redirect: false });
+        router.push('/login');
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to load wallet');
+      } else {
+        const dashboardData = await response.json();
+
+        const realCryptos = await fetchRealCryptoData();
+        const enrichedHoldings = dashboardData.portfolio.holdings.map((holding: Holding) => {
+          const realCrypto = realCryptos.find(c => c.symbol === holding.cryptoSymbol);
+          return {
+            ...holding,
+            currentPrice: realCrypto?.currentPrice || holding.currentPrice,
+            totalValue: holding.amount * (realCrypto?.currentPrice || holding.currentPrice),
+          };
         });
 
-        if (response.status === 401) {
-          await signOut({ redirect: false });
-          router.push('/login');
-          return;
-        }
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          setError(errorData.error || 'Failed to load wallet');
-        } else {
-          const dashboardData = await response.json();
-          
-          // Enrich holdings with real-time crypto data
-          const realCryptos = await fetchRealCryptoData();
-          const enrichedHoldings = dashboardData.portfolio.holdings.map((holding: Holding) => {
-            const realCrypto = realCryptos.find(c => c.symbol === holding.cryptoSymbol);
-            return {
-              ...holding,
-              currentPrice: realCrypto?.currentPrice || holding.currentPrice,
-              totalValue: holding.amount * (realCrypto?.currentPrice || holding.currentPrice),
-            };
-          });
-
-          setData({
-            ...dashboardData,
-            portfolio: {
-              ...dashboardData.portfolio,
-              holdings: enrichedHoldings,
-            },
-          });
-        }
-      } catch (error) {
-        console.error('Error loading wallet:', error);
-        setError('Failed to load wallet data');
-      } finally {
-        setIsLoading(false);
+        setData({
+          ...dashboardData,
+          portfolio: {
+            ...dashboardData.portfolio,
+            holdings: enrichedHoldings,
+          },
+        });
       }
-    };
+    } catch (error) {
+      console.error('Error loading wallet:', error);
+      setError('Failed to load wallet data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  const loadFundingRequests = async () => {
+    setFundingLoading(true);
+    try {
+      const res = await fetch('/api/wallet/funding');
+      if (res.ok) {
+        const d = await res.json();
+        setFundingRequests(d.requests || []);
+      }
+    } catch {
+      // silent
+    }
+    setFundingLoading(false);
+  };
+
+  const loadProfile = async () => {
+    try {
+      const res = await fetch('/api/user/profile');
+      if (res.ok) {
+        const d = await res.json();
+        setWithdrawalAddress(d.user?.withdrawalAddress || '');
+      }
+    } catch {
+      // silent
+    }
+  };
+
+  const submitFundingRequest = async () => {
+    setFundingError('');
+    setFundingSuccess('');
+    const parsedAmount = Number(fundingAmount);
+    if (!parsedAmount || parsedAmount <= 0) {
+      setFundingError('Enter a valid amount');
+      return;
+    }
+    if (fundingType === 'withdraw' && !withdrawalAddress) {
+      setFundingError('Set a withdrawal address before withdrawing');
+      return;
+    }
+    setFundingSubmitting(true);
+    try {
+      const res = await fetch('/api/wallet/funding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: fundingType, amount: parsedAmount }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to submit request');
+      setFundingSuccess('Request submitted. Processing may take a few minutes.');
+      setFundingAmount('');
+      setShowFundingModal(false);
+      loadFundingRequests();
+      loadWalletData();
+    } catch (err: any) {
+      setFundingError(err.message || 'Failed to submit request');
+    } finally {
+      setFundingSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
       return;
     }
 
-    loadData();
+    loadWalletData();
+    loadFundingRequests();
+    loadProfile();
   }, [router, status]);
+
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (action === 'deposit' || action === 'withdraw') {
+      setFundingType(action);
+      setShowFundingModal(true);
+    }
+  }, [searchParams]);
 
   if (isLoading) {
     return (
@@ -368,6 +459,20 @@ export default function WalletPage() {
             <p className="text-3xl font-bold text-white">
               {showBalance ? formatPrice(data.portfolio.accountBalance) : '••••••'}
             </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                onClick={() => { setFundingType('deposit'); setShowFundingModal(true); }}
+                className="px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-xs font-semibold transition-colors"
+              >
+                Deposit
+              </button>
+              <button
+                onClick={() => { setFundingType('withdraw'); setShowFundingModal(true); }}
+                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors border border-white/10"
+              >
+                Withdraw
+              </button>
+            </div>
           </div>
 
           {/* Portfolio Value */}
@@ -542,6 +647,51 @@ export default function WalletPage() {
 
         {activeTab === 'transactions' && (
           <div className="space-y-4">
+            {/* Funding Requests */}
+            <div className="glass-card border border-white/10">
+              <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white">Funding Requests</h3>
+                <button
+                  onClick={loadFundingRequests}
+                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  title="Refresh"
+                >
+                  <RefreshCw size={14} className="text-gray-400" />
+                </button>
+              </div>
+              <div className="p-4 space-y-2">
+                {fundingLoading ? (
+                  <p className="text-xs text-gray-500">Loading requests...</p>
+                ) : fundingRequests.length === 0 ? (
+                  <p className="text-xs text-gray-500 italic">No funding requests yet</p>
+                ) : (
+                  fundingRequests.map(req => (
+                    <div key={req.id} className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-semibold text-white">
+                            {req.type.toUpperCase()} {req.amount.toLocaleString()} {req.asset}
+                          </p>
+                          <p className="text-[10px] text-gray-400">#{req.requestId}</p>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          req.status === 'approved' ? 'bg-green-500/20 text-green-400' :
+                          req.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                          'bg-yellow-500/20 text-yellow-400'
+                        }`}>
+                          {req.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500">
+                        <span>{new Date(req.createdAt).toLocaleString()}</span>
+                        {req.reason && <span>Reason: {req.reason}</span>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
             {/* Transactions Table */}
             <div className="glass-card border border-white/10 overflow-hidden">
               <div className="overflow-x-auto">
@@ -684,6 +834,74 @@ export default function WalletPage() {
                 {swapLoading ? <Loader2 size={14} className="animate-spin" /> : <ArrowLeftRight size={14} />}
                 {swapLoading ? 'Swapping...' : `Swap ${swapFrom} → ${swapTo}`}
               </button>
+            </div>
+          </div>
+        )}
+
+        {showFundingModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+            <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#0b0b0b] p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white">
+                  {fundingType === 'deposit' ? 'Deposit Request' : 'Withdraw Request'}
+                </h3>
+                <button
+                  onClick={() => setShowFundingModal(false)}
+                  className="p-1.5 rounded-lg hover:bg-white/10"
+                  aria-label="Close"
+                >
+                  <X size={16} className="text-gray-400" />
+                </button>
+              </div>
+
+              {fundingError && <div className="p-2 rounded bg-danger/20 text-danger text-xs">{fundingError}</div>}
+              {fundingSuccess && <div className="p-2 rounded bg-success/20 text-success text-xs">{fundingSuccess}</div>}
+
+              <div className="space-y-1">
+                <label className="text-[11px] text-gray-400">Amount (USDT)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={fundingAmount}
+                  onChange={e => setFundingAmount(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                  placeholder="Enter amount"
+                />
+              </div>
+
+              {fundingType === 'withdraw' && (
+                <div className="space-y-1">
+                  <label className="text-[11px] text-gray-400">Withdrawal Address</label>
+                  <div className="text-[11px] text-gray-300 break-all bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                    {withdrawalAddress || 'Not set'}
+                  </div>
+                  {!withdrawalAddress && (
+                    <button
+                      onClick={() => router.push('/account')}
+                      className="text-[11px] text-accent hover:underline"
+                    >
+                      Set withdrawal address in profile
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={submitFundingRequest}
+                  disabled={fundingSubmitting}
+                  className="flex-1 py-2.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-xs font-semibold disabled:opacity-40"
+                >
+                  {fundingSubmitting ? 'Submitting...' : 'Submit Request'}
+                </button>
+                <button
+                  onClick={() => setShowFundingModal(false)}
+                  className="px-4 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold border border-white/10"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}

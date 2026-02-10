@@ -217,6 +217,20 @@ export default function DashboardPage() {
                 <h2 className="text-3xl font-bold text-white">
                   ${data.portfolio.accountBalance.toFixed(2)}
                 </h2>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => router.push('/wallet?action=deposit')}
+                    className="px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-xs font-semibold transition-colors"
+                  >
+                    Deposit
+                  </button>
+                  <button
+                    onClick={() => router.push('/wallet?action=withdraw')}
+                    className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors border border-white/10"
+                  >
+                    Withdraw
+                  </button>
+                </div>
               </div>
               <Wallet size={32} className="text-accent" />
             </div>

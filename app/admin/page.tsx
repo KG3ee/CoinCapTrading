@@ -5,7 +5,7 @@ import {
   Shield, RefreshCw, Users, TrendingUp, Clock, AlertCircle,
   Plus, Minus, MessageCircle, Send, Paperclip, X as XIcon,
   Trash2, LogOut, Home, Bell, Settings, BarChart3, ChevronRight,
-  BadgeCheck, Eye, XCircle, CheckCircle2, Sun, Moon,
+  BadgeCheck, Eye, XCircle, CheckCircle2, Sun, Moon, ArrowLeftRight,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -166,7 +166,25 @@ interface AdminUserItem {
   createdAt: string;
 }
 
-type AdminTab = 'overview' | 'trades' | 'users' | 'chat' | 'kyc' | 'settings';
+interface FundingRequestItem {
+  id: string;
+  requestId: string;
+  type: 'deposit' | 'withdraw';
+  amount: number;
+  asset: string;
+  status: 'pending' | 'approved' | 'rejected';
+  method?: string;
+  address?: string;
+  reason?: string;
+  createdAt: string;
+  resolvedAt?: string | null;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userUid?: string;
+}
+
+type AdminTab = 'overview' | 'trades' | 'users' | 'chat' | 'kyc' | 'settings' | 'funding';
 
 const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield; permissions: AdminPermission[] }[] = [
   { key: 'overview', label: 'Overview', icon: BarChart3, permissions: ['view_dashboard'] },
@@ -174,6 +192,7 @@ const NAV_ITEMS: { key: AdminTab; label: string; icon: typeof Shield; permission
   { key: 'users', label: 'Accounts', icon: Users, permissions: ['manage_users', 'view_dashboard'] },
   { key: 'kyc', label: 'KYC Verification', icon: BadgeCheck, permissions: ['manage_kyc'] },
   { key: 'chat', label: 'Customer Chat', icon: MessageCircle, permissions: ['manage_support', 'view_support'] },
+  { key: 'funding', label: 'Funding', icon: ArrowLeftRight, permissions: ['manage_financials'] },
   { key: 'settings', label: 'Settings', icon: Settings, permissions: ['manage_settings', 'manage_admins', 'view_logs'] },
 ];
 
@@ -282,6 +301,10 @@ export default function AdminPage() {
   const [auditLogsLoading, setAuditLogsLoading] = useState(false);
   const [auditLogsOpen, setAuditLogsOpen] = useState(false);
   const [auditLogQuery, setAuditLogQuery] = useState('');
+  const [fundingRequests, setFundingRequests] = useState<FundingRequestItem[]>([]);
+  const [fundingFilter, setFundingFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [fundingLoading, setFundingLoading] = useState(false);
+  const [fundingActionLoading, setFundingActionLoading] = useState<string | null>(null);
 
   const [adminSettings, setAdminSettings] = useState<AdminSettingsState | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -389,6 +412,14 @@ export default function AdminPage() {
           fetch('/api/admin/chat', { headers: headers() })
             .then(r => r.ok ? r.json() : null)
             .then(d => { if (d?.conversations) setChatConversations(d.conversations || []); })
+        );
+      }
+
+      if (canLocal('manage_financials')) {
+        tasks.push(
+          fetch('/api/admin/funding?status=pending', { headers: headers() })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.requests) setFundingRequests(d.requests || []); })
         );
       }
 
@@ -552,6 +583,7 @@ export default function AdminPage() {
   const canToggleAdminTheme = !isModerator;
   const canViewSupport = can('manage_support') || can('view_support');
   const canReplySupport = can('manage_support');
+  const canManageFunding = can('manage_financials') && !isModerator;
 
   useEffect(() => {
     if (accountActionType === 'balance' && !canBalanceAction && canBanAction) {
@@ -690,6 +722,25 @@ export default function AdminPage() {
     } catch { /* silent */ }
     setAuditLogsLoading(false);
   }, [headers, isAuthenticated, can]);
+
+  const fetchFundingRequests = useCallback(async (status = fundingFilter) => {
+    if (!canManageFunding) return;
+    setFundingLoading(true);
+    try {
+      const res = await fetch(`/api/admin/funding?status=${status}`, { headers: headers() });
+      if (res.ok) {
+        const data = await res.json();
+        setFundingRequests(data.requests || []);
+      }
+    } catch { /* silent */ }
+    setFundingLoading(false);
+  }, [headers, fundingFilter, canManageFunding]);
+
+  useEffect(() => {
+    if (activeTab === 'funding') {
+      fetchFundingRequests(fundingFilter);
+    }
+  }, [activeTab, fundingFilter, fetchFundingRequests]);
 
   const fetchAdminSettings = useCallback(async () => {
     if (!isAuthenticated || !can('manage_settings')) return;
@@ -1032,6 +1083,28 @@ export default function AdminPage() {
       const r = await fetch(`/api/admin/chat?userId=${userId}`, { method: 'DELETE', headers: headers() });
       if (r.ok) { setActiveChatUser(null); fetchConversations(); }
     } catch { /* silent */ }
+  };
+
+  const handleFundingAction = async (requestId: string, action: 'approve' | 'reject') => {
+    if (!canManageFunding) return;
+    const reason = action === 'reject' ? prompt('Reason for rejection (optional)') || '' : '';
+    setFundingActionLoading(`${requestId}:${action}`);
+    try {
+      const res = await fetch('/api/admin/funding', {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({ requestId, action, reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      fetchFundingRequests(fundingFilter);
+      setSuccess(data.message || `Request ${action}d`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update request');
+    } finally {
+      setFundingActionLoading(null);
+    }
   };
 
   const handleChatFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2312,6 +2385,111 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+            </section>
+          )}
+
+          {/* ── TAB: FUNDING ─────────────────────────── */}
+          {activeTab === 'funding' && canManageFunding && (
+            <section className="flex h-full min-h-0 flex-col gap-3">
+              <div className="panel p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="text-xs font-bold flex items-center gap-1.5">
+                  <ArrowLeftRight size={12} className="text-accent" /> Funding Requests
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {(['pending', 'approved', 'rejected', 'all'] as const).map(status => (
+                    <button
+                      key={status}
+                      onClick={() => setFundingFilter(status)}
+                      className={`px-2.5 py-1 rounded text-[10px] font-semibold ${
+                        fundingFilter === status ? 'bg-accent/20 text-accent' : 'bg-white/5 text-gray-400'
+                      }`}
+                    >
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => fetchFundingRequests(fundingFilter)}
+                    className="px-2.5 py-1 rounded text-[10px] font-semibold bg-white/5 text-gray-400 hover:text-white"
+                    title="Refresh"
+                  >
+                    <RefreshCw size={12} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="panel flex flex-1 min-h-0 flex-col overflow-hidden">
+                <div className="panel-header">
+                  <div className="text-xs font-semibold">Requests ({fundingRequests.length})</div>
+                </div>
+                <div className="panel-body panel-scroll scrollbar-thin-dark flex-1 min-h-0 pr-1">
+                  {fundingLoading ? (
+                    <p className="text-xs text-gray-500">Loading requests...</p>
+                  ) : fundingRequests.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">No funding requests</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {fundingRequests.map(req => (
+                        <div key={req.id} className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold truncate">
+                                {req.userName || req.userEmail || req.userId}
+                                <span className="text-[10px] text-gray-400 ml-2">#{req.requestId}</span>
+                              </p>
+                              <p className="text-[10px] text-gray-400 truncate">{req.userEmail}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-semibold">{req.amount.toLocaleString()} {req.asset}</p>
+                              <p className="text-[10px] text-gray-400">{req.type.toUpperCase()}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                            <span className={`px-2 py-0.5 rounded-full font-semibold ${
+                              req.status === 'approved' ? 'bg-green-500/20 text-green-400' :
+                              req.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                              'bg-yellow-500/20 text-yellow-400'
+                            }`}>
+                              {req.status.toUpperCase()}
+                            </span>
+                            <span className="text-gray-400">
+                              {new Date(req.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+
+                          {req.type === 'withdraw' && req.address && (
+                            <p className="text-[10px] text-gray-400 break-all">
+                              Address: {req.address}
+                            </p>
+                          )}
+                          {req.reason && (
+                            <p className="text-[10px] text-gray-500">Reason: {req.reason}</p>
+                          )}
+
+                          {req.status === 'pending' && (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleFundingAction(req.requestId, 'approve')}
+                                disabled={fundingActionLoading === `${req.requestId}:approve`}
+                                className="px-3 py-1.5 rounded bg-green-600 hover:bg-green-500 text-white text-[10px] font-semibold disabled:opacity-40"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleFundingAction(req.requestId, 'reject')}
+                                disabled={fundingActionLoading === `${req.requestId}:reject`}
+                                className="px-3 py-1.5 rounded bg-red-600/20 hover:bg-red-600/40 text-red-400 text-[10px] font-semibold border border-red-600/30 disabled:opacity-40"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </section>
           )}
 

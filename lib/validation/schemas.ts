@@ -65,6 +65,14 @@ export const profileUpdateSchema = z.object({
   profilePicture: z.string().nullable().optional(),
 });
 
+export const fundingRequestSchema = z.object({
+  type: z.enum(['deposit', 'withdraw']),
+  amount: z.coerce.number()
+    .positive('Amount must be positive')
+    .max(1000000000, 'Amount is too large')
+    .refine(val => Number.isFinite(val), 'Amount must be a valid number'),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type TradeInput = z.infer<typeof tradeSchema>;
@@ -72,3 +80,4 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
+export type FundingRequestInput = z.infer<typeof fundingRequestSchema>;

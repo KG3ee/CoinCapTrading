@@ -56,6 +56,23 @@ export interface User {
   updatedAt: Date;
 }
 
+export interface FundingRequest {
+  _id: string;
+  requestId: string;
+  userId: string;
+  type: 'deposit' | 'withdraw';
+  amount: number;
+  asset: string;
+  method: string;
+  address: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reason?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  resolvedAt?: Date | null;
+  resolvedBy?: string | null;
+}
+
 export interface CoinCapAsset {
   id: string;
   rank: string;

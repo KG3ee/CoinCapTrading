@@ -322,7 +322,7 @@ html {
 
 @layer utilities {
   .admin-shell {
-    @apply h-screen h-dvh w-full overflow-hidden flex;
+    @apply h-dvh w-full overflow-hidden flex;
   }
 
   .admin-sidebar {
