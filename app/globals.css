@@ -271,16 +271,18 @@ html {
 }
 
 @layer components {
-  .glass {
-    background: var(--admin-card);
-    border: 1px solid var(--admin-border);
-    backdrop-filter: blur(12px);
-  }
-  
+  .glass,
   .glass-card {
     @apply rounded-lg p-2.5 sm:p-3 md:p-3.5 shadow-lg transition-smooth;
+    background: var(--app-card);
+    border: 1px solid var(--app-border);
+    backdrop-filter: blur(12px);
+  }
+
+  .admin-theme .glass,
+  .admin-theme .glass-card {
     background: var(--admin-card);
-    border: 1px solid var(--admin-border);
+    border-color: var(--admin-border);
   }
 
   .text-responsive-xl {
