@@ -334,6 +334,7 @@ export default function AdminPage() {
   const [filterVerified, setFilterVerified] = useState<'all' | 'verified' | 'unverified'>('all');
   const [filterTwoFactor, setFilterTwoFactor] = useState<'all' | 'enabled' | 'disabled'>('all');
   const [filterKyc, setFilterKyc] = useState<'all' | 'none' | 'pending' | 'approved' | 'rejected'>('all');
+  const [showAdvancedUserFilters, setShowAdvancedUserFilters] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [balanceReason, setBalanceReason] = useState('');
   const [accountActionMode, setAccountActionMode] = useState<'create' | 'reset'>('create');
@@ -1346,6 +1347,7 @@ export default function AdminPage() {
     setFilterVerified('all');
     setFilterTwoFactor('all');
     setFilterKyc('all');
+    setShowAdvancedUserFilters(false);
   };
 
   const handleAdjustBalance = async () => {
@@ -2439,13 +2441,28 @@ export default function AdminPage() {
 
                 <div className="space-y-2 flex-shrink-0">
                   <label className="block text-[10px] text-gray-400 mb-0.5">Search users</label>
-                  <input
-                    value={userSearch}
-                    onChange={e => setUserSearch(e.target.value)}
-                    placeholder="Search by name, email, or UID"
-                    className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
-                  />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input
+                      value={userSearch}
+                      onChange={e => setUserSearch(e.target.value)}
+                      placeholder="Search by name, email, or UID"
+                      className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAdvancedUserFilters(prev => !prev)}
+                      className="sm:hidden px-2.5 py-1.5 rounded text-[10px] font-semibold bg-white/5 text-gray-300 hover:text-white"
+                    >
+                      {showAdvancedUserFilters ? 'Hide Filters' : 'Show Filters'}
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500">
+                    <span>Matching users: {filteredUsers.length}</span>
+                    {selectedUserIds.length > 0 && <span>Selected: {selectedUserIds.length}</span>}
+                  </div>
+
+                  <div className={`${showAdvancedUserFilters ? 'grid' : 'hidden'} sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 rounded-lg border border-white/10 bg-white/5 p-2`}>
                     <div>
                       <label className="block text-[10px] text-gray-400 mb-0.5">Status</label>
                       <select
@@ -2510,16 +2527,6 @@ export default function AdminPage() {
                       </select>
                     </div>
                   </div>
-                  {(userSearch || hasFilters) && (
-                    <p className="text-[10px] text-gray-500">
-                      Matching users: {filteredUsers.length}
-                    </p>
-                  )}
-                  {selectedUserIds.length > 0 && (
-                    <p className="text-[10px] text-gray-500">
-                      Selected: {selectedUserIds.length}
-                    </p>
-                  )}
                 </div>
 
                 {userBalances.length > 0 && (
@@ -2932,30 +2939,10 @@ export default function AdminPage() {
           {/* ── TAB: FUNDING ─────────────────────────── */}
           {activeTab === 'funding' && canManageFunding && (
             <section className="flex h-full min-h-0 flex-col gap-3">
-              <div className="panel p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="panel p-3 flex items-center justify-between">
                 <h3 className="text-xs font-bold flex items-center gap-1.5">
-                  <ArrowLeftRight size={12} className="text-accent" /> Funding Requests
+                  <ArrowLeftRight size={12} className="text-accent" /> Funding
                 </h3>
-                <div className="flex flex-wrap gap-2">
-                  {(['pending', 'approved', 'rejected', 'all'] as const).map(status => (
-                    <button
-                      key={status}
-                      onClick={() => setFundingFilter(status)}
-                      className={`px-2.5 py-1 rounded text-[10px] font-semibold ${
-                        fundingFilter === status ? 'bg-accent/20 text-accent' : 'bg-white/5 text-gray-400'
-                      }`}
-                    >
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => fetchFundingRequests(fundingFilter)}
-                    className="px-2.5 py-1 rounded text-[10px] font-semibold bg-white/5 text-gray-400 hover:text-white"
-                    title="Refresh"
-                  >
-                    <RefreshCw size={12} />
-                  </button>
-                </div>
               </div>
 
               <div className="panel p-3 flex flex-col gap-3">
@@ -3040,7 +3027,27 @@ export default function AdminPage() {
 
               <div className="panel flex flex-1 min-h-0 flex-col overflow-hidden">
                 <div className="panel-header">
-                  <div className="text-xs font-semibold">Requests ({fundingRequests.length})</div>
+                  <div className="text-xs font-semibold">Funding Requests</div>
+                  <div className="flex flex-wrap gap-2">
+                    {(['pending', 'approved', 'rejected', 'all'] as const).map(status => (
+                      <button
+                        key={status}
+                        onClick={() => setFundingFilter(status)}
+                        className={`px-2.5 py-1 rounded text-[10px] font-semibold ${
+                          fundingFilter === status ? 'bg-accent/20 text-accent' : 'bg-white/5 text-gray-400'
+                        }`}
+                      >
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => fetchFundingRequests(fundingFilter)}
+                      className="px-2.5 py-1 rounded text-[10px] font-semibold bg-white/5 text-gray-400 hover:text-white"
+                      title="Refresh"
+                    >
+                      <RefreshCw size={12} />
+                    </button>
+                  </div>
                 </div>
                 <div className="panel-body panel-scroll scrollbar-thin-dark flex-1 min-h-0 pr-1">
                   {fundingLoading ? (

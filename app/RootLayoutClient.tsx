@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, ArrowLeftRight, Wallet, Menu, X, User, BarChart3, Bell, Newspaper, Mail, Eye, EyeOff, ChevronUp } from 'lucide-react';
+import { Home, ArrowLeftRight, Wallet, Menu, X, User, Bell, Newspaper, Mail, Eye, EyeOff, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback, useRef, type UIEvent } from 'react';
@@ -217,12 +217,11 @@ function RootLayoutContent({
   const showDemoBadge = isDemoMode || isDemoUser;
 
   const navItems = [
-    { name: 'Home', icon: Home, href: '/' },
-    { name: 'Markets', icon: BarChart3, href: '/markets' },
-    { name: 'Trade', icon: ArrowLeftRight, href: '/trade' },
-    { name: 'News', icon: Newspaper, href: '/news' },
-    { name: 'Messages', icon: Mail, href: '/messages' },
-    { name: 'Wallet', icon: Wallet, href: '/wallet' },
+    { name: 'Home', icon: Home, href: '/', match: (path: string) => path === '/' },
+    { name: 'News', icon: Newspaper, href: '/news', match: (path: string) => path.startsWith('/news') },
+    { name: 'Trade', icon: ArrowLeftRight, href: '/trade', match: (path: string) => path.startsWith('/trade') || path.startsWith('/markets') },
+    { name: 'Message', icon: Mail, href: '/messages', match: (path: string) => path.startsWith('/messages') },
+    { name: 'Wallet', icon: Wallet, href: '/wallet', match: (path: string) => path.startsWith('/wallet') },
   ];
 
   const accountLink = { name: 'Account', icon: User, href: '/account' };
@@ -290,10 +289,10 @@ function RootLayoutContent({
         <nav className="flex-1 overflow-y-auto p-2.5 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            const isActive = item.match(pathname);
             return (
               <Link
-                key={item.name}
+                key={item.href}
                 href={item.href}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   isActive ? 'bg-accent text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'
@@ -404,10 +403,10 @@ function RootLayoutContent({
             <nav className="space-y-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.href;
+                const isActive = item.match(pathname);
                 return (
                   <Link
-                    key={item.name}
+                    key={item.href}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg min-h-touch transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
@@ -460,10 +459,10 @@ function RootLayoutContent({
         <div className="flex items-center justify-around px-1 py-2">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            const isActive = item.match(pathname);
             return (
               <Link
-                key={item.name}
+                key={item.href}
                 href={item.href}
                 className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1.5 min-h-touch min-w-touch rounded-lg transition-smooth ${
                   isActive ? 'text-accent' : 'text-gray-400'
