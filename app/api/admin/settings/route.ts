@@ -52,6 +52,23 @@ function sanitizeNewsItems(value: unknown) {
     .slice(0, 20);
 }
 
+function sanitizeFaqItems(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item: any, index: number) => {
+      const question = typeof item?.question === 'string' ? item.question.trim() : '';
+      const answer = typeof item?.answer === 'string' ? item.answer.trim() : '';
+      if (!question || !answer) return null;
+      return {
+        id: typeof item?.id === 'string' && item.id.trim() ? item.id.trim() : `faq-${index + 1}`,
+        question,
+        answer,
+      };
+    })
+    .filter((item): item is { id: string; question: string; answer: string } => Boolean(item))
+    .slice(0, 20);
+}
+
 export async function GET(request: NextRequest) {
   const context = await getAdminContext(request);
   if ('error' in context) {
@@ -84,6 +101,13 @@ export async function GET(request: NextRequest) {
                   imageUrl: '',
                 },
               ],
+        },
+        chatFaqs: Array.isArray(settings.chatFaqs) ? settings.chatFaqs : [],
+        promotion: settings.promotion || {
+          message: '',
+          targetPath: '/news',
+          enabled: false,
+          updatedAt: null,
         },
         apiKeys: settings.apiKeys?.map((k: any) => ({
           id: k.id,
@@ -152,6 +176,27 @@ export async function PUT(request: NextRequest) {
           } catch {
             // Ignore invalid URL and keep existing value.
           }
+        }
+      }
+    }
+    if (Array.isArray(body.chatFaqs)) {
+      settings.chatFaqs = sanitizeFaqItems(body.chatFaqs);
+    }
+    if (body.promotion && typeof body.promotion === 'object') {
+      if (typeof body.promotion.message === 'string') {
+        settings.promotion.message = body.promotion.message.trim();
+      }
+      if (typeof body.promotion.enabled === 'boolean') {
+        settings.promotion.enabled = body.promotion.enabled;
+      }
+      if (typeof body.promotion.targetPath === 'string') {
+        const nextPath = body.promotion.targetPath.trim();
+        settings.promotion.targetPath = nextPath.startsWith('/') ? nextPath : '/news';
+      }
+      if (typeof body.promotion.updatedAt === 'string') {
+        const parsed = new Date(body.promotion.updatedAt);
+        if (!Number.isNaN(parsed.getTime())) {
+          settings.promotion.updatedAt = parsed;
         }
       }
     }

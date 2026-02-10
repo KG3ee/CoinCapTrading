@@ -20,6 +20,12 @@ interface ChatMsg {
   createdAt: string;
 }
 
+interface ChatFaq {
+  id: string;
+  question: string;
+  answer: string;
+}
+
 export default function ChatWidget() {
   const { status } = useSession();
   const [isOpen, setIsOpen] = useState(false);
@@ -30,6 +36,7 @@ export default function ChatWidget() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  const [faqItems, setFaqItems] = useState<ChatFaq[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatBodyRef = useRef<HTMLDivElement>(null);
@@ -75,12 +82,35 @@ export default function ChatWidget() {
     } catch {}
   }, [isAuthenticated]);
 
+  const fetchFaqs = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await fetch('/api/chat/faq', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data?.items)) {
+        setFaqItems(
+          data.items
+            .map((item: any, index: number) => ({
+              id: item?.id || `faq-${index + 1}`,
+              question: String(item?.question || '').trim(),
+              answer: String(item?.answer || '').trim(),
+            }))
+            .filter((item: ChatFaq) => item.question || item.answer)
+        );
+      }
+    } catch {
+      // silent
+    }
+  }, [isAuthenticated]);
+
   // Initial load
   useEffect(() => {
     if (isAuthenticated) {
       fetchUnread();
+      fetchFaqs();
     }
-  }, [isAuthenticated, fetchUnread]);
+  }, [isAuthenticated, fetchUnread, fetchFaqs]);
 
   // When opening chat
   useEffect(() => {
@@ -302,6 +332,22 @@ export default function ChatWidget() {
                 <div className="text-center text-gray-500 text-xs">
                   Send a message to start a conversation with our support team.
                 </div>
+                {faqItems.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    <p className="text-[11px] text-gray-400">Quick FAQ</p>
+                    {faqItems.slice(0, 4).map((faq) => (
+                      <button
+                        key={faq.id}
+                        type="button"
+                        onClick={() => setInput(faq.question)}
+                        className="w-full text-left rounded-lg border border-white/10 bg-white/5 px-3 py-2 hover:bg-white/10 transition-colors"
+                      >
+                        <p className="text-xs font-semibold text-white">{faq.question}</p>
+                        {faq.answer && <p className="text-[11px] text-gray-400 mt-1 max-h-16 overflow-hidden">{faq.answer}</p>}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               messages.map((msg) => (

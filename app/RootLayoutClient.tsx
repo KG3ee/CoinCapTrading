@@ -197,6 +197,7 @@ function RootLayoutContent({
   // Check if current page is auth page or admin page (these get their own layout)
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/verify-email';
   const isAdminPage = pathname.startsWith('/admin');
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
   const navItems = [
     { name: 'Home', icon: Home, href: '/' },
@@ -217,9 +218,12 @@ function RootLayoutContent({
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:h-full md:flex-col md:w-56 glass border-r border-white/10 relative z-40">
         <div className="p-4 border-b border-white/10 flex items-center justify-between gap-2">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-            CryptoTrade
-          </h1>
+          <div>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+              CryptoTrade
+            </h1>
+            {isDemoMode && <p className="text-[10px] uppercase tracking-wide text-amber-400">Demo</p>}
+          </div>
           <div className="relative">
             <button
               onClick={() => setShowUserNotifications((prev) => !prev)}
@@ -234,7 +238,7 @@ function RootLayoutContent({
               )}
             </button>
             {showUserNotifications && (
-              <div className="menu-surface absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-[140]">
+              <div className="menu-surface absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-[220]">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                   <p className="text-xs font-semibold text-white">Notifications</p>
                   <button onClick={handleMarkUserNotificationsRead} className="text-[10px] text-accent hover:underline">
@@ -314,9 +318,12 @@ function RootLayoutContent({
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-[80] glass border-b border-white/10" style={{paddingTop: 'env(safe-area-inset-top)'}}>
         <div className="flex items-center justify-between px-3 py-3">
-          <h1 className="text-base font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent truncate">
-            CryptoTrade
-          </h1>
+          <div className="min-w-0">
+            <h1 className="text-base font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent truncate">
+              CryptoTrade
+            </h1>
+            {isDemoMode && <p className="text-[10px] uppercase tracking-wide text-amber-400">Demo</p>}
+          </div>
           <div className="flex items-center gap-2">
             <div className="relative">
               <button
@@ -332,7 +339,7 @@ function RootLayoutContent({
                 )}
               </button>
               {showUserNotifications && (
-                <div className="menu-surface absolute right-0 top-full mt-2 w-[min(90vw,20rem)] max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-[140]">
+                <div className="menu-surface absolute right-0 top-full mt-2 w-[min(90vw,20rem)] max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-[220]">
                   <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                     <p className="text-xs font-semibold text-white">Notifications</p>
                     <button onClick={handleMarkUserNotificationsRead} className="text-[10px] text-accent hover:underline">

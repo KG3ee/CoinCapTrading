@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     const users = await User.find(
       {},
-      'fullName email uid accountStatus isVerified isTwoFactorEnabled kycStatus lastActiveAt createdAt'
+      'fullName email uid accountStatus isDemoUser isVerified isTwoFactorEnabled kycStatus lastActiveAt createdAt'
     ).sort({ fullName: 1 });
     const inactiveCutoff = new Date(Date.now() - 183 * 24 * 60 * 60 * 1000);
 
@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
           name: user.fullName || user.email,
           email: user.email,
           uid: user.uid,
+          isDemoUser: !!user.isDemoUser,
           accountStatus,
           isVerified: !!user.isVerified,
           isTwoFactorEnabled: !!user.isTwoFactorEnabled,

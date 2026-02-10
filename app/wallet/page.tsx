@@ -567,7 +567,7 @@ export default function WalletPage() {
 
   // Tab styles
   const tabClass = (tab: TabType) => `
-    inline-flex items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-[11px] sm:text-sm font-semibold transition-all border border-transparent min-h-[42px]
+    inline-flex items-center justify-center rounded-lg px-1 py-2 text-[10px] sm:text-xs font-semibold transition-all border border-transparent min-h-[42px] min-w-0
     ${activeTab === tab
       ? 'text-accent border-accent/40 bg-accent/10'
       : 'text-gray-400 hover:text-white hover:bg-white/5 border-white/10'
@@ -612,7 +612,7 @@ export default function WalletPage() {
                   setFundingNetwork('TRC20');
                   setShowFundingModal(true);
                 }}
-                className="inline-flex min-w-[112px] items-center justify-center px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-xs font-semibold transition-colors"
+                className="inline-flex flex-1 sm:flex-none min-w-0 sm:min-w-[112px] items-center justify-center px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-xs font-semibold transition-colors"
               >
                 Deposit
               </button>
@@ -624,7 +624,7 @@ export default function WalletPage() {
                   setFundingNetwork('TRC20');
                   setShowFundingModal(true);
                 }}
-                className="inline-flex min-w-[112px] items-center justify-center px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors border border-white/10"
+                className="inline-flex flex-1 sm:flex-none min-w-0 sm:min-w-[112px] items-center justify-center px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors border border-white/10"
               >
                 Withdraw
               </button>
@@ -663,8 +663,8 @@ export default function WalletPage() {
             onClick={() => setActiveTab('overview')}
             className={tabClass('overview')}
           >
-            <div className="flex items-center gap-2">
-              <BarChart3 size={18} />
+            <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 leading-tight">
+              <BarChart3 size={14} className="hidden sm:block" />
               Overview
             </div>
           </button>
@@ -672,8 +672,8 @@ export default function WalletPage() {
             onClick={() => setActiveTab('assets')}
             className={tabClass('assets')}
           >
-            <div className="flex items-center gap-2">
-              <ArrowUpRight size={18} />
+            <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 leading-tight">
+              <ArrowUpRight size={14} className="hidden sm:block" />
               Assets
             </div>
           </button>
@@ -681,8 +681,8 @@ export default function WalletPage() {
             onClick={() => setActiveTab('transactions')}
             className={tabClass('transactions')}
           >
-            <div className="flex items-center gap-2">
-              <ArrowDownLeft size={18} />
+            <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 leading-tight">
+              <ArrowDownLeft size={14} className="hidden sm:block" />
               Transactions
             </div>
           </button>
@@ -690,8 +690,8 @@ export default function WalletPage() {
             onClick={() => setActiveTab('convert')}
             className={tabClass('convert')}
           >
-            <div className="flex items-center gap-2">
-              <ArrowLeftRight size={18} />
+            <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 leading-tight">
+              <ArrowLeftRight size={14} className="hidden sm:block" />
               Convert
             </div>
           </button>

@@ -248,25 +248,30 @@ export async function PUT(request: NextRequest) {
     funding.resolvedBy = context.admin._id;
     await funding.save();
 
-    await AdminAuditLog.create({
-      actionType: 'funding_request',
-      action: funding.status,
-      userId: funding.userId,
-      userName: user?.fullName || '',
-      userEmail: user?.email || '',
-      amount: toFiniteNumber(funding.amount),
-      reason: funding.reason || (action === 'approve' ? 'Approved funding request' : 'Rejected funding request'),
-      actor: context.admin._id.toString(),
-      actorName: context.admin.name,
-      actorRole: context.admin.role,
-      targetType: 'funding_request',
-      targetId: funding._id.toString(),
-      ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
-    });
+    try {
+      await AdminAuditLog.create({
+        actionType: 'funding_request',
+        action: funding.status,
+        userId: funding.userId,
+        userName: user?.fullName || '',
+        userEmail: user?.email || '',
+        amount: toFiniteNumber(funding.amount),
+        reason: funding.reason || (action === 'approve' ? 'Approved funding request' : 'Rejected funding request'),
+        actor: context.admin._id.toString(),
+        actorName: context.admin.name,
+        actorRole: context.admin.role,
+        targetType: 'funding_request',
+        targetId: funding._id.toString(),
+        ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
+      });
+    } catch (auditError: any) {
+      log.warn({ auditError, requestId }, 'Funding request updated but audit logging failed');
+    }
 
     return NextResponse.json({ message: `Request ${funding.status}`, requestId });
   } catch (error: any) {
-    log.error({ error }, 'Failed to update funding request');
-    return NextResponse.json({ error: error?.message || 'Failed to update request' }, { status: 500 });
+    const message = error?.message || error?.cause?.message || 'Failed to update request';
+    log.error({ error, requestId: request.nextUrl.searchParams.get('requestId') }, 'Failed to update funding request');
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

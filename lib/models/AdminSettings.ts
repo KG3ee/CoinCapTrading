@@ -42,6 +42,25 @@ const newsItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const chatFaqSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    question: { type: String, required: true },
+    answer: { type: String, required: true },
+  },
+  { _id: false }
+);
+
+const promotionSchema = new mongoose.Schema(
+  {
+    message: { type: String, default: '' },
+    targetPath: { type: String, default: '/news' },
+    enabled: { type: Boolean, default: false },
+    updatedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
 const adminSettingsSchema = new mongoose.Schema(
   {
     rbacEnabled: { type: Boolean, default: false },
@@ -64,6 +83,8 @@ const adminSettingsSchema = new mongoose.Schema(
       url: { type: String, default: 'https://www.coindesk.com/' },
       items: { type: [newsItemSchema], default: [] },
     },
+    chatFaqs: { type: [chatFaqSchema], default: [] },
+    promotion: { type: promotionSchema, default: () => ({}) },
     funding: {
       wallets: { type: [fundingWalletSchema], default: [] },
     },
@@ -162,6 +183,35 @@ adminSettingsSchema.statics.getSettings = async function () {
         imageUrl: '',
       },
     ];
+    await settings.save();
+  }
+  if (!Array.isArray(settings.chatFaqs) || settings.chatFaqs.length === 0) {
+    settings.chatFaqs = [
+      {
+        id: 'faq-verify-time',
+        question: 'How long does deposit verification take?',
+        answer: 'Most deposits are reviewed within 5 to 30 minutes after submission.',
+      },
+      {
+        id: 'faq-withdraw-status',
+        question: 'How do I check my withdrawal status?',
+        answer: 'Open Wallet > Transactions and check the request status there.',
+      },
+      {
+        id: 'faq-security',
+        question: 'What should I do if my account is locked?',
+        answer: 'Use Change Password and contact support with your UID if access is still blocked.',
+      },
+    ];
+    await settings.save();
+  }
+  if (!settings.promotion || typeof settings.promotion !== 'object') {
+    settings.promotion = {
+      message: '',
+      targetPath: '/news',
+      enabled: false,
+      updatedAt: null,
+    };
     await settings.save();
   }
   return settings;

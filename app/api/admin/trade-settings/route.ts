@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
         globalMode: settings.globalMode,
         winRatePercent: settings.winRatePercent,
         userOverrides: Object.fromEntries(settings.userOverrides || new Map()),
+        userWinStreaks: Object.fromEntries(settings.userWinStreaks || new Map()),
       },
       stats: { totalTrades, pendingTrades, wins, losses },
       recentTrades: recentTrades.map((t: any) => ({
@@ -88,7 +89,7 @@ export async function PUT(request: NextRequest) {
   try {
     await connectDB();
     const body = await request.json();
-    const { globalMode, winRatePercent, userOverrides } = body;
+    const { globalMode, winRatePercent, userOverrides, userWinStreaks } = body;
 
     const settings = await TradeSettings.getSettings();
 
@@ -141,6 +142,24 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    if (userWinStreaks && typeof userWinStreaks === 'object') {
+      for (const [userId, payload] of Object.entries(userWinStreaks)) {
+        if (payload === null) {
+          settings.userWinStreaks.delete(userId);
+          continue;
+        }
+
+        const remainingWins = Math.max(0, Number((payload as any)?.remainingWins ?? 0));
+        const fallbackMode = (payload as any)?.fallbackMode === 'lose' ? 'lose' : 'global';
+
+        if (!Number.isFinite(remainingWins) || remainingWins <= 0) {
+          settings.userWinStreaks.delete(userId);
+        } else {
+          settings.userWinStreaks.set(userId, { remainingWins, fallbackMode });
+        }
+      }
+    }
+
     await settings.save();
 
     log.info({ globalMode: settings.globalMode, winRatePercent: settings.winRatePercent }, 'Trade settings updated');
@@ -151,6 +170,7 @@ export async function PUT(request: NextRequest) {
         globalMode: settings.globalMode,
         winRatePercent: settings.winRatePercent,
         userOverrides: Object.fromEntries(settings.userOverrides || new Map()),
+        userWinStreaks: Object.fromEntries(settings.userWinStreaks || new Map()),
       },
     });
   } catch (error: any) {

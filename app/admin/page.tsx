@@ -14,6 +14,7 @@ interface TradeSettingsData {
   globalMode: 'random' | 'all_win' | 'all_lose';
   winRatePercent: number;
   userOverrides: Record<string, string>;
+  userWinStreaks: Record<string, { remainingWins: number; fallbackMode: 'lose' | 'global' }>;
 }
 interface TradeStats {
   totalTrades: number;
@@ -44,6 +45,7 @@ interface UserBalance {
   uid: string;
   balance: number;
   accountStatus: 'active' | 'inactive' | 'banned';
+  isDemoUser: boolean;
   isVerified: boolean;
   isTwoFactorEnabled: boolean;
   kycStatus: 'none' | 'pending' | 'approved' | 'rejected';
@@ -134,6 +136,8 @@ interface AdminSettingsState {
   notifications: { newUsers: boolean; largeWithdrawals: boolean; flaggedTrades: boolean };
   maintenance: { enabled: boolean; message: string };
   news: { title: string; url: string; items: NewsSettingsItem[] };
+  chatFaqs: { id: string; question: string; answer: string }[];
+  promotion: { message: string; targetPath: string; enabled: boolean; updatedAt: string | null };
   ui: { theme: 'dark' | 'light' };
 }
 
@@ -273,6 +277,7 @@ function OverviewScrollCard({
 }
 
 export default function AdminPage() {
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
   const [adminKey, setAdminKey] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -295,6 +300,8 @@ export default function AdminPage() {
   const [winRate, setWinRate] = useState<number>(50);
   const [selectedUser, setSelectedUser] = useState('');
   const [userOverride, setUserOverride] = useState('');
+  const [sequenceWins, setSequenceWins] = useState('0');
+  const [sequenceFallback, setSequenceFallback] = useState<'lose' | 'global'>('global');
 
   const [balanceUserId, setBalanceUserId] = useState('');
   const [balanceAction, setBalanceAction] = useState<string>('increase');
@@ -308,6 +315,7 @@ export default function AdminPage() {
 
   const [userSearch, setUserSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'banned'>('all');
+  const [filterDemo, setFilterDemo] = useState<'all' | 'demo' | 'live'>('all');
   const [filterVerified, setFilterVerified] = useState<'all' | 'verified' | 'unverified'>('all');
   const [filterTwoFactor, setFilterTwoFactor] = useState<'all' | 'enabled' | 'disabled'>('all');
   const [filterKyc, setFilterKyc] = useState<'all' | 'none' | 'pending' | 'approved' | 'rejected'>('all');
@@ -339,6 +347,7 @@ export default function AdminPage() {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminRole, setNewAdminRole] = useState<'admin' | 'moderator'>('admin');
   const [newAdminKey, setNewAdminKey] = useState<string | null>(null);
+  const [sendingPromotion, setSendingPromotion] = useState(false);
 
   const [createFullName, setCreateFullName] = useState('');
   const [createEmail, setCreateEmail] = useState('');
@@ -549,6 +558,10 @@ export default function AdminPage() {
       }
     }
     if (filterStatus !== 'all' && u.accountStatus !== filterStatus) return false;
+    if (filterDemo !== 'all') {
+      if (filterDemo === 'demo' && !u.isDemoUser) return false;
+      if (filterDemo === 'live' && u.isDemoUser) return false;
+    }
     if (filterVerified !== 'all' && u.isVerified !== (filterVerified === 'verified')) return false;
     if (filterTwoFactor !== 'all' && u.isTwoFactorEnabled !== (filterTwoFactor === 'enabled')) return false;
     if (filterKyc !== 'all' && u.kycStatus !== filterKyc) return false;
@@ -577,7 +590,7 @@ export default function AdminPage() {
     return { id: u.id, name: u.name || u.email, oldBalance: u.balance, newBalance };
   });
   const previewMoreCount = Math.max(0, previewTargets.length - previewRows.length);
-  const hasFilters = filterStatus !== 'all' || filterVerified !== 'all' || filterTwoFactor !== 'all' || filterKyc !== 'all';
+  const hasFilters = filterStatus !== 'all' || filterDemo !== 'all' || filterVerified !== 'all' || filterTwoFactor !== 'all' || filterKyc !== 'all';
   const normalizedAuditQuery = auditLogQuery.trim().toLowerCase();
   const filteredAuditLogs = auditLogs.filter(log => {
     if (!normalizedAuditQuery) return true;
@@ -886,13 +899,11 @@ export default function AdminPage() {
               id: item?.id || `news-${index + 1}`,
               title: item?.title || `News ${index + 1}`,
               url: item?.url || '',
-              imageUrl: item?.imageUrl || '',
             }))
           : [{
               id: 'news-default',
               title: apiNews.title || 'Market News',
               url: apiNews.url || 'https://www.coindesk.com/',
-              imageUrl: '',
             }];
 
         setAdminSettings({
@@ -901,6 +912,21 @@ export default function AdminPage() {
             title: apiNews.title || normalizedNewsItems[0]?.title || 'Market News',
             url: apiNews.url || normalizedNewsItems[0]?.url || 'https://www.coindesk.com/',
             items: normalizedNewsItems,
+          },
+          chatFaqs: Array.isArray(data.settings?.chatFaqs) && data.settings.chatFaqs.length > 0
+            ? data.settings.chatFaqs
+            : [
+                {
+                  id: 'faq-default',
+                  question: 'How long does deposit approval take?',
+                  answer: 'Deposits are normally reviewed quickly. You can track status in Wallet > Transactions.',
+                },
+              ],
+          promotion: {
+            message: data.settings?.promotion?.message || '',
+            targetPath: data.settings?.promotion?.targetPath || '/news',
+            enabled: !!data.settings?.promotion?.enabled,
+            updatedAt: data.settings?.promotion?.updatedAt || null,
           },
         });
         setIpWhitelistInput((data.settings?.security?.ipWhitelist || []).join('\n'));
@@ -993,7 +1019,7 @@ export default function AdminPage() {
     adminContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  const handleNewsItemChange = (newsId: string, field: 'title' | 'url' | 'imageUrl', value: string) => {
+  const handleNewsItemChange = (newsId: string, field: 'title' | 'url', value: string) => {
     setAdminSettings((current) => {
       if (!current) return current;
       return {
@@ -1022,7 +1048,6 @@ export default function AdminPage() {
               id: `news-${Date.now().toString(36)}-${nextIndex}`,
               title: `News ${nextIndex}`,
               url: '',
-              imageUrl: '',
             },
           ],
         },
@@ -1042,6 +1067,151 @@ export default function AdminPage() {
         },
       };
     });
+  };
+
+  const handleFaqChange = (faqId: string, field: 'question' | 'answer', value: string) => {
+    setAdminSettings((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        chatFaqs: current.chatFaqs.map((faq) => (
+          faq.id === faqId ? { ...faq, [field]: value } : faq
+        )),
+      };
+    });
+  };
+
+  const handleAddFaq = () => {
+    setAdminSettings((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        chatFaqs: [
+          ...current.chatFaqs,
+          {
+            id: `faq-${Date.now().toString(36)}`,
+            question: '',
+            answer: '',
+          },
+        ],
+      };
+    });
+  };
+
+  const handleRemoveFaq = (faqId: string) => {
+    setAdminSettings((current) => {
+      if (!current) return current;
+      const nextFaqs = current.chatFaqs.filter((faq) => faq.id !== faqId);
+      return {
+        ...current,
+        chatFaqs: nextFaqs.length > 0 ? nextFaqs : current.chatFaqs,
+      };
+    });
+  };
+
+  const handleSendPromotion = async () => {
+    if (!can('manage_settings') || !adminSettings) return;
+    const message = adminSettings.promotion.message.trim();
+    if (!message) {
+      setError('Promotion message is required');
+      return;
+    }
+
+    setSendingPromotion(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({
+          promotion: {
+            ...adminSettings.promotion,
+            message,
+            enabled: true,
+            updatedAt: new Date().toISOString(),
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send promotion');
+
+      setAdminSettings((current) => current ? {
+        ...current,
+        promotion: {
+          ...current.promotion,
+          message,
+          enabled: true,
+          updatedAt: new Date().toISOString(),
+        },
+      } : current);
+      setSuccess('Promotion sent to in-app notifications');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to send promotion');
+    } finally {
+      setSendingPromotion(false);
+    }
+  };
+
+  const handleToggleDemoUser = async (userId: string, isDemoUser: boolean) => {
+    if (!canManageUsers) return;
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({ userId, isDemoUser }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update demo user');
+      setUserBalances((current) => current.map((user) => (
+        user.id === userId ? { ...user, isDemoUser } : user
+      )));
+      setSuccess(data.message || 'Updated');
+      setTimeout(() => setSuccess(''), 2000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update demo user');
+    }
+  };
+
+  const handleSetUserWinStreak = async () => {
+    if (!can('manage_trades')) {
+      setError('You do not have permission to manage trades');
+      return;
+    }
+    if (!selectedUser) {
+      setError('Select a user first');
+      return;
+    }
+
+    const wins = Math.max(0, Number(sequenceWins));
+    if (!Number.isFinite(wins)) {
+      setError('Win streak value is invalid');
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+    try {
+      const payload = wins <= 0
+        ? { [selectedUser]: null }
+        : { [selectedUser]: { remainingWins: wins, fallbackMode: sequenceFallback } };
+
+      const res = await fetch('/api/admin/trade-settings', {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({ userWinStreaks: payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save win streak');
+      setSettings(data.settings);
+      setSuccess(wins > 0 ? `Win streak set to ${wins}` : 'Win streak removed');
+      setTimeout(() => setSuccess(''), 2500);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save win streak');
+    }
   };
 
   const handleSaveAdminSettings = async () => {
@@ -1068,6 +1238,8 @@ export default function AdminPage() {
             url: adminSettings.news.items[0]?.url || adminSettings.news.url,
             items: adminSettings.news.items,
           },
+          chatFaqs: adminSettings.chatFaqs,
+          promotion: adminSettings.promotion,
           ui: adminSettings.ui,
         }),
       });
@@ -1129,6 +1301,7 @@ export default function AdminPage() {
 
   const clearFilters = () => {
     setFilterStatus('all');
+    setFilterDemo('all');
     setFilterVerified('all');
     setFilterTwoFactor('all');
     setFilterKyc('all');
@@ -1461,7 +1634,10 @@ export default function AdminPage() {
       <aside className="hidden lg:flex lg:flex-col admin-sidebar admin-panel">
         <div className="p-4 border-b border-[var(--admin-border)] flex items-center gap-2">
           <Shield size={20} className="text-accent" />
-          <h1 className="text-sm font-bold">Admin Panel</h1>
+          <div>
+            <h1 className="text-sm font-bold">Admin Panel</h1>
+            {isDemoMode && <p className="text-[10px] uppercase tracking-wide text-amber-400">Demo</p>}
+          </div>
         </div>
         <nav className="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5">
           {renderSidebarItems()}
@@ -1596,7 +1772,10 @@ export default function AdminPage() {
           <div className="h-16 px-4 border-b border-[var(--admin-border)] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Shield size={18} className="text-accent" />
-              <h1 className="text-sm font-semibold">Admin Panel</h1>
+              <div>
+                <h1 className="text-sm font-semibold">Admin Panel</h1>
+                {isDemoMode && <p className="text-[10px] uppercase tracking-wide text-amber-400">Demo</p>}
+              </div>
             </div>
             <button
               type="button"
@@ -1802,11 +1981,11 @@ export default function AdminPage() {
             <section className="flex h-full min-h-0 flex-col gap-3">
               <div className="grid shrink-0 gap-3 lg:grid-cols-2">
                 {/* Global Mode */}
-                <div className="panel p-3 space-y-2 h-[200px] md:h-[260px] flex flex-col">
+                <div className="panel p-3 space-y-2 h-[320px] md:h-[350px] flex flex-col">
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
                     <TrendingUp size={12} className="text-accent" /> Global Trade Mode
                   </h3>
-                  <div className="flex-1 overflow-y-auto pr-1 space-y-2">
+                  <div className="space-y-2">
                     {[
                       { value: 'random', label: 'Random', desc: 'Uses win rate % below' },
                       { value: 'all_win', label: 'All Win', desc: 'Every trade wins' },
@@ -1831,31 +2010,33 @@ export default function AdminPage() {
                       </label>
                     ))}
                   </div>
-                  {globalMode === 'random' && (
-                    <div>
-                      <label className="text-[10px] text-gray-400 mb-1 block">
-                        Win Rate: <span className="text-white font-bold">{winRate}%</span>
-                      </label>
-                      <input
-                        type="range" min={0} max={100} value={winRate}
-                        onChange={e => setWinRate(Number(e.target.value))}
-                        className="w-full accent-accent"
-                      />
-                      <div className="flex justify-between text-[9px] text-gray-500">
-                        <span>0% (lose)</span><span>100% (win)</span>
+                  <div className="mt-auto">
+                    {globalMode === 'random' && (
+                      <div>
+                        <label className="text-[10px] text-gray-400 mb-1 block">
+                          Win Rate: <span className="text-white font-bold">{winRate}%</span>
+                        </label>
+                        <input
+                          type="range" min={0} max={100} value={winRate}
+                          onChange={e => setWinRate(Number(e.target.value))}
+                          className="w-full accent-accent"
+                        />
+                        <div className="flex justify-between text-[9px] text-gray-500">
+                          <span>0% (lose)</span><span>100% (win)</span>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  <button
-                    onClick={handleSaveSettings}
-                    className="w-full py-2 rounded-lg bg-accent hover:bg-accent/80 font-semibold text-xs transition-colors"
-                  >
-                    Save Settings
-                  </button>
+                    )}
+                    <button
+                      onClick={handleSaveSettings}
+                      className="mt-2 w-full py-2 rounded-lg bg-accent hover:bg-accent/80 font-semibold text-xs transition-colors"
+                    >
+                      Save Settings
+                    </button>
+                  </div>
                 </div>
 
                 {/* User Overrides */}
-                <div className="panel p-3 space-y-2 h-[200px] md:h-[260px] flex flex-col">
+                <div className="panel p-3 space-y-2 h-[320px] md:h-[350px] flex flex-col">
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
                     <Users size={12} className="text-accent" /> User Overrides
                   </h3>
@@ -1903,6 +2084,42 @@ export default function AdminPage() {
                       Selected: {users.find(u => u.id === selectedUser)?.name || selectedUser}
                     </div>
                   )}
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-2 space-y-2">
+                    <p className="text-[10px] text-gray-400 font-semibold">Win Streak Sequence</p>
+                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                      <div>
+                        <label className="block text-[9px] text-gray-500 mb-0.5">Wins before fallback</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={sequenceWins}
+                          onChange={(e) => setSequenceWins(e.target.value)}
+                          className="w-full px-2 py-1.5 rounded bg-white/5 border border-white/10 text-xs focus:border-accent focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-gray-500 mb-0.5">Fallback mode</label>
+                        <select
+                          value={sequenceFallback}
+                          onChange={(e) => setSequenceFallback(e.target.value as 'lose' | 'global')}
+                          className="w-full px-2 py-1.5 rounded bg-white/5 border border-white/10 text-xs focus:border-accent focus:outline-none"
+                        >
+                          <option value="global">Global mode</option>
+                          <option value="lose">Force lose</option>
+                        </select>
+                      </div>
+                      <button
+                        onClick={handleSetUserWinStreak}
+                        disabled={!selectedUser}
+                        className="px-3 py-1.5 rounded bg-accent hover:bg-accent/80 text-xs font-semibold disabled:opacity-50"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                    <p className="text-[9px] text-gray-500">
+                      Set `0` to remove streak control for the selected user.
+                    </p>
+                  </div>
                   <div className="flex-1 overflow-y-auto pr-1">
                     {settings && Object.keys(settings.userOverrides).length > 0 ? (
                       <div className="space-y-1">
@@ -1925,6 +2142,19 @@ export default function AdminPage() {
                       </div>
                     ) : (
                       <p className="text-[10px] text-gray-500 italic">No overrides</p>
+                    )}
+                    {settings && Object.keys(settings.userWinStreaks || {}).length > 0 && (
+                      <div className="space-y-1 mt-2">
+                        <p className="text-[10px] text-gray-400 font-semibold">Win streaks:</p>
+                        {Object.entries(settings.userWinStreaks).map(([uid, streak]) => (
+                          <div key={`streak-${uid}`} className="flex items-center justify-between p-2 rounded-lg bg-white/5 text-xs">
+                            <span>{users.find(u => u.id === uid)?.name || uid}</span>
+                            <span className="text-[10px] text-gray-300">
+                              {streak.remainingWins} win(s) -&gt; {streak.fallbackMode === 'lose' ? 'lose' : 'global'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -2173,7 +2403,7 @@ export default function AdminPage() {
                     placeholder="Search by name, email, or UID"
                     className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
                   />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     <div>
                       <label className="block text-[10px] text-gray-400 mb-0.5">Status</label>
                       <select
@@ -2185,6 +2415,18 @@ export default function AdminPage() {
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                         <option value="banned">Banned</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-0.5">Account Type</label>
+                      <select
+                        value={filterDemo}
+                        onChange={e => setFilterDemo(e.target.value as 'all' | 'demo' | 'live')}
+                        className="w-full bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1.5"
+                      >
+                        <option value="all">All</option>
+                        <option value="demo">Demo</option>
+                        <option value="live">Live</option>
                       </select>
                     </div>
                     <div>
@@ -2290,6 +2532,13 @@ export default function AdminPage() {
                                 <p className="font-medium truncate">{u.name || '\u2014'}</p>
                                 <p className="text-[10px] text-gray-400 truncate xl:hidden">{u.email}</p>
                                 <p className="text-[10px] text-gray-500 truncate lg:hidden">{u.uid || '\u2014'}</p>
+                                <div className="mt-1 md:hidden">
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] ${
+                                    u.isDemoUser ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'
+                                  }`}>
+                                    {u.isDemoUser ? 'Demo' : 'Live'}
+                                  </span>
+                                </div>
                               </td>
                               <td className="hidden xl:table-cell py-2 pr-2 text-gray-400 truncate">{u.email}</td>
                               <td className="hidden lg:table-cell py-2 pr-2 text-gray-400 font-mono truncate">{u.uid || '\u2014'}</td>
@@ -2319,6 +2568,11 @@ export default function AdminPage() {
                                     'bg-gray-500/20 text-gray-300'
                                   }`}>
                                     {u.kycStatus.toUpperCase()}
+                                  </span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] ${
+                                    u.isDemoUser ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'
+                                  }`}>
+                                    {u.isDemoUser ? 'Demo' : 'Live'}
                                   </span>
                                 </div>
                               </td>
@@ -2395,12 +2649,25 @@ export default function AdminPage() {
                                       </button>
                                     </div>
                                   ) : (
-                                    <button
-                                      onClick={() => setDeleteConfirmUserId(u.id)}
-                                      className="p-1 rounded bg-red-900/30 text-red-400 hover:bg-red-900/60" title="Delete"
-                                    >
-                                      <Trash2 size={12} />
-                                    </button>
+                                    <div className="flex items-center justify-center gap-1">
+                                      <button
+                                        onClick={() => handleToggleDemoUser(u.id, !u.isDemoUser)}
+                                        className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                                          u.isDemoUser
+                                            ? 'bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30'
+                                            : 'bg-amber-600/20 text-amber-300 hover:bg-amber-600/30'
+                                        }`}
+                                      >
+                                        {u.isDemoUser ? 'Set Live' : 'Set Demo'}
+                                      </button>
+                                      <button
+                                        onClick={() => setDeleteConfirmUserId(u.id)}
+                                        className="p-1 rounded bg-red-900/30 text-red-400 hover:bg-red-900/60"
+                                        title="Delete"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </div>
                                   )}
                                 </td>
                               )}
@@ -3103,16 +3370,25 @@ export default function AdminPage() {
                           />
                         </div>
 
-                        <div className="panel p-3 min-h-[160px] lg:min-h-0 lg:flex-[1.05] flex flex-col gap-2">
+                        <div className="panel p-3 min-h-[180px] lg:min-h-0 lg:flex-[1.05] flex flex-col gap-2">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold">News Sources (User News page)</p>
-                            <button
-                              type="button"
-                              onClick={handleAddNewsItem}
-                              className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold hover:bg-accent/30"
-                            >
-                              Add Link
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={handleAddNewsItem}
+                                className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold hover:bg-accent/30"
+                              >
+                                Add Link
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleSaveAdminSettings}
+                                className="px-2 py-1 rounded bg-accent text-black text-[10px] font-semibold hover:bg-accent/80"
+                              >
+                                Save
+                              </button>
+                            </div>
                           </div>
 
                           <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
@@ -3141,17 +3417,99 @@ export default function AdminPage() {
                                   className="w-full text-xs rounded px-2 py-1.5 border"
                                   placeholder="https://news-site.com/article"
                                 />
-                                <input
-                                  value={item.imageUrl || ''}
-                                  onChange={(e) => handleNewsItemChange(item.id, 'imageUrl', e.target.value)}
-                                  className="w-full text-xs rounded px-2 py-1.5 border"
-                                  placeholder="https://.../image.jpg (optional)"
-                                />
                               </div>
                             ))}
                           </div>
 
-                          <p className="text-[10px] text-gray-500">Users will see headline + image cards and open the original source link.</p>
+                          <p className="text-[10px] text-gray-500">
+                            Users will see headline + auto-fetched image cards and open the original source link.
+                          </p>
+                        </div>
+
+                        <div className="panel p-3 min-h-[150px] lg:min-h-0 lg:flex-[1] flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold">Promotion Message</p>
+                            <button
+                              type="button"
+                              onClick={handleSendPromotion}
+                              disabled={sendingPromotion || !adminSettings.promotion.message.trim()}
+                              className="px-2 py-1 rounded bg-accent text-black text-[10px] font-semibold disabled:opacity-40"
+                            >
+                              {sendingPromotion ? 'Sending...' : 'Send'}
+                            </button>
+                          </div>
+                          <textarea
+                            value={adminSettings.promotion.message}
+                            onChange={(e) => setAdminSettings(s => s ? {
+                              ...s,
+                              promotion: { ...s.promotion, message: e.target.value },
+                            } : s)}
+                            className="w-full text-xs rounded px-2 py-1.5 border min-h-[72px]"
+                            placeholder="Type in-app promotion message for all users"
+                          />
+                          <input
+                            value={adminSettings.promotion.targetPath}
+                            onChange={(e) => setAdminSettings(s => s ? {
+                              ...s,
+                              promotion: { ...s.promotion, targetPath: e.target.value || '/news' },
+                            } : s)}
+                            className="w-full text-xs rounded px-2 py-1.5 border"
+                            placeholder="/news"
+                          />
+                          <label className="flex items-center gap-2 text-[10px] text-gray-400">
+                            <input
+                              type="checkbox"
+                              checked={adminSettings.promotion.enabled}
+                              onChange={(e) => setAdminSettings(s => s ? {
+                                ...s,
+                                promotion: { ...s.promotion, enabled: e.target.checked },
+                              } : s)}
+                              className="accent-accent"
+                            />
+                            Promotion enabled
+                          </label>
+                        </div>
+
+                        <div className="panel p-3 min-h-[170px] lg:min-h-0 lg:flex-[1] flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold">Customer Chat FAQ Presets</p>
+                            <button
+                              type="button"
+                              onClick={handleAddFaq}
+                              className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold hover:bg-accent/30"
+                            >
+                              Add FAQ
+                            </button>
+                          </div>
+                          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                            {adminSettings.chatFaqs.map((faq, index) => (
+                              <div key={faq.id} className="rounded border border-white/10 bg-white/5 p-2 space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] text-gray-400">FAQ {index + 1}</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveFaq(faq.id)}
+                                    disabled={adminSettings.chatFaqs.length <= 1}
+                                    className="text-[10px] text-danger disabled:text-gray-500"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                                <input
+                                  value={faq.question}
+                                  onChange={(e) => handleFaqChange(faq.id, 'question', e.target.value)}
+                                  className="w-full text-xs rounded px-2 py-1.5 border"
+                                  placeholder="Question"
+                                />
+                                <textarea
+                                  value={faq.answer}
+                                  onChange={(e) => handleFaqChange(faq.id, 'answer', e.target.value)}
+                                  className="w-full text-xs rounded px-2 py-1.5 border min-h-[58px]"
+                                  placeholder="Answer"
+                                />
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )}

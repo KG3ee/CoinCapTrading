@@ -243,22 +243,29 @@ html {
 select,
 select option,
 select optgroup {
-  background-color: var(--app-panel);
-  color: var(--app-text);
+  background-color: var(--app-panel) !important;
+  color: var(--app-text) !important;
 }
 
 .theme-dark select,
 .theme-dark select option,
 .theme-dark select optgroup {
-  background-color: #111827;
-  color: #f9fafb;
+  background-color: #111827 !important;
+  color: #f9fafb !important;
 }
 
 .theme-light select,
 .theme-light select option,
 .theme-light select optgroup {
-  background-color: #ffffff;
-  color: #0f172a;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.admin-theme select,
+.admin-theme select option,
+.admin-theme select optgroup {
+  background-color: var(--admin-input) !important;
+  color: var(--admin-text) !important;
 }
 
 .theme-root [class*='text-[8px]'] {
@@ -293,21 +300,24 @@ select optgroup {
   }
 
   .menu-surface {
-    background: var(--app-panel);
+    background-color: var(--app-panel) !important;
+    color: var(--app-text);
     border-color: var(--app-border);
-    backdrop-filter: none;
+    opacity: 1 !important;
+    backdrop-filter: none !important;
   }
 
   .theme-dark .menu-surface {
-    background: #11141c;
+    background-color: #11141c !important;
   }
 
   .theme-light .menu-surface {
-    background: #ffffff;
+    background-color: #ffffff !important;
   }
 
   .admin-theme .menu-surface {
-    background: var(--admin-panel);
+    background-color: var(--admin-panel) !important;
+    color: var(--admin-text);
     border-color: var(--admin-border);
   }
 

@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { registerSchema } from '@/lib/validation/schemas';
 import { getAdminContext, hasPermission } from '@/lib/adminAuth';
+import { applyDefaultNewUserTradeOverride } from '@/lib/utils/tradeDefaults';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,6 +62,8 @@ export async function POST(request: NextRequest) {
       verificationToken: null,
       verificationTokenExpires: null,
     });
+
+    await applyDefaultNewUserTradeOverride(user._id.toString());
 
     log.info({ userId: user._id, email: user.email, isVerified: user.isVerified }, 'Admin created user');
     await AdminAuditLog.create({
@@ -188,6 +191,71 @@ export async function DELETE(request: NextRequest) {
     });
   } catch (error: any) {
     log.error({ error }, 'Failed to delete user');
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// PUT /api/admin/users — update user admin flags (demo mode, etc.)
+export async function PUT(request: NextRequest) {
+  const context = await getAdminContext(request);
+  if ('error' in context) {
+    return NextResponse.json({ error: context.error }, { status: context.status });
+  }
+  if (!hasPermission(context.permissions, 'manage_users')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  if (context.admin.role === 'moderator') {
+    return NextResponse.json({ error: 'Moderators have view-only user access' }, { status: 403 });
+  }
+
+  try {
+    await connectDB();
+
+    const body = await request.json();
+    const userId = typeof body?.userId === 'string' ? body.userId : '';
+    const isDemoUser = typeof body?.isDemoUser === 'boolean' ? body.isDemoUser : null;
+
+    if (!userId || isDemoUser === null) {
+      return NextResponse.json({ error: 'userId and isDemoUser are required' }, { status: 400 });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { isDemoUser },
+      { new: true, select: 'fullName email uid isDemoUser' }
+    );
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    await AdminAuditLog.create({
+      actionType: 'user_demo_toggle',
+      action: isDemoUser ? 'enable_demo' : 'disable_demo',
+      userId: user._id,
+      userName: user.fullName || '',
+      userEmail: user.email || '',
+      reason: isDemoUser ? 'Enabled demo user mode' : 'Disabled demo user mode',
+      actor: context.admin._id.toString(),
+      actorName: context.admin.name,
+      actorRole: context.admin.role,
+      targetType: 'user',
+      targetId: user._id.toString(),
+      ipAddress: request.headers.get('x-forwarded-for') || request.ip || '',
+    });
+
+    return NextResponse.json({
+      message: isDemoUser ? 'User marked as demo' : 'User removed from demo',
+      user: {
+        id: user._id.toString(),
+        fullName: user.fullName,
+        email: user.email,
+        uid: user.uid,
+        isDemoUser: !!(user as any).isDemoUser,
+      },
+    });
+  } catch (error: any) {
+    log.error({ error }, 'Failed to update user flags');
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

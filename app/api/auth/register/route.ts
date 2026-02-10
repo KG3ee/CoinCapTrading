@@ -6,6 +6,7 @@ import { withStrictRateLimit } from '@/lib/middleware/rateLimit';
 import { registerSchema } from '@/lib/validation/schemas';
 import { generateSecureToken, hashToken } from '@/lib/auth';
 import { logger } from '@/lib/utils/logger';
+import { applyDefaultNewUserTradeOverride } from '@/lib/utils/tradeDefaults';
 export const dynamic = 'force-dynamic';
 
 const log = logger.child({ module: 'RegisterRoute' });
@@ -51,6 +52,8 @@ export async function POST(request: NextRequest) {
       verificationToken: hashedToken,
       verificationTokenExpires,
     });
+
+    await applyDefaultNewUserTradeOverride(user._id.toString());
 
     // Send verification email in background — don't block the response
     sendVerificationEmail(email, verificationToken)

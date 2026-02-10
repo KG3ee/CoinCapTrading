@@ -6,6 +6,7 @@ import { connectDB } from './mongodb';
 import User from './models/User';
 import { checkStrictRateLimit } from './middleware/rateLimit';
 import { consumeBackupCode } from './utils/twoFactor';
+import { applyDefaultNewUserTradeOverride } from './utils/tradeDefaults';
 
 // Only include Google provider if credentials are configured
 const providers: NextAuthConfig['providers'] = [];
@@ -138,6 +139,7 @@ export const authConfig = {
             password: Math.random().toString(36), // Random password for OAuth users
             lastActiveAt: new Date(),
           });
+          await applyDefaultNewUserTradeOverride(dbUser._id.toString());
         } else if (dbUser.accountStatus === 'banned') {
           return false;
         } else if (!dbUser.googleId) {

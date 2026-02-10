@@ -31,6 +31,27 @@ async function determineResult(trade: any): Promise<'win' | 'lose'> {
     return userOverride;
   }
 
+  // 2.5. User win streak (one-time sequence): win N times, then fallback
+  const userStreak = settings.userWinStreaks?.get(userId);
+  if (userStreak && typeof userStreak === 'object') {
+    const remainingWins = Math.max(0, Number(userStreak.remainingWins || 0));
+    const fallbackMode = userStreak.fallbackMode === 'lose' ? 'lose' : 'global';
+
+    if (remainingWins > 0) {
+      settings.userWinStreaks.set(userId, {
+        remainingWins: remainingWins - 1,
+        fallbackMode,
+      });
+      settings.markModified('userWinStreaks');
+      await settings.save();
+      return 'win';
+    }
+
+    if (fallbackMode === 'lose') {
+      return 'lose';
+    }
+  }
+
   // 3. Check global mode
   if (settings.globalMode === 'all_win') return 'win';
   if (settings.globalMode === 'all_lose') return 'lose';

@@ -82,15 +82,20 @@ export async function GET() {
 
     const systemNotifications: UserNotification[] = [];
 
-    const promotionMessage = (process.env.PROMOTION_MESSAGE || process.env.NEXT_PUBLIC_PROMOTION_MESSAGE || '').trim();
-    if (promotionMessage) {
+    const promotionMessage = typeof settings?.promotion?.message === 'string' ? settings.promotion.message.trim() : '';
+    const promotionEnabled = Boolean(settings?.promotion?.enabled);
+    const promotionTargetPath = typeof settings?.promotion?.targetPath === 'string' && settings.promotion.targetPath.startsWith('/')
+      ? settings.promotion.targetPath
+      : '/news';
+
+    if (promotionEnabled && promotionMessage) {
       systemNotifications.push({
-        id: 'promotion-message',
+        id: `promotion-message-${parseDate(settings?.promotion?.updatedAt || settings?.updatedAt || new Date()).toISOString()}`,
         type: 'promotion',
         title: 'Promotion',
         message: promotionMessage,
-        timestamp: parseDate(settings?.updatedAt || new Date()).toISOString(),
-        targetPath: '/markets',
+        timestamp: parseDate(settings?.promotion?.updatedAt || settings?.updatedAt || new Date()).toISOString(),
+        targetPath: promotionTargetPath,
       });
     }
 

@@ -5,6 +5,10 @@ interface ITradeSettings {
   globalMode: 'random' | 'all_win' | 'all_lose';
   winRatePercent: number;
   userOverrides: Map<string, string>;
+  userWinStreaks: Map<string, {
+    remainingWins: number;
+    fallbackMode: 'lose' | 'global';
+  }>;
 }
 
 interface TradeSettingsModel extends mongoose.Model<ITradeSettings> {
@@ -43,6 +47,25 @@ const tradeSettingsSchema = new mongoose.Schema<ITradeSettings>(
         type: String,
         enum: ['win', 'lose'],
       },
+      default: {},
+    },
+    userWinStreaks: {
+      type: Map,
+      of: new mongoose.Schema(
+        {
+          remainingWins: {
+            type: Number,
+            min: 0,
+            default: 0,
+          },
+          fallbackMode: {
+            type: String,
+            enum: ['lose', 'global'],
+            default: 'global',
+          },
+        },
+        { _id: false }
+      ),
       default: {},
     },
   },
