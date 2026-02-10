@@ -256,7 +256,7 @@ export default function WalletPage() {
       setSwapAmount('');
       setSwapPreview(null);
       // Reload wallet data
-      const response = await fetch('/api/dashboard');
+      const response = await fetch('/api/dashboard', { credentials: 'include' });
       if (response.ok) {
         const dashboardData = await response.json();
         const realCryptos = await fetchRealCryptoData();
@@ -289,6 +289,7 @@ export default function WalletPage() {
 
       const response = await fetch('/api/dashboard', {
         method: 'GET',
+        credentials: 'include',
       });
 
       if (response.status === 401) {

@@ -50,7 +50,7 @@ export default function HomePage() {
   // Fetch wallet balance
   const fetchBalance = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard');
+      const res = await fetch('/api/dashboard', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setWalletBalance(data.portfolio?.accountBalance ?? 0);

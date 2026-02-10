@@ -1,6 +1,7 @@
 import { connectDB } from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import AdminUser from '@/lib/models/AdminUser';
+import FundingRequest from '@/lib/models/FundingRequest';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminContext, hasPermission } from '@/lib/adminAuth';
 
@@ -31,22 +32,45 @@ export async function GET(request: NextRequest) {
       query.createdAt = { $gt: new Date(sinceParam) };
     }
 
-    const recentUsers = await User.find(query, 'fullName email uid createdAt')
-      .sort({ createdAt: -1 })
-      .limit(limit);
+    const [recentUsers, recentFundings] = await Promise.all([
+      User.find(query, 'fullName email uid createdAt')
+        .sort({ createdAt: -1 })
+        .limit(limit),
+      FundingRequest.find(query)
+        .sort({ createdAt: -1 })
+        .limit(limit),
+    ]);
 
-    const notifications = recentUsers.map((u: any) => ({
-      id: u._id.toString(),
-      type: 'new_registration',
-      userId: u._id.toString(),
-      uid: u.uid,
-      email: u.email,
-      name: u.fullName || u.email,
-      timestamp: u.createdAt,
-    }));
+    const notifications = [
+      ...recentUsers.map((u: any) => ({
+        id: `user-${u._id.toString()}`,
+        type: 'new_registration',
+        userId: u._id.toString(),
+        uid: u.uid,
+        email: u.email,
+        name: u.fullName || u.email,
+        timestamp: u.createdAt,
+        message: `${u.fullName || u.email} joined`,
+      })),
+      ...recentFundings.map((funding: any) => ({
+        id: `funding-${funding._id.toString()}`,
+        type: 'funding',
+        fundingType: funding.type,
+        asset: funding.asset,
+        amount: funding.amount,
+        status: funding.status,
+        userId: funding.userId.toString(),
+        timestamp: funding.createdAt,
+        message: `${funding.type === 'withdraw' ? 'Withdrawal' : 'Deposit'} request (${funding.asset})`,
+      })),
+    ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
     const unreadQuery = lastSeenAt ? { createdAt: { $gt: lastSeenAt } } : {};
-    const unreadCount = await User.countDocuments(unreadQuery);
+    const [unreadUsers, unreadFundings] = await Promise.all([
+      User.countDocuments(unreadQuery),
+      FundingRequest.countDocuments(unreadQuery),
+    ]);
+    const unreadCount = unreadUsers + unreadFundings;
 
     return NextResponse.json({
       notifications,

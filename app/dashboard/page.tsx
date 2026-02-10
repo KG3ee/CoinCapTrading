@@ -69,6 +69,7 @@ export default function DashboardPage() {
 
         const response = await fetch('/api/dashboard', {
           method: 'GET',
+          credentials: 'include',
         });
 
         if (response.status === 401) {

@@ -111,9 +111,15 @@ export async function PUT(request: NextRequest) {
     if (action === 'approve') {
       if (funding.type === 'deposit') {
         const cryptoSymbol = (funding.asset || 'USDT').toUpperCase();
-        const priceData = await fetchRealCryptoData();
-        const priceRecord = priceData.find((record) => record.symbol === cryptoSymbol);
-        const assetPrice = priceRecord?.currentPrice || 0;
+    let assetPrice = 0;
+    try {
+      const priceData = await fetchRealCryptoData();
+      const priceRecord = priceData.find((record) => record.symbol === cryptoSymbol);
+      assetPrice = priceRecord?.currentPrice || 0;
+    } catch (error: any) {
+      log.warn({ error }, 'Failed to fetch crypto price, falling back to zero');
+      assetPrice = 0;
+    }
         const depositValue = Number((assetPrice * funding.amount).toFixed(6));
 
         portfolio.accountBalance = Number((portfolio.accountBalance + depositValue).toFixed(6));

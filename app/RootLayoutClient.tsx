@@ -67,20 +67,26 @@ function RootLayoutContent({
     applyThemeClass(appTheme);
   }, [appTheme]);
   
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/dashboard', { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.portfolio?.accountBalance != null) {
+        const total = (data.portfolio.accountBalance ?? 0) +
+          (data.portfolio.holdings ?? []).reduce((sum: number, h: any) => sum + (h.totalValue ?? 0), 0);
+        setPortfolioValue(total.toLocaleString('en-US', { style: 'currency', currency: 'USD' }));
+      }
+    } catch (error) {
+      console.error('[RootLayout] Failed to load dashboard', error);
+    }
+  }, []);
+
   useEffect(() => {
     if (status === 'authenticated') {
-      fetch('/api/dashboard')
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (data?.portfolio?.accountBalance != null) {
-            const total = (data.portfolio.accountBalance ?? 0) +
-              (data.portfolio.holdings ?? []).reduce((sum: number, h: any) => sum + (h.totalValue ?? 0), 0);
-            setPortfolioValue(total.toLocaleString('en-US', { style: 'currency', currency: 'USD' }));
-          }
-        })
-        .catch(() => {});
+      fetchDashboardData();
     }
-  }, [status]);
+  }, [status, fetchDashboardData]);
   // Check if current page is auth page or admin page (these get their own layout)
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/verify-email';
   const isAdminPage = pathname.startsWith('/admin');
