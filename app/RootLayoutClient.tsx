@@ -51,6 +51,7 @@ function RootLayoutContent({
   const { status } = useSession();
   const [portfolioValue, setPortfolioValue] = useState<string | null>(null);
   const [appTheme, setAppTheme] = useState<AppTheme>('dark');
+  const [isDemoUser, setIsDemoUser] = useState(false);
   const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
   const [userNotificationsUnread, setUserNotificationsUnread] = useState(0);
   const [userNotificationsSeenAt, setUserNotificationsSeenAt] = useState('');
@@ -109,11 +110,26 @@ function RootLayoutContent({
     }
   }, []);
 
+  const fetchMe = useCallback(async () => {
+    if (status !== 'authenticated') return;
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setIsDemoUser(!!data?.user?.isDemoUser);
+    } catch {
+      // Keep previous state on error.
+    }
+  }, [status]);
+
   useEffect(() => {
     if (status === 'authenticated') {
       fetchDashboardData();
+      fetchMe();
+    } else {
+      setIsDemoUser(false);
     }
-  }, [status, fetchDashboardData]);
+  }, [status, fetchDashboardData, fetchMe]);
 
   const fetchUserNotifications = useCallback(async () => {
     if (status !== 'authenticated') return;
@@ -198,6 +214,7 @@ function RootLayoutContent({
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/verify-email';
   const isAdminPage = pathname.startsWith('/admin');
   const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+  const showDemoBadge = isDemoMode || isDemoUser;
 
   const navItems = [
     { name: 'Home', icon: Home, href: '/' },
@@ -222,7 +239,7 @@ function RootLayoutContent({
             <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
               CryptoTrade
             </h1>
-            {isDemoMode && <p className="text-[10px] uppercase tracking-wide text-amber-400">Demo</p>}
+            {showDemoBadge && <p className="text-[10px] uppercase tracking-wide text-amber-400">Demo</p>}
           </div>
           <div className="relative">
             <button
@@ -322,7 +339,7 @@ function RootLayoutContent({
             <h1 className="text-base font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent truncate">
               CryptoTrade
             </h1>
-            {isDemoMode && <p className="text-[10px] uppercase tracking-wide text-amber-400">Demo</p>}
+            {showDemoBadge && <p className="text-[10px] uppercase tracking-wide text-amber-400">Demo</p>}
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
