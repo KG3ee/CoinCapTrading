@@ -638,6 +638,22 @@ export default function AdminPage() {
     }
   };
 
+  const handleAdminNotificationClick = (notification: Notification) => {
+    setShowNotifications(false);
+
+    if (notification.type === 'funding') {
+      setActiveTab('funding');
+      setFundingFilter('all');
+      fetchFundingRequests('all');
+      return;
+    }
+
+    setActiveTab('users');
+    if (notification.email || notification.name || notification.uid) {
+      setUserSearch(notification.email || notification.name || notification.uid || '');
+    }
+  };
+
   const handleLogin = async () => {
     if (!adminKey.trim()) return;
     await fetchData();
@@ -1431,7 +1447,12 @@ export default function AdminPage() {
                         ? `${n.amount ?? 0} ${n.asset || ''}${n.status ? ` • ${n.status}` : ''}`
                         : `UID: ${n.uid || '-'}`;
                       return (
-                        <div key={n.id} className={`px-3 py-2.5 border-b border-white/5 ${isUnread ? 'bg-accent/5' : ''}`}>
+                        <button
+                          type="button"
+                          key={n.id}
+                          onClick={() => handleAdminNotificationClick(n)}
+                          className={`w-full text-left px-3 py-2.5 border-b border-white/5 hover:bg-white/10 transition-colors ${isUnread ? 'bg-accent/5' : ''}`}
+                        >
                           <div className="flex items-start gap-2">
                             <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${isUnread ? 'bg-accent' : 'bg-gray-600'}`} />
                             <div className="min-w-0 flex-1">
@@ -1442,7 +1463,7 @@ export default function AdminPage() {
                               </p>
                             </div>
                           </div>
-                        </div>
+                        </button>
                       );
                     })
                   )}

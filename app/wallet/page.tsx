@@ -596,7 +596,7 @@ export default function WalletPage() {
                   setFundingNetwork('TRC20');
                   setShowFundingModal(true);
                 }}
-                className="px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-xs font-semibold transition-colors"
+                className="inline-flex min-w-[112px] items-center justify-center px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-xs font-semibold transition-colors"
               >
                 Deposit
               </button>
@@ -608,7 +608,7 @@ export default function WalletPage() {
                   setFundingNetwork('TRC20');
                   setShowFundingModal(true);
                 }}
-                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors border border-white/10"
+                className="inline-flex min-w-[112px] items-center justify-center px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors border border-white/10"
               >
                 Withdraw
               </button>

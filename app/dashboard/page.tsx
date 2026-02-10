@@ -221,13 +221,13 @@ export default function DashboardPage() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     onClick={() => router.push('/wallet?action=deposit')}
-                    className="px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-xs font-semibold transition-colors"
+                    className="inline-flex min-w-[112px] items-center justify-center px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 text-white text-xs font-semibold transition-colors"
                   >
                     Deposit
                   </button>
                   <button
                     onClick={() => router.push('/wallet?action=withdraw')}
-                    className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors border border-white/10"
+                    className="inline-flex min-w-[112px] items-center justify-center px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors border border-white/10"
                   >
                     Withdraw
                   </button>

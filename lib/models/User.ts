@@ -89,6 +89,10 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    lastSeenUserNotificationAt: {
+      type: Date,
+      default: null,
+    },
     kycStatus: {
       type: String,
       enum: ['none', 'pending', 'approved', 'rejected'],

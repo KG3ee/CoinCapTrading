@@ -1,8 +1,8 @@
 'use client';
 
-import { Home, TrendingUp, ArrowLeftRight, Wallet, Menu, X, User, BarChart3, Clock } from 'lucide-react';
+import { Home, TrendingUp, ArrowLeftRight, Wallet, Menu, X, User, BarChart3, Clock, Bell } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { NextIntlClientProvider } from 'next-intl';
 import { SessionProvider, useSession } from 'next-auth/react';
@@ -17,6 +17,17 @@ interface RootLayoutClientProps {
 type AppTheme = 'dark' | 'light';
 const THEME_STORAGE_KEY = 'coincap-theme';
 
+type UserNotification = {
+  id: string;
+  type: 'funding' | 'system' | 'promotion' | string;
+  title: string;
+  message: string;
+  timestamp: string;
+  targetPath?: string;
+  status?: string;
+  fundingType?: 'deposit' | 'withdraw';
+};
+
 function applyThemeClass(theme: AppTheme) {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
@@ -29,11 +40,16 @@ function RootLayoutContent({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { status } = useSession();
   const [portfolioValue, setPortfolioValue] = useState<string | null>(null);
   const [appTheme, setAppTheme] = useState<AppTheme>('dark');
+  const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
+  const [userNotificationsUnread, setUserNotificationsUnread] = useState(0);
+  const [userNotificationsSeenAt, setUserNotificationsSeenAt] = useState('');
+  const [showUserNotifications, setShowUserNotifications] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -87,6 +103,70 @@ function RootLayoutContent({
       fetchDashboardData();
     }
   }, [status, fetchDashboardData]);
+
+  const fetchUserNotifications = useCallback(async () => {
+    if (status !== 'authenticated') return;
+    try {
+      const res = await fetch('/api/notifications', { credentials: 'include' });
+      if (!res.ok) return;
+      const payload = await res.json();
+      const notifications: UserNotification[] = payload?.notifications || [];
+      setUserNotifications(notifications);
+      setUserNotificationsUnread(
+        typeof payload?.unreadCount === 'number' ? payload.unreadCount : notifications.length
+      );
+      setUserNotificationsSeenAt(typeof payload?.lastSeenAt === 'string' ? payload.lastSeenAt : '');
+    } catch (error) {
+      console.error('[RootLayout] Failed to load user notifications', error);
+    }
+  }, [status]);
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchUserNotifications();
+    } else {
+      setUserNotifications([]);
+      setUserNotificationsUnread(0);
+      setUserNotificationsSeenAt('');
+      setShowUserNotifications(false);
+    }
+  }, [status, fetchUserNotifications]);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const interval = setInterval(fetchUserNotifications, 15000);
+    return () => clearInterval(interval);
+  }, [status, fetchUserNotifications]);
+
+  const handleMarkUserNotificationsRead = useCallback(async () => {
+    const latestTimestamp = userNotifications[0]?.timestamp || new Date().toISOString();
+    setUserNotificationsUnread(0);
+    setUserNotificationsSeenAt(latestTimestamp);
+    setShowUserNotifications(false);
+    try {
+      const markReadRes = await fetch('/api/notifications', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seenAt: latestTimestamp }),
+      });
+      if (markReadRes.ok) {
+        const payload = await markReadRes.json();
+        if (typeof payload?.lastSeenAt === 'string') {
+          setUserNotificationsSeenAt(payload.lastSeenAt);
+        }
+      }
+      fetchUserNotifications();
+    } catch {
+      // Keep optimistic state on error.
+    }
+  }, [userNotifications, fetchUserNotifications]);
+
+  const handleUserNotificationClick = useCallback((notification: UserNotification) => {
+    setShowUserNotifications(false);
+    const targetPath = notification.targetPath || (notification.type === 'funding' ? '/wallet' : '/dashboard');
+    router.push(targetPath);
+  }, [router]);
   // Check if current page is auth page or admin page (these get their own layout)
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/verify-email';
   const isAdminPage = pathname.startsWith('/admin');
@@ -109,10 +189,53 @@ function RootLayoutContent({
     <div className="flex min-h-[100dvh]">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:flex-col md:w-56 glass border-r border-white/10">
-        <div className="p-4 border-b border-white/10">
+        <div className="p-4 border-b border-white/10 flex items-center justify-between gap-2">
           <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
             CryptoTrade
           </h1>
+          <div className="relative">
+            <button
+              onClick={() => setShowUserNotifications((prev) => !prev)}
+              className="relative p-2 rounded-lg hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              title="Notifications"
+            >
+              <Bell size={18} className="text-gray-300" />
+              {userNotificationsUnread > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-danger text-[9px] text-white font-bold flex items-center justify-center">
+                  {userNotificationsUnread > 9 ? '9+' : userNotificationsUnread}
+                </span>
+              )}
+            </button>
+            {showUserNotifications && (
+              <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-white/10 bg-[#121212] shadow-2xl z-50">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+                  <p className="text-xs font-semibold text-white">Notifications</p>
+                  <button onClick={handleMarkUserNotificationsRead} className="text-[10px] text-accent hover:underline">
+                    Mark all read
+                  </button>
+                </div>
+                {userNotifications.length === 0 ? (
+                  <p className="p-4 text-xs text-gray-500 text-center">No notifications</p>
+                ) : (
+                  userNotifications.slice(0, 20).map((notification) => {
+                    const isUnread = !userNotificationsSeenAt || new Date(notification.timestamp) > new Date(userNotificationsSeenAt);
+                    return (
+                      <button
+                        type="button"
+                        key={notification.id}
+                        onClick={() => handleUserNotificationClick(notification)}
+                        className={`w-full text-left px-3 py-2.5 border-b border-white/5 hover:bg-white/10 transition-colors ${isUnread ? 'bg-accent/5' : ''}`}
+                      >
+                        <p className="text-xs font-semibold text-white">{notification.title}</p>
+                        <p className="text-[11px] text-gray-300 mt-0.5">{notification.message}</p>
+                        <p className="text-[10px] text-gray-500 mt-1">{new Date(notification.timestamp).toLocaleString()}</p>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
         </div>
         
         <nav className="flex-1 p-2.5 space-y-1">
@@ -158,13 +281,58 @@ function RootLayoutContent({
           <h1 className="text-base font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent truncate">
             CryptoTrade
           </h1>
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-1.5 rounded-lg hover:bg-white/5 active:bg-white/10 min-h-touch min-w-touch flex items-center justify-center transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-          >
-            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <button
+                onClick={() => setShowUserNotifications((prev) => !prev)}
+                className="relative p-1.5 rounded-lg hover:bg-white/5 active:bg-white/10 min-h-touch min-w-touch flex items-center justify-center transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                aria-label="Open notifications"
+              >
+                <Bell size={20} />
+                {userNotificationsUnread > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-danger text-[9px] text-white font-bold flex items-center justify-center">
+                    {userNotificationsUnread > 9 ? '9+' : userNotificationsUnread}
+                  </span>
+                )}
+              </button>
+              {showUserNotifications && (
+                <div className="absolute right-0 top-full mt-2 w-[min(90vw,20rem)] max-h-96 overflow-y-auto rounded-xl border border-white/10 bg-[#121212] shadow-2xl z-50">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+                    <p className="text-xs font-semibold text-white">Notifications</p>
+                    <button onClick={handleMarkUserNotificationsRead} className="text-[10px] text-accent hover:underline">
+                      Mark all read
+                    </button>
+                  </div>
+                  {userNotifications.length === 0 ? (
+                    <p className="p-4 text-xs text-gray-500 text-center">No notifications</p>
+                  ) : (
+                    userNotifications.slice(0, 20).map((notification) => {
+                      const isUnread = !userNotificationsSeenAt || new Date(notification.timestamp) > new Date(userNotificationsSeenAt);
+                      return (
+                        <button
+                          type="button"
+                          key={notification.id}
+                          onClick={() => handleUserNotificationClick(notification)}
+                          className={`w-full text-left px-3 py-2.5 border-b border-white/5 hover:bg-white/10 transition-colors ${isUnread ? 'bg-accent/5' : ''}`}
+                        >
+                          <p className="text-xs font-semibold text-white">{notification.title}</p>
+                          <p className="text-[11px] text-gray-300 mt-0.5">{notification.message}</p>
+                          <p className="text-[10px] text-gray-500 mt-1">{new Date(notification.timestamp).toLocaleString()}</p>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-1.5 rounded-lg hover:bg-white/5 active:bg-white/10 min-h-touch min-w-touch flex items-center justify-center transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
       </div>
 
