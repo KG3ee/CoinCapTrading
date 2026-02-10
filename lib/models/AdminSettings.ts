@@ -49,6 +49,10 @@ const adminSettingsSchema = new mongoose.Schema(
       enabled: { type: Boolean, default: false },
       message: { type: String, default: 'We are performing maintenance. Please try again later.' },
     },
+    news: {
+      title: { type: String, default: 'Market News' },
+      url: { type: String, default: 'https://www.coindesk.com/' },
+    },
     funding: {
       wallets: { type: [fundingWalletSchema], default: [] },
     },
@@ -122,6 +126,10 @@ adminSettingsSchema.statics.getSettings = async function () {
   }
   if (!settings.funding || !Array.isArray(settings.funding.wallets)) {
     settings.funding = { wallets: [] };
+    await settings.save();
+  }
+  if (!settings.news || typeof settings.news !== 'object') {
+    settings.news = { title: 'Market News', url: 'https://www.coindesk.com/' };
     await settings.save();
   }
   return settings;

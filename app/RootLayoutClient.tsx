@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, TrendingUp, ArrowLeftRight, Wallet, Menu, X, User, BarChart3, Clock, Bell } from 'lucide-react';
+import { Home, ArrowLeftRight, Wallet, Menu, X, User, BarChart3, Bell, Newspaper, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
@@ -16,6 +16,7 @@ interface RootLayoutClientProps {
 
 type AppTheme = 'dark' | 'light';
 const THEME_STORAGE_KEY = 'coincap-theme';
+const PORTFOLIO_VISIBILITY_STORAGE_KEY = 'coincap-hide-portfolio-value';
 
 type UserNotification = {
   id: string;
@@ -50,10 +51,12 @@ function RootLayoutContent({
   const [userNotificationsUnread, setUserNotificationsUnread] = useState(0);
   const [userNotificationsSeenAt, setUserNotificationsSeenAt] = useState('');
   const [showUserNotifications, setShowUserNotifications] = useState(false);
+  const [showPortfolioValue, setShowPortfolioValue] = useState(true);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    const hidePortfolioValue = window.localStorage.getItem(PORTFOLIO_VISIBILITY_STORAGE_KEY) === '1';
     const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
     const nextTheme: AppTheme =
       storedTheme === 'light' || storedTheme === 'dark'
@@ -62,6 +65,7 @@ function RootLayoutContent({
           ? 'light'
           : 'dark';
     setAppTheme(nextTheme);
+    setShowPortfolioValue(!hidePortfolioValue);
     applyThemeClass(nextTheme);
   }, []);
 
@@ -167,6 +171,16 @@ function RootLayoutContent({
     const targetPath = notification.targetPath || (notification.type === 'funding' ? '/wallet' : '/dashboard');
     router.push(targetPath);
   }, [router]);
+
+  const handleTogglePortfolioValue = useCallback(() => {
+    setShowPortfolioValue((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(PORTFOLIO_VISIBILITY_STORAGE_KEY, next ? '0' : '1');
+      }
+      return next;
+    });
+  }, []);
   // Check if current page is auth page or admin page (these get their own layout)
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/verify-email';
   const isAdminPage = pathname.startsWith('/admin');
@@ -175,7 +189,7 @@ function RootLayoutContent({
     { name: 'Home', icon: Home, href: '/' },
     { name: 'Markets', icon: BarChart3, href: '/markets' },
     { name: 'Trade', icon: ArrowLeftRight, href: '/trade' },
-    { name: 'History', icon: Clock, href: '/trade-history' },
+    { name: 'News', icon: Newspaper, href: '/news' },
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
   ];
 
@@ -186,9 +200,9 @@ function RootLayoutContent({
   }
 
   return (
-    <div className="flex min-h-[100dvh]">
+    <div className="flex h-[100dvh] overflow-hidden">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:flex-col md:w-56 glass border-r border-white/10">
+      <aside className="hidden md:flex md:h-full md:flex-col md:w-56 glass border-r border-white/10">
         <div className="p-4 border-b border-white/10 flex items-center justify-between gap-2">
           <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
             CryptoTrade
@@ -207,7 +221,7 @@ function RootLayoutContent({
               )}
             </button>
             {showUserNotifications && (
-              <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-white/10 bg-[#121212] shadow-2xl z-50">
+              <div className="menu-surface absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-50">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                   <p className="text-xs font-semibold text-white">Notifications</p>
                   <button onClick={handleMarkUserNotificationsRead} className="text-[10px] text-accent hover:underline">
@@ -238,7 +252,7 @@ function RootLayoutContent({
           </div>
         </div>
         
-        <nav className="flex-1 p-2.5 space-y-1">
+        <nav className="flex-1 overflow-y-auto p-2.5 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
@@ -257,7 +271,7 @@ function RootLayoutContent({
           })}
         </nav>
 
-        <div className="p-2.5 space-y-1 border-t border-white/10">
+        <div className="mt-auto p-2.5 space-y-1 border-t border-white/10">
           <Link
             href={accountLink.href}
             className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
@@ -269,8 +283,17 @@ function RootLayoutContent({
           </Link>
           
           <div className="glass-card p-2">
-            <p className="text-[10px] text-gray-400 mb-0.5">Portfolio Value</p>
-            <p className="text-base font-bold">{portfolioValue ?? '—'}</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] text-gray-400">Portfolio Value</p>
+              <button
+                onClick={handleTogglePortfolioValue}
+                className="p-1 rounded-md hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                aria-label={showPortfolioValue ? 'Hide portfolio value' : 'Show portfolio value'}
+              >
+                {showPortfolioValue ? <EyeOff size={12} className="text-gray-400" /> : <Eye size={12} className="text-gray-400" />}
+              </button>
+            </div>
+            <p className="text-base font-bold">{showPortfolioValue ? (portfolioValue ?? '—') : '••••••'}</p>
           </div>
         </div>
       </aside>
@@ -296,7 +319,7 @@ function RootLayoutContent({
                 )}
               </button>
               {showUserNotifications && (
-                <div className="absolute right-0 top-full mt-2 w-[min(90vw,20rem)] max-h-96 overflow-y-auto rounded-xl border border-white/10 bg-[#121212] shadow-2xl z-50">
+                <div className="menu-surface absolute right-0 top-full mt-2 w-[min(90vw,20rem)] max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-50">
                   <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                     <p className="text-xs font-semibold text-white">Notifications</p>
                     <button onClick={handleMarkUserNotificationsRead} className="text-[10px] text-accent hover:underline">
@@ -339,7 +362,7 @@ function RootLayoutContent({
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-[35] bg-black/80 backdrop-blur-sm overflow-y-auto" style={{top: 'calc(60px + env(safe-area-inset-top))'}} onClick={() => setMobileMenuOpen(false)}>
-          <div className="glass-card m-2.5 mt-3 max-h-[calc(100vh-100px)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="menu-surface m-2.5 mt-3 max-h-[calc(100vh-100px)] overflow-y-auto rounded-xl border border-white/10 p-2.5" onClick={(e) => e.stopPropagation()}>
             <nav className="space-y-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -377,7 +400,7 @@ function RootLayoutContent({
 
       {/* Main Content */}
       <main 
-        className="flex-1 min-h-0 overflow-auto md:pt-0 md:pb-0 mobile-content-padding"
+        className="flex-1 h-full min-h-0 overflow-y-auto md:pt-0 md:pb-0 mobile-content-padding"
       >
         {children}
       </main>

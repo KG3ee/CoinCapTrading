@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
         security: settings.security,
         notifications: settings.notifications,
         maintenance: settings.maintenance,
+        news: settings.news,
         apiKeys: settings.apiKeys?.map((k: any) => ({
           id: k.id,
           name: k.name,
@@ -74,6 +75,24 @@ export async function PUT(request: NextRequest) {
     if (body.maintenance && typeof body.maintenance === 'object') {
       if (typeof body.maintenance.enabled === 'boolean') settings.maintenance.enabled = body.maintenance.enabled;
       if (typeof body.maintenance.message === 'string') settings.maintenance.message = body.maintenance.message;
+    }
+    if (body.news && typeof body.news === 'object') {
+      if (typeof body.news.title === 'string') {
+        settings.news.title = body.news.title.trim() || 'Market News';
+      }
+      if (typeof body.news.url === 'string') {
+        const nextUrl = body.news.url.trim();
+        if (nextUrl) {
+          try {
+            const parsed = new URL(nextUrl);
+            if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+              settings.news.url = parsed.toString();
+            }
+          } catch {
+            // Ignore invalid URL and keep existing value.
+          }
+        }
+      }
     }
     if (body.ui && typeof body.ui === 'object') {
       if (body.ui.theme === 'dark' || body.ui.theme === 'light') settings.ui.theme = body.ui.theme;

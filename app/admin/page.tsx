@@ -125,6 +125,7 @@ interface AdminSettingsState {
   security: { require2fa: boolean; ipWhitelist: string[] };
   notifications: { newUsers: boolean; largeWithdrawals: boolean; flaggedTrades: boolean };
   maintenance: { enabled: boolean; message: string };
+  news: { title: string; url: string };
   ui: { theme: 'dark' | 'light' };
 }
 
@@ -863,7 +864,13 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/settings', { headers: headers() });
       if (res.ok) {
         const data = await res.json();
-        setAdminSettings(data.settings);
+        setAdminSettings({
+          ...data.settings,
+          news: data.settings?.news || {
+            title: 'Market News',
+            url: 'https://www.coindesk.com/',
+          },
+        });
         setIpWhitelistInput((data.settings?.security?.ipWhitelist || []).join('\n'));
       }
     } catch { /* silent */ }
@@ -965,6 +972,7 @@ export default function AdminPage() {
           },
           notifications: adminSettings.notifications,
           maintenance: adminSettings.maintenance,
+          news: adminSettings.news,
           ui: adminSettings.ui,
         }),
       });
@@ -2998,6 +3006,29 @@ export default function AdminPage() {
                             className="w-full text-xs rounded px-2 py-1.5 border"
                             placeholder="Maintenance message"
                           />
+                        </div>
+
+                        <div className="panel p-3 min-h-[120px] lg:min-h-0 lg:flex-[0.85] flex flex-col gap-2">
+                          <p className="text-xs font-semibold">News Link (User Sidebar)</p>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] text-gray-400">News title</label>
+                            <input
+                              value={adminSettings.news.title}
+                              onChange={(e) => setAdminSettings(s => s ? { ...s, news: { ...s.news, title: e.target.value } } : s)}
+                              className="w-full text-xs rounded px-2 py-1.5 border"
+                              placeholder="Market News"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[10px] text-gray-400">News URL</label>
+                            <input
+                              value={adminSettings.news.url}
+                              onChange={(e) => setAdminSettings(s => s ? { ...s, news: { ...s.news, url: e.target.value } } : s)}
+                              className="w-full text-xs rounded px-2 py-1.5 border"
+                              placeholder="https://www.coindesk.com/"
+                            />
+                          </div>
+                          <p className="text-[10px] text-gray-500">Users will open this source from the News page.</p>
                         </div>
                       </div>
                     )}

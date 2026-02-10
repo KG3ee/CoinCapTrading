@@ -77,7 +77,7 @@ interface FundingRequestItem {
   resolvedAt?: string | null;
 }
 
-type TabType = 'overview' | 'assets' | 'transactions' | 'swap';
+type TabType = 'overview' | 'assets' | 'transactions' | 'convert';
 
 const SWAP_COINS = [
   { symbol: 'BTC', name: 'Bitcoin' },
@@ -551,10 +551,10 @@ export default function WalletPage() {
 
   // Tab styles
   const tabClass = (tab: TabType) => `
-    px-3 sm:px-4 py-2.5 font-semibold text-sm sm:text-base transition-all border-b-2 whitespace-nowrap shrink-0
-    ${activeTab === tab 
-      ? 'border-accent text-accent' 
-      : 'border-transparent text-gray-400 hover:text-white'
+    inline-flex items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-[11px] sm:text-sm font-semibold transition-all border border-transparent min-h-[42px]
+    ${activeTab === tab
+      ? 'text-accent border-accent/40 bg-accent/10'
+      : 'text-gray-400 hover:text-white hover:bg-white/5 border-white/10'
     }
   `;
 
@@ -641,7 +641,8 @@ export default function WalletPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="border-b border-white/10 flex gap-2 sm:gap-4 overflow-x-auto">
+        <div className="border-b border-white/10 pb-1">
+          <div className="grid grid-cols-4 gap-1.5">
           <button
             onClick={() => setActiveTab('overview')}
             className={tabClass('overview')}
@@ -670,14 +671,15 @@ export default function WalletPage() {
             </div>
           </button>
           <button
-            onClick={() => setActiveTab('swap')}
-            className={tabClass('swap')}
+            onClick={() => setActiveTab('convert')}
+            className={tabClass('convert')}
           >
             <div className="flex items-center gap-2">
               <ArrowLeftRight size={18} />
-              Swap
+              Convert
             </div>
           </button>
+          </div>
         </div>
 
         {/* Tab Content */}
@@ -876,8 +878,8 @@ export default function WalletPage() {
           </div>
         )}
 
-        {/* Swap Tab */}
-        {activeTab === 'swap' && (
+        {/* Convert Tab */}
+        {activeTab === 'convert' && (
           <div className="max-w-md mx-auto space-y-4">
             <div className="glass-card border border-white/10 p-5 space-y-4">
               <h3 className="text-sm font-bold flex items-center gap-2">
@@ -975,7 +977,7 @@ export default function WalletPage() {
                 className="w-full py-3 rounded-lg bg-accent hover:bg-accent/80 text-black font-bold text-sm transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
               >
                 {swapLoading ? <Loader2 size={14} className="animate-spin" /> : <ArrowLeftRight size={14} />}
-                {swapLoading ? 'Swapping...' : `Swap ${swapFrom} → ${swapTo}`}
+                {swapLoading ? 'Converting...' : `Convert ${swapFrom} → ${swapTo}`}
               </button>
             </div>
           </div>

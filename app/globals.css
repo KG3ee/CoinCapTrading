@@ -285,6 +285,24 @@ html {
     border-color: var(--admin-border);
   }
 
+  .menu-surface {
+    background: var(--app-panel);
+    backdrop-filter: none;
+  }
+
+  .theme-dark .menu-surface {
+    background: #0f1117;
+  }
+
+  .theme-light .menu-surface {
+    background: #ffffff;
+  }
+
+  .admin-theme .menu-surface {
+    background: var(--admin-panel);
+    border-color: var(--admin-border);
+  }
+
   .text-responsive-xl {
     @apply text-lg sm:text-xl md:text-2xl lg:text-3xl;
   }

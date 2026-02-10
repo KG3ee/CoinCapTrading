@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { ChevronDown, TrendingDown, TrendingUp } from 'lucide-react';
+import { ChevronDown, TrendingDown, TrendingUp, Clock, Loader2, Filter } from 'lucide-react';
 import { useCoinCapPrices } from '@/lib/hooks/useCoinCapPrices';
 import { TradingViewChart } from '@/lib/components/TradingViewChart';
 import { AVAILABLE_CRYPTOS, type CryptoType } from '@/lib/constants';
@@ -9,6 +9,20 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import TradeModal from '@/lib/components/TradeModal';
 import CountdownPopup from '@/lib/components/CountdownPopup';
+
+interface TradeHistoryItem {
+  id: string;
+  type: 'buy' | 'sell';
+  cryptoSymbol: string;
+  amount: number;
+  profitLoss: number;
+  status: string;
+  period: number | null;
+  tradeKind: 'timed' | 'spot';
+  createdAt: string;
+}
+
+type HistoryFilterType = 'all' | 'timed' | 'spot';
 
 const formatPrice = (value: number) => {
   if (Number.isNaN(value)) return '0.00';
@@ -92,6 +106,10 @@ export default function TradePage() {
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [walletBalance, setWalletBalance] = useState(0);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [tradeHistory, setTradeHistory] = useState<TradeHistoryItem[]>([]);
+  const [tradeHistoryFilter, setTradeHistoryFilter] = useState<HistoryFilterType>('all');
+  const [tradeHistoryLoading, setTradeHistoryLoading] = useState(false);
+  const [tradeHistoryError, setTradeHistoryError] = useState('');
 
   // Countdown popup state
   const [countdownOpen, setCountdownOpen] = useState(false);
@@ -120,11 +138,30 @@ export default function TradePage() {
     } catch {}
   }, []);
 
+  const fetchTradeHistory = useCallback(async (filter: HistoryFilterType) => {
+    setTradeHistoryLoading(true);
+    setTradeHistoryError('');
+    try {
+      const params = new URLSearchParams({ page: '1', limit: '12' });
+      if (filter !== 'all') params.set('type', filter);
+      const res = await fetch(`/api/trades/history?${params}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load trade history');
+      const data = await res.json();
+      setTradeHistory(data.trades || []);
+    } catch (error: any) {
+      setTradeHistory([]);
+      setTradeHistoryError(error?.message || 'Failed to load trade history');
+    } finally {
+      setTradeHistoryLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (status === 'authenticated') {
       fetchBalance();
+      fetchTradeHistory(tradeHistoryFilter);
     }
-  }, [status, fetchBalance]);
+  }, [status, fetchBalance, fetchTradeHistory, tradeHistoryFilter]);
 
   // Handle crypto selection
   const handleCryptoSelect = useCallback((crypto: CryptoType) => {
@@ -212,7 +249,7 @@ export default function TradePage() {
                   className="fixed inset-0 z-10" 
                   onClick={() => setIsDropdownOpen(false)}
                 />
-                <div className="absolute top-full mt-1 left-0 z-20 glass-card p-1 min-w-[160px] shadow-xl border border-white/20">
+                <div className="menu-surface absolute top-full mt-1 left-0 z-20 p-1 min-w-[160px] rounded-lg shadow-xl border border-white/20">
                   {AVAILABLE_CRYPTOS.map((crypto) => (
                     <button
                       key={crypto.id}
@@ -341,6 +378,100 @@ export default function TradePage() {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="glass-card p-2.5 md:p-3">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-3">
+          <div>
+            <h2 className="text-sm md:text-base font-bold flex items-center gap-2">
+              <Clock size={16} className="text-accent" />
+              Trade History
+            </h2>
+            <p className="text-xs text-gray-400">Latest spot and timed trades in one place.</p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Filter size={12} className="text-gray-400" />
+            {(['all', 'timed', 'spot'] as HistoryFilterType[]).map((filterValue) => (
+              <button
+                key={filterValue}
+                onClick={() => setTradeHistoryFilter(filterValue)}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  tradeHistoryFilter === filterValue
+                    ? 'bg-accent/15 text-accent border border-accent/30'
+                    : 'bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                {filterValue === 'all' ? 'All' : filterValue === 'timed' ? 'Timed' : 'Spot'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {tradeHistoryError && (
+          <div className="mb-2 p-2 rounded-lg bg-danger/20 text-danger text-xs">{tradeHistoryError}</div>
+        )}
+
+        {tradeHistoryLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 size={18} className="animate-spin text-accent" />
+          </div>
+        ) : tradeHistory.length === 0 ? (
+          <div className="text-center py-6 text-xs text-gray-500">No trades found.</div>
+        ) : (
+          <>
+            <div className="hidden md:block overflow-hidden rounded-lg border border-white/10">
+              <table className="w-full text-xs">
+                <thead className="bg-white/5">
+                  <tr className="text-gray-400 border-b border-white/10">
+                    <th className="text-left py-2 px-2.5">Date</th>
+                    <th className="text-left py-2 px-2.5">Type</th>
+                    <th className="text-left py-2 px-2.5">Symbol</th>
+                    <th className="text-right py-2 px-2.5">Amount</th>
+                    <th className="text-center py-2 px-2.5">Kind</th>
+                    <th className="text-center py-2 px-2.5">Status</th>
+                    <th className="text-right py-2 px-2.5">P/L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tradeHistory.map((item) => (
+                    <tr key={item.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <td className="py-2 px-2.5 text-gray-300">{new Date(item.createdAt).toLocaleString()}</td>
+                      <td className={`py-2 px-2.5 font-semibold ${item.type === 'buy' ? 'text-success' : 'text-danger'}`}>
+                        {item.type.toUpperCase()}
+                      </td>
+                      <td className="py-2 px-2.5">{item.cryptoSymbol}</td>
+                      <td className="py-2 px-2.5 text-right">{item.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</td>
+                      <td className="py-2 px-2.5 text-center">{item.tradeKind === 'timed' ? `${item.period}s` : 'SPOT'}</td>
+                      <td className="py-2 px-2.5 text-center">{item.status.toUpperCase()}</td>
+                      <td className={`py-2 px-2.5 text-right font-semibold ${item.profitLoss > 0 ? 'text-success' : item.profitLoss < 0 ? 'text-danger' : 'text-gray-400'}`}>
+                        {item.profitLoss > 0 ? '+' : ''}{item.profitLoss.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="md:hidden space-y-1.5">
+              {tradeHistory.map((item) => (
+                <div key={item.id} className="rounded-lg border border-white/10 bg-white/5 p-2.5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-semibold ${item.type === 'buy' ? 'text-success' : 'text-danger'}`}>
+                      {item.type.toUpperCase()} {item.cryptoSymbol}
+                    </span>
+                    <span className="text-[10px] text-gray-400">{item.tradeKind === 'timed' ? `${item.period}s` : 'SPOT'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-400">{new Date(item.createdAt).toLocaleString()}</span>
+                    <span className={item.profitLoss > 0 ? 'text-success' : item.profitLoss < 0 ? 'text-danger' : 'text-gray-300'}>
+                      {item.profitLoss > 0 ? '+' : ''}{item.profitLoss.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDT
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Trade Modal */}
