@@ -41,6 +41,7 @@ export async function GET() {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const userId = session.user.id;
 
     await connectDB();
 
@@ -92,10 +93,33 @@ export async function GET() {
       : [];
     const promotionTargetPath = typeof settings?.promotion?.targetPath === 'string' && settings.promotion.targetPath.startsWith('/')
       ? settings.promotion.targetPath
-      : '/news';
-    const promotionVisibleForUser = promotionTargetAll || promotionTargetUserIds.includes(session.user.id);
+      : '/messages';
+    const promotionVisibleForUser = promotionTargetAll || promotionTargetUserIds.includes(userId);
 
-    if (promotionEnabled && promotionMessage && promotionVisibleForUser) {
+    const promotionHistory = Array.isArray(settings?.promotion?.history)
+      ? settings.promotion.history
+      : [];
+
+    const promotionHistoryNotifications = promotionHistory
+      .filter((item: any) => {
+        const targetAll = typeof item?.targetAll === 'boolean' ? item.targetAll : true;
+        const targetUserIds = Array.isArray(item?.targetUserIds) ? item.targetUserIds.map((id: unknown) => String(id)) : [];
+        return targetAll || targetUserIds.includes(userId);
+      })
+      .slice(0, 30)
+      .map((item: any) => ({
+        id: `promotion-${String(item.id || parseDate(item?.createdAt || new Date()).toISOString())}`,
+        type: 'promotion' as const,
+        title: typeof item?.title === 'string' && item.title.trim() ? item.title.trim() : 'Promotion',
+        message: typeof item?.message === 'string' ? item.message : '',
+        timestamp: parseDate(item?.createdAt || new Date()).toISOString(),
+        targetPath: typeof item?.targetPath === 'string' && item.targetPath.startsWith('/') ? item.targetPath : '/messages',
+      }))
+      .filter((item: UserNotification) => item.message.trim().length > 0);
+
+    if (promotionHistoryNotifications.length > 0) {
+      systemNotifications.push(...promotionHistoryNotifications);
+    } else if (promotionEnabled && promotionMessage && promotionVisibleForUser) {
       systemNotifications.push({
         id: `promotion-message-${parseDate(settings?.promotion?.updatedAt || settings?.updatedAt || new Date()).toISOString()}`,
         type: 'promotion',

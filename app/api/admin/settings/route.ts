@@ -116,10 +116,11 @@ export async function GET(request: NextRequest) {
         chatFaqs: Array.isArray(settings.chatFaqs) ? settings.chatFaqs : [],
         promotion: settings.promotion || {
           message: '',
-          targetPath: '/news',
+          targetPath: '/messages',
           enabled: false,
           targetAll: true,
           targetUserIds: [],
+          history: [],
           updatedAt: null,
         },
         apiKeys: settings.apiKeys?.map((k: any) => ({
@@ -196,6 +197,7 @@ export async function PUT(request: NextRequest) {
       settings.chatFaqs = sanitizeFaqItems(body.chatFaqs);
     }
     if (body.promotion && typeof body.promotion === 'object') {
+      const dispatchNow = body.promotion.dispatchNow === true;
       if (typeof body.promotion.message === 'string') {
         settings.promotion.message = body.promotion.message.trim();
       }
@@ -210,13 +212,39 @@ export async function PUT(request: NextRequest) {
       }
       if (typeof body.promotion.targetPath === 'string') {
         const nextPath = body.promotion.targetPath.trim();
-        settings.promotion.targetPath = nextPath.startsWith('/') ? nextPath : '/news';
+        settings.promotion.targetPath = nextPath.startsWith('/') ? nextPath : '/messages';
       }
       if (typeof body.promotion.updatedAt === 'string') {
         const parsed = new Date(body.promotion.updatedAt);
         if (!Number.isNaN(parsed.getTime())) {
           settings.promotion.updatedAt = parsed;
         }
+      }
+      if (dispatchNow) {
+        if (!settings.promotion.message) {
+          return NextResponse.json({ error: 'Promotion message is required' }, { status: 400 });
+        }
+        if (!settings.promotion.targetAll && settings.promotion.targetUserIds.length === 0) {
+          return NextResponse.json(
+            { error: 'Choose at least one recipient or enable send-to-all' },
+            { status: 400 }
+          );
+        }
+        const messageId = `promo-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`;
+        const createdAt = new Date();
+        settings.promotion.updatedAt = createdAt;
+        settings.promotion.enabled = true;
+        const nextHistory = Array.isArray(settings.promotion.history) ? settings.promotion.history : [];
+        nextHistory.unshift({
+          id: messageId,
+          title: 'Promotion',
+          message: settings.promotion.message,
+          targetPath: settings.promotion.targetPath || '/messages',
+          targetAll: settings.promotion.targetAll,
+          targetUserIds: settings.promotion.targetUserIds,
+          createdAt,
+        });
+        settings.promotion.history = nextHistory.slice(0, 200);
       }
     }
     if (body.ui && typeof body.ui === 'object') {

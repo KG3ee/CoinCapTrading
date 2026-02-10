@@ -54,10 +54,27 @@ const chatFaqSchema = new mongoose.Schema(
 const promotionSchema = new mongoose.Schema(
   {
     message: { type: String, default: '' },
-    targetPath: { type: String, default: '/news' },
+    targetPath: { type: String, default: '/messages' },
     enabled: { type: Boolean, default: false },
     targetAll: { type: Boolean, default: true },
     targetUserIds: { type: [String], default: [] },
+    history: {
+      type: [
+        new mongoose.Schema(
+          {
+            id: { type: String, required: true },
+            title: { type: String, default: 'Promotion' },
+            message: { type: String, required: true },
+            targetPath: { type: String, default: '/messages' },
+            targetAll: { type: Boolean, default: true },
+            targetUserIds: { type: [String], default: [] },
+            createdAt: { type: Date, default: Date.now },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
     updatedAt: { type: Date, default: null },
   },
   { _id: false }
@@ -210,10 +227,11 @@ adminSettingsSchema.statics.getSettings = async function () {
   if (!settings.promotion || typeof settings.promotion !== 'object') {
     settings.promotion = {
       message: '',
-      targetPath: '/news',
+      targetPath: '/messages',
       enabled: false,
       targetAll: true,
       targetUserIds: [],
+      history: [],
       updatedAt: null,
     };
     await settings.save();
@@ -225,6 +243,10 @@ adminSettingsSchema.statics.getSettings = async function () {
     }
     if (!Array.isArray(settings.promotion.targetUserIds)) {
       settings.promotion.targetUserIds = [];
+      promotionUpdated = true;
+    }
+    if (!Array.isArray(settings.promotion.history)) {
+      settings.promotion.history = [];
       promotionUpdated = true;
     }
     if (promotionUpdated) {

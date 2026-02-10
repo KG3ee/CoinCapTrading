@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, ArrowLeftRight, Wallet, Menu, X, User, BarChart3, Bell, Newspaper, Eye, EyeOff, ChevronUp } from 'lucide-react';
+import { Home, ArrowLeftRight, Wallet, Menu, X, User, BarChart3, Bell, Newspaper, Mail, Eye, EyeOff, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback, useRef, type UIEvent } from 'react';
@@ -221,6 +221,7 @@ function RootLayoutContent({
     { name: 'Markets', icon: BarChart3, href: '/markets' },
     { name: 'Trade', icon: ArrowLeftRight, href: '/trade' },
     { name: 'News', icon: Newspaper, href: '/news' },
+    { name: 'Messages', icon: Mail, href: '/messages' },
     { name: 'Wallet', icon: Wallet, href: '/wallet' },
   ];
 
@@ -255,7 +256,7 @@ function RootLayoutContent({
               )}
             </button>
             {showUserNotifications && (
-              <div className="menu-surface absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-[220]">
+              <div className="menu-surface absolute left-0 top-full mt-2 w-[min(20rem,calc(100vw-1rem))] max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-[220]">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                   <p className="text-xs font-semibold text-white">Notifications</p>
                   <button onClick={handleMarkUserNotificationsRead} className="text-[10px] text-accent hover:underline">

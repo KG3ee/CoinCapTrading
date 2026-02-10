@@ -143,6 +143,13 @@ interface AdminSettingsState {
     enabled: boolean;
     targetAll: boolean;
     targetUserIds: string[];
+    history?: Array<{
+      id: string;
+      title: string;
+      message: string;
+      targetPath: string;
+      createdAt: string;
+    }>;
     updatedAt: string | null;
   };
   ui: { theme: 'dark' | 'light' };
@@ -943,11 +950,14 @@ export default function AdminPage() {
               ],
           promotion: {
             message: data.settings?.promotion?.message || '',
-            targetPath: data.settings?.promotion?.targetPath || '/news',
+            targetPath: data.settings?.promotion?.targetPath || '/messages',
             enabled: !!data.settings?.promotion?.enabled,
             targetAll: data.settings?.promotion?.targetAll !== false,
             targetUserIds: Array.isArray(data.settings?.promotion?.targetUserIds)
               ? data.settings.promotion.targetUserIds
+              : [],
+            history: Array.isArray(data.settings?.promotion?.history)
+              ? data.settings.promotion.history
               : [],
             updatedAt: data.settings?.promotion?.updatedAt || null,
           },
@@ -1154,6 +1164,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           promotion: {
             ...adminSettings.promotion,
+            dispatchNow: true,
             message,
             enabled: true,
             updatedAt: new Date().toISOString(),
@@ -1172,7 +1183,7 @@ export default function AdminPage() {
           updatedAt: new Date().toISOString(),
         },
       } : current);
-      setSuccess('Promotion sent to in-app notifications');
+      setSuccess('Promotion sent');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.message || 'Failed to send promotion');
@@ -3313,7 +3324,7 @@ export default function AdminPage() {
 
           {/* ── TAB: SETTINGS ─────────────────────────── */}
           {activeTab === 'settings' && (
-            <section className="flex h-full min-h-0 flex-col gap-3">
+            <section className="flex flex-col gap-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
                 <h3 className="text-sm font-bold">Admin Settings</h3>
                 {showSettingsControls && (
@@ -3329,12 +3340,12 @@ export default function AdminPage() {
               {showSettingsControls && (settingsLoading || !adminSettings) ? (
                 <div className="panel p-4 text-xs text-gray-500">Loading settings...</div>
               ) : (
-                <div className="flex-1 min-h-0">
-                  <div className="min-h-0 h-full grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
                     {showSettingsControls && adminSettings && (
-                      <div className="min-h-0 flex flex-col gap-3 lg:col-span-1">
+                      <div className="flex flex-col gap-3 xl:col-span-1">
                         {/* RBAC */}
-                        <div className="panel p-3 min-h-[180px] lg:min-h-0 lg:flex-[1.35] flex flex-col gap-2">
+                        <div className="panel p-3 flex flex-col gap-2">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold">Role-Based Access Control</p>
                             <label className="flex items-center gap-2 text-[10px] text-gray-400">
@@ -3347,7 +3358,7 @@ export default function AdminPage() {
                               Enable RBAC
                             </label>
                           </div>
-                          <div className="space-y-1 text-[10px] flex-1 min-h-0 overflow-y-auto pr-1">
+                          <div className="space-y-1 text-[10px]">
                             {adminSettings.roles.map(role => (
                               <div key={role.name} className="p-2 rounded bg-white/5">
                                 <p className="font-semibold">{role.name}</p>
@@ -3358,9 +3369,9 @@ export default function AdminPage() {
                         </div>
 
                         {/* System Notifications */}
-                        <div className="panel p-3 min-h-[120px] lg:min-h-0 lg:flex-[0.85] flex flex-col gap-2">
+                        <div className="panel p-3 flex flex-col gap-2">
                           <p className="text-xs font-semibold">System Notifications</p>
-                          <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1">
+                          <div className="space-y-1">
                             {(['newUsers', 'largeWithdrawals', 'flaggedTrades'] as const).map(key => (
                               <label key={key} className="flex items-center gap-2 text-[10px] text-gray-400">
                                 <input
@@ -3377,7 +3388,7 @@ export default function AdminPage() {
                         </div>
 
                         {/* Maintenance Mode */}
-                        <div className="panel p-3 min-h-[120px] lg:min-h-0 lg:flex-[0.8] flex flex-col gap-2">
+                        <div className="panel p-3 flex flex-col gap-2">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold">Maintenance Mode</p>
                             <label className="flex items-center gap-2 text-[10px] text-gray-400">
@@ -3398,7 +3409,7 @@ export default function AdminPage() {
                           />
                         </div>
 
-                        <div className="panel p-3 min-h-[180px] lg:min-h-0 lg:flex-[1.05] flex flex-col gap-2">
+                        <div className="panel p-3 flex flex-col gap-2">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold">News Sources (User News page)</p>
                             <div className="flex items-center gap-2">
@@ -3419,7 +3430,7 @@ export default function AdminPage() {
                             </div>
                           </div>
 
-                          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                          <div className="space-y-2">
                             {adminSettings.news.items.map((item, index) => (
                               <div key={item.id} className="rounded border border-white/10 bg-white/5 p-2 space-y-1.5">
                                 <div className="flex items-center justify-between">
@@ -3454,7 +3465,7 @@ export default function AdminPage() {
                           </p>
                         </div>
 
-                        <div className="panel p-3 min-h-[150px] lg:min-h-0 lg:flex-[1] flex flex-col gap-2">
+                        <div className="panel p-3 flex flex-col gap-2">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold">Promotion Message</p>
                             <button
@@ -3541,10 +3552,10 @@ export default function AdminPage() {
                             value={adminSettings.promotion.targetPath}
                             onChange={(e) => setAdminSettings(s => s ? {
                               ...s,
-                              promotion: { ...s.promotion, targetPath: e.target.value || '/news' },
+                              promotion: { ...s.promotion, targetPath: e.target.value || '/messages' },
                             } : s)}
                             className="w-full text-xs rounded px-2 py-1.5 border"
-                            placeholder="/news"
+                            placeholder="/messages"
                           />
                           <label className="flex items-center gap-2 text-[10px] text-gray-400">
                             <input
@@ -3560,7 +3571,7 @@ export default function AdminPage() {
                           </label>
                         </div>
 
-                        <div className="panel p-3 min-h-[170px] lg:min-h-0 lg:flex-[1] flex flex-col gap-2">
+                        <div className="panel p-3 flex flex-col gap-2">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold">Customer Chat FAQ Presets</p>
                             <button
@@ -3571,7 +3582,7 @@ export default function AdminPage() {
                               Add FAQ
                             </button>
                           </div>
-                          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                          <div className="space-y-2">
                             {adminSettings.chatFaqs.map((faq, index) => (
                               <div key={faq.id} className="rounded border border-white/10 bg-white/5 p-2 space-y-1.5">
                                 <div className="flex items-center justify-between">
@@ -3604,10 +3615,10 @@ export default function AdminPage() {
                       </div>
                     )}
 
-                    <div className={`min-h-0 flex flex-col gap-3 ${showSettingsControls && adminSettings ? 'lg:col-span-1' : 'lg:col-span-2'}`}>
+                    <div className={`flex flex-col gap-3 ${showSettingsControls && adminSettings ? 'xl:col-span-1' : 'xl:col-span-2'}`}>
                       {/* Admin Management */}
                       {showAdminManagement && (
-                        <div className="panel p-3 min-h-[250px] lg:min-h-0 lg:flex-[0.9] flex flex-col gap-2 overflow-hidden">
+                        <div className="panel p-3 flex flex-col gap-2">
                           <div className="flex items-center justify-between">
                             <p className="text-xs font-semibold">Admin Accounts</p>
                             <span className="text-[10px] text-gray-500">{adminUsers.length} total</span>
@@ -3672,7 +3683,7 @@ export default function AdminPage() {
                             <p className="text-[10px] text-gray-500">Only Super Admin can create new admin accounts.</p>
                           )}
 
-                          <div className="flex-1 min-h-0 overflow-y-auto pr-1 text-[10px]">
+                          <div className="text-[10px]">
                             {adminUsersLoading ? (
                               <p className="text-gray-500">Loading admins...</p>
                             ) : adminUsers.length === 0 ? (
@@ -3712,7 +3723,7 @@ export default function AdminPage() {
 
                       {/* Activity Logs */}
                       {showAuditLogs && (
-                        <div className="panel min-h-[320px] lg:min-h-0 lg:flex-1 flex flex-col overflow-hidden">
+                        <div className="panel flex flex-col">
                           <div className="panel-header">
                             <p className="text-xs font-semibold">Activity Logs</p>
                             <input
@@ -3725,7 +3736,7 @@ export default function AdminPage() {
                           <div
                             tabIndex={0}
                             aria-label="Activity logs"
-                            className="panel-body panel-scroll scrollbar-thin-dark flex-1 min-h-0 pr-1 text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                            className="panel-body panel-scroll scrollbar-thin-dark max-h-[420px] pr-1 text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
                           >
                             {auditLogsLoading ? (
                               <p className="text-gray-500">Loading logs...</p>
