@@ -3,7 +3,7 @@
 import { Home, TrendingUp, ArrowLeftRight, Wallet, Menu, X, User, BarChart3, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { NextIntlClientProvider } from 'next-intl';
 import { SessionProvider, useSession } from 'next-auth/react';
 import ChatWidget from '@/lib/components/ChatWidget';
