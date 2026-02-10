@@ -6,10 +6,11 @@ import { fundingRequestSchema } from '@/lib/validation/schemas';
 import FundingRequest from '@/lib/models/FundingRequest';
 import Portfolio from '@/lib/models/Portfolio';
 import User from '@/lib/models/User';
+import AdminSettings from '@/lib/models/AdminSettings';
 import config from '@/lib/config';
 import { nanoid } from 'nanoid';
 import { logger } from '@/lib/utils/logger';
-import { FUNDING_NETWORKS_BY_ASSET, SUPPORTED_FUNDING_ASSETS, getWalletOptionById } from '@/lib/constants/funding';
+import { getEffectiveDepositWalletOptions, getFundingMetaFromWalletOptions, getWalletOptionById } from '@/lib/constants/funding';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,6 +39,9 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
+    const settings = await (AdminSettings as any).getSettings();
+    const depositWalletOptions = getEffectiveDepositWalletOptions(settings?.funding?.wallets);
+    const fundingMeta = getFundingMetaFromWalletOptions(depositWalletOptions);
 
     return NextResponse.json({
       requests: requests.map((r: any) => ({
@@ -59,6 +63,9 @@ export async function GET(request: NextRequest) {
         createdAt: r.createdAt,
         resolvedAt: r.resolvedAt,
       })),
+      depositWalletOptions,
+      fundingAssets: fundingMeta.assets,
+      fundingNetworksByAsset: fundingMeta.networksByAsset,
     });
   } catch (error: any) {
     log.error({ error }, 'Failed to load funding requests');
@@ -98,16 +105,13 @@ export async function POST(request: NextRequest) {
       withdrawPassword,
     } = parsed.data;
 
-    const asset = (rawAsset || 'USDT').toUpperCase();
-    if (!SUPPORTED_FUNDING_ASSETS.includes(asset as any)) {
-      return NextResponse.json({ error: 'Unsupported crypto type' }, { status: 400 });
-    }
+    const settings = await (AdminSettings as any).getSettings();
+    const depositWalletOptions = getEffectiveDepositWalletOptions(settings?.funding?.wallets);
+    const fundingMeta = getFundingMetaFromWalletOptions(depositWalletOptions);
 
-    const allowedNetworks = FUNDING_NETWORKS_BY_ASSET[asset] || [];
-    const network = (rawNetwork || allowedNetworks[0] || 'TRC20').toUpperCase();
-    if (!allowedNetworks.includes(network)) {
-      return NextResponse.json({ error: 'Unsupported network for selected crypto' }, { status: 400 });
-    }
+    let asset = (rawAsset || fundingMeta.assets[0] || 'USDT').toUpperCase();
+    const fallbackNetwork = fundingMeta.networksByAsset[asset]?.[0] || 'TRC20';
+    let network = (rawNetwork || fallbackNetwork).toUpperCase();
 
     const user = await User.findById(session.user.id).select('+password');
     if (!user) {
@@ -151,10 +155,12 @@ export async function POST(request: NextRequest) {
     let normalizedProofImageData = '';
     let normalizedProofImageName = '';
     if (type === 'deposit') {
-      const wallet = platformWalletId ? getWalletOptionById(platformWalletId) : null;
-      if (!wallet || wallet.asset !== asset || wallet.network !== network) {
+      const wallet = platformWalletId ? getWalletOptionById(platformWalletId, depositWalletOptions) : null;
+      if (!wallet) {
         return NextResponse.json({ error: 'Please select a valid deposit wallet address' }, { status: 400 });
       }
+      asset = wallet.asset;
+      network = wallet.network;
 
       normalizedProofImageData = proofImageData || '';
       normalizedProofImageName = proofImageName || '';

@@ -21,6 +21,17 @@ const apiKeySchema = new mongoose.Schema(
   { _id: false }
 );
 
+const fundingWalletSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    asset: { type: String, required: true },
+    network: { type: String, required: true },
+    label: { type: String, required: true },
+    address: { type: String, required: true },
+  },
+  { _id: false }
+);
+
 const adminSettingsSchema = new mongoose.Schema(
   {
     rbacEnabled: { type: Boolean, default: false },
@@ -37,6 +48,9 @@ const adminSettingsSchema = new mongoose.Schema(
     maintenance: {
       enabled: { type: Boolean, default: false },
       message: { type: String, default: 'We are performing maintenance. Please try again later.' },
+    },
+    funding: {
+      wallets: { type: [fundingWalletSchema], default: [] },
     },
     apiKeys: { type: [apiKeySchema], default: [] },
     ui: {
@@ -105,6 +119,10 @@ adminSettingsSchema.statics.getSettings = async function () {
     if (updated) {
       await settings.save();
     }
+  }
+  if (!settings.funding || !Array.isArray(settings.funding.wallets)) {
+    settings.funding = { wallets: [] };
+    await settings.save();
   }
   return settings;
 };

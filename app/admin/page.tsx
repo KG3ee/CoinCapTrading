@@ -8,6 +8,7 @@ import {
   BadgeCheck, Eye, XCircle, CheckCircle2, Sun, Moon, ArrowLeftRight,
   type LucideIcon,
 } from 'lucide-react';
+import { DEPOSIT_WALLET_OPTIONS, type DepositWalletOption } from '@/lib/constants/funding';
 
 interface TradeSettingsData {
   globalMode: 'random' | 'all_win' | 'all_lose';
@@ -311,6 +312,9 @@ export default function AdminPage() {
   const [fundingFilter, setFundingFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
   const [fundingLoading, setFundingLoading] = useState(false);
   const [fundingActionLoading, setFundingActionLoading] = useState<string | null>(null);
+  const [fundingWallets, setFundingWallets] = useState<DepositWalletOption[]>(DEPOSIT_WALLET_OPTIONS);
+  const [fundingWalletsLoading, setFundingWalletsLoading] = useState(false);
+  const [fundingWalletsSaving, setFundingWalletsSaving] = useState(false);
 
   const [adminSettings, setAdminSettings] = useState<AdminSettingsState | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -742,11 +746,93 @@ export default function AdminPage() {
     setFundingLoading(false);
   }, [headers, fundingFilter, canManageFunding]);
 
+  const fetchFundingWallets = useCallback(async () => {
+    if (!canManageFunding) return;
+    setFundingWalletsLoading(true);
+    try {
+      const res = await fetch('/api/admin/funding/wallets', { headers: headers() });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.wallets) && data.wallets.length > 0) {
+          setFundingWallets(data.wallets);
+        }
+      }
+    } catch {
+      // silent
+    }
+    setFundingWalletsLoading(false);
+  }, [headers, canManageFunding]);
+
+  const handleFundingWalletFieldChange = (walletId: string, field: 'label' | 'asset' | 'network' | 'address', value: string) => {
+    setFundingWallets(prev => prev.map(wallet => (
+      wallet.id === walletId
+        ? {
+            ...wallet,
+            [field]: field === 'asset' || field === 'network' ? value.toUpperCase() : value,
+          }
+        : wallet
+    )));
+  };
+
+  const handleAddFundingWallet = () => {
+    const nextId = `wallet-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    setFundingWallets(prev => [...prev, {
+      id: nextId,
+      label: 'New Wallet',
+      asset: 'USDT',
+      network: 'TRC20',
+      address: '',
+    }]);
+  };
+
+  const handleRemoveFundingWallet = (walletId: string) => {
+    setFundingWallets(prev => prev.filter(wallet => wallet.id !== walletId));
+  };
+
+  const handleSaveFundingWallets = async () => {
+    if (!canManageFunding) {
+      setError('You do not have permission to manage funding wallets');
+      return;
+    }
+    if (fundingWallets.length === 0) {
+      setError('At least one wallet is required');
+      return;
+    }
+    const hasInvalidRow = fundingWallets.some(wallet => (
+      !wallet.label.trim() || !wallet.asset.trim() || !wallet.network.trim() || !wallet.address.trim()
+    ));
+    if (hasInvalidRow) {
+      setError('All wallet fields are required');
+      return;
+    }
+
+    setFundingWalletsSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch('/api/admin/funding/wallets', {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({ wallets: fundingWallets }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save wallet addresses');
+      setFundingWallets(data.wallets || fundingWallets);
+      setSuccess('Funding wallet addresses saved');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setFundingWalletsSaving(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'funding') {
       fetchFundingRequests(fundingFilter);
+      fetchFundingWallets();
     }
-  }, [activeTab, fundingFilter, fetchFundingRequests]);
+  }, [activeTab, fundingFilter, fetchFundingRequests, fetchFundingWallets]);
 
   const fetchAdminSettings = useCallback(async () => {
     if (!isAuthenticated || !can('manage_settings')) return;
@@ -2421,6 +2507,86 @@ export default function AdminPage() {
                     <RefreshCw size={12} />
                   </button>
                 </div>
+              </div>
+
+              <div className="panel p-3 flex flex-col gap-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <h4 className="text-xs font-semibold">Deposit Wallet Addresses</h4>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={handleAddFundingWallet}
+                      className="px-2.5 py-1 rounded text-[10px] font-semibold bg-white/5 text-gray-300 hover:text-white"
+                    >
+                      + Add Wallet
+                    </button>
+                    <button
+                      onClick={handleSaveFundingWallets}
+                      disabled={fundingWalletsSaving}
+                      className="px-2.5 py-1 rounded text-[10px] font-semibold bg-accent/20 text-accent disabled:opacity-40"
+                    >
+                      {fundingWalletsSaving ? 'Saving...' : 'Save Wallets'}
+                    </button>
+                  </div>
+                </div>
+                {fundingWalletsLoading ? (
+                  <p className="text-[10px] text-gray-500">Loading wallet addresses...</p>
+                ) : (
+                  <div className="max-h-64 overflow-y-auto pr-1 space-y-2">
+                    {fundingWallets.map((wallet, index) => (
+                      <div
+                        key={wallet.id}
+                        className="grid grid-cols-1 md:grid-cols-[1.1fr_0.7fr_0.7fr_2fr_auto] gap-2 items-end rounded-lg border border-white/10 bg-white/5 p-2"
+                      >
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-gray-400">Label</label>
+                          <input
+                            value={wallet.label}
+                            onChange={(e) => handleFundingWalletFieldChange(wallet.id, 'label', e.target.value)}
+                            className="w-full text-xs rounded px-2 py-1.5 border"
+                            placeholder={`Wallet ${index + 1}`}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-gray-400">Asset</label>
+                          <input
+                            value={wallet.asset}
+                            onChange={(e) => handleFundingWalletFieldChange(wallet.id, 'asset', e.target.value)}
+                            className="w-full text-xs rounded px-2 py-1.5 border uppercase"
+                            placeholder="USDT"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-gray-400">Network</label>
+                          <input
+                            value={wallet.network}
+                            onChange={(e) => handleFundingWalletFieldChange(wallet.id, 'network', e.target.value)}
+                            className="w-full text-xs rounded px-2 py-1.5 border uppercase"
+                            placeholder="TRC20"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-gray-400">Wallet Address</label>
+                          <input
+                            value={wallet.address}
+                            onChange={(e) => handleFundingWalletFieldChange(wallet.id, 'address', e.target.value)}
+                            className="w-full text-xs rounded px-2 py-1.5 border"
+                            placeholder="Paste receiving wallet address"
+                          />
+                        </div>
+                        <button
+                          onClick={() => handleRemoveFundingWallet(wallet.id)}
+                          disabled={fundingWallets.length <= 1}
+                          className="h-8 px-2 rounded text-[10px] font-semibold bg-red-500/15 text-red-400 disabled:opacity-40"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-500">
+                  Users will choose these wallet addresses in the deposit popup.
+                </p>
               </div>
 
               <div className="panel flex flex-1 min-h-0 flex-col overflow-hidden">

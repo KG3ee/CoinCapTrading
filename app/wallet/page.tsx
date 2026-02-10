@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowUpRight,
@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { fetchRealCryptoData, formatPrice, formatLargeNumber } from '@/lib/mockCryptoData';
 import { useSession, signOut } from 'next-auth/react';
-import { DEPOSIT_WALLET_OPTIONS, FUNDING_NETWORKS_BY_ASSET, SUPPORTED_FUNDING_ASSETS } from '@/lib/constants/funding';
+import { DEPOSIT_WALLET_OPTIONS, getFundingMetaFromWalletOptions, type DepositWalletOption } from '@/lib/constants/funding';
 
 interface Holding {
   cryptoSymbol: string;
@@ -139,9 +139,11 @@ export default function WalletPage() {
   const [fundingProofImageData, setFundingProofImageData] = useState('');
   const [fundingProofImageName, setFundingProofImageName] = useState('');
   const [withdrawPassword, setWithdrawPassword] = useState('');
+  const [depositWalletOptions, setDepositWalletOptions] = useState<DepositWalletOption[]>(DEPOSIT_WALLET_OPTIONS);
 
-  const availableFundingNetworks = FUNDING_NETWORKS_BY_ASSET[fundingAsset] || [];
-  const availableDepositWallets = DEPOSIT_WALLET_OPTIONS.filter(
+  const fundingMeta = useMemo(() => getFundingMetaFromWalletOptions(depositWalletOptions), [depositWalletOptions]);
+  const availableFundingNetworks = fundingMeta.networksByAsset[fundingAsset] || [];
+  const availableDepositWallets = depositWalletOptions.filter(
     (item) => item.asset === fundingAsset && item.network === fundingNetwork
   );
 
@@ -333,6 +335,9 @@ export default function WalletPage() {
       if (res.ok) {
         const d = await res.json();
         setFundingRequests(d.requests || []);
+        if (Array.isArray(d.depositWalletOptions) && d.depositWalletOptions.length > 0) {
+          setDepositWalletOptions(d.depositWalletOptions);
+        }
       }
     } catch {
       // silent
@@ -360,7 +365,7 @@ export default function WalletPage() {
       setFundingError('Enter a valid amount');
       return;
     }
-    if (!SUPPORTED_FUNDING_ASSETS.includes(fundingAsset as any)) {
+    if (!fundingMeta.assets.includes(fundingAsset)) {
       setFundingError('Choose a valid crypto type');
       return;
     }
@@ -464,6 +469,13 @@ export default function WalletPage() {
       setShowFundingModal(true);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (fundingMeta.assets.length === 0) return;
+    if (!fundingMeta.assets.includes(fundingAsset)) {
+      setFundingAsset(fundingMeta.assets[0]);
+    }
+  }, [fundingAsset, fundingMeta.assets]);
 
   useEffect(() => {
     if (availableFundingNetworks.length === 0) return;
@@ -989,7 +1001,7 @@ export default function WalletPage() {
                     onChange={e => setFundingAsset(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-accent focus:outline-none"
                   >
-                    {SUPPORTED_FUNDING_ASSETS.map(asset => (
+                    {fundingMeta.assets.map(asset => (
                       <option key={asset} value={asset}>{asset}</option>
                     ))}
                   </select>
