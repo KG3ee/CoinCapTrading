@@ -7,6 +7,11 @@ import { useState, useEffect, useCallback, useRef, type UIEvent } from 'react';
 import { NextIntlClientProvider } from 'next-intl';
 import { SessionProvider, useSession } from 'next-auth/react';
 import ChatWidget from '@/lib/components/ChatWidget';
+import {
+  getPortfolioVisibility,
+  setPortfolioVisibility,
+  subscribePortfolioVisibility,
+} from '@/lib/utils/portfolioVisibility';
 
 interface RootLayoutClientProps {
   children: React.ReactNode;
@@ -16,7 +21,6 @@ interface RootLayoutClientProps {
 
 type AppTheme = 'dark' | 'light';
 const THEME_STORAGE_KEY = 'coincap-theme';
-const PORTFOLIO_VISIBILITY_STORAGE_KEY = 'coincap-hide-portfolio-value';
 
 type UserNotification = {
   id: string;
@@ -58,7 +62,6 @@ function RootLayoutContent({
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    const hidePortfolioValue = window.localStorage.getItem(PORTFOLIO_VISIBILITY_STORAGE_KEY) === '1';
     const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
     const nextTheme: AppTheme =
       storedTheme === 'light' || storedTheme === 'dark'
@@ -67,9 +70,11 @@ function RootLayoutContent({
           ? 'light'
           : 'dark';
     setAppTheme(nextTheme);
-    setShowPortfolioValue(!hidePortfolioValue);
+    setShowPortfolioValue(getPortfolioVisibility());
     applyThemeClass(nextTheme);
   }, []);
+
+  useEffect(() => subscribePortfolioVisibility(setShowPortfolioValue), []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -91,7 +96,7 @@ function RootLayoutContent({
   
   const fetchDashboardData = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard', { credentials: 'include' });
+      const res = await fetch('/api/dashboard', { credentials: 'include', cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
       if (data?.portfolio?.accountBalance != null) {
@@ -113,7 +118,7 @@ function RootLayoutContent({
   const fetchUserNotifications = useCallback(async () => {
     if (status !== 'authenticated') return;
     try {
-      const res = await fetch('/api/notifications', { credentials: 'include' });
+      const res = await fetch('/api/notifications', { credentials: 'include', cache: 'no-store' });
       if (!res.ok) return;
       const payload = await res.json();
       const notifications: UserNotification[] = payload?.notifications || [];
@@ -177,9 +182,7 @@ function RootLayoutContent({
   const handleTogglePortfolioValue = useCallback(() => {
     setShowPortfolioValue((prev) => {
       const next = !prev;
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(PORTFOLIO_VISIBILITY_STORAGE_KEY, next ? '0' : '1');
-      }
+      setPortfolioVisibility(next);
       return next;
     });
   }, []);
@@ -212,7 +215,7 @@ function RootLayoutContent({
   return (
     <div className="flex h-[100dvh] overflow-hidden">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:h-full md:flex-col md:w-56 glass border-r border-white/10">
+      <aside className="hidden md:flex md:h-full md:flex-col md:w-56 glass border-r border-white/10 relative z-40">
         <div className="p-4 border-b border-white/10 flex items-center justify-between gap-2">
           <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
             CryptoTrade
@@ -231,7 +234,7 @@ function RootLayoutContent({
               )}
             </button>
             {showUserNotifications && (
-              <div className="menu-surface absolute left-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-50">
+              <div className="menu-surface absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-[140]">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                   <p className="text-xs font-semibold text-white">Notifications</p>
                   <button onClick={handleMarkUserNotificationsRead} className="text-[10px] text-accent hover:underline">
@@ -309,7 +312,7 @@ function RootLayoutContent({
       </aside>
 
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 glass border-b border-white/10" style={{paddingTop: 'env(safe-area-inset-top)'}}>
+      <div className="md:hidden fixed top-0 left-0 right-0 z-[80] glass border-b border-white/10" style={{paddingTop: 'env(safe-area-inset-top)'}}>
         <div className="flex items-center justify-between px-3 py-3">
           <h1 className="text-base font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent truncate">
             CryptoTrade
@@ -329,7 +332,7 @@ function RootLayoutContent({
                 )}
               </button>
               {showUserNotifications && (
-                <div className="menu-surface absolute right-0 top-full mt-2 w-[min(90vw,20rem)] max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-50">
+                <div className="menu-surface absolute right-0 top-full mt-2 w-[min(90vw,20rem)] max-h-96 overflow-y-auto rounded-xl border border-white/10 shadow-2xl z-[140]">
                   <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
                     <p className="text-xs font-semibold text-white">Notifications</p>
                     <button onClick={handleMarkUserNotificationsRead} className="text-[10px] text-accent hover:underline">

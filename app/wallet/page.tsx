@@ -22,6 +22,11 @@ import {
 import { fetchRealCryptoData, formatPrice, formatLargeNumber } from '@/lib/mockCryptoData';
 import { useSession, signOut } from 'next-auth/react';
 import { DEPOSIT_WALLET_OPTIONS, getFundingMetaFromWalletOptions, type DepositWalletOption } from '@/lib/constants/funding';
+import {
+  getPortfolioVisibility,
+  setPortfolioVisibility,
+  subscribePortfolioVisibility,
+} from '@/lib/utils/portfolioVisibility';
 
 interface Holding {
   cryptoSymbol: string;
@@ -121,7 +126,7 @@ export default function WalletPage() {
   const [data, setData] = useState<WalletData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showBalance, setShowBalance] = useState(true);
+  const [showBalance, setShowBalance] = useState<boolean>(() => getPortfolioVisibility());
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [fundingRequests, setFundingRequests] = useState<FundingRequestItem[]>([]);
   const [fundingLoading, setFundingLoading] = useState(false);
@@ -461,6 +466,17 @@ export default function WalletPage() {
     loadProfile();
   }, [router, status]);
 
+  useEffect(() => subscribePortfolioVisibility(setShowBalance), []);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const interval = setInterval(() => {
+      loadWalletData();
+      loadFundingRequests();
+    }, 12000);
+    return () => clearInterval(interval);
+  }, [status, loadWalletData, loadFundingRequests]);
+
   useEffect(() => {
     const action = searchParams.get('action');
     if (action === 'deposit' || action === 'withdraw') {
@@ -568,7 +584,7 @@ export default function WalletPage() {
             <p className="text-gray-400">Manage your crypto assets and view trading history</p>
           </div>
           <button
-            onClick={() => setShowBalance(!showBalance)}
+            onClick={() => setPortfolioVisibility(!showBalance)}
             className="p-2 hover:bg-white/10 rounded-lg transition"
           >
             {showBalance ? (
@@ -584,7 +600,7 @@ export default function WalletPage() {
           {/* Account Balance */}
           <div className="glass-card p-6 border border-white/10">
             <p className="text-gray-400 text-sm mb-2">Available Balance</p>
-            <p className="text-3xl font-bold text-white">
+            <p className="text-2xl md:text-3xl font-bold text-white leading-tight break-words [overflow-wrap:anywhere]">
               {showBalance ? formatPrice(data.portfolio.accountBalance) : '••••••'}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -618,7 +634,7 @@ export default function WalletPage() {
           {/* Portfolio Value */}
           <div className="glass-card p-6 border border-white/10">
             <p className="text-gray-400 text-sm mb-2">Total Portfolio Value</p>
-            <p className="text-3xl font-bold text-white">
+            <p className="text-2xl md:text-3xl font-bold text-white leading-tight break-words [overflow-wrap:anywhere]">
               {showBalance ? formatPrice(totalPortfolioValue) : '••••••'}
             </p>
             <p className="text-xs text-gray-400 mt-2">{data.stats.totalHoldings} assets</p>
@@ -628,7 +644,7 @@ export default function WalletPage() {
           <div className="glass-card p-6 border border-white/10">
             <p className="text-gray-400 text-sm mb-2">Total Returns</p>
             <div className="flex items-end gap-2">
-              <p className={`text-3xl font-bold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+              <p className={`text-2xl md:text-3xl font-bold leading-tight break-words [overflow-wrap:anywhere] ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
                 {showBalance ? formatPrice(totalReturns) : '••••••'}
               </p>
               {isPositive ? (

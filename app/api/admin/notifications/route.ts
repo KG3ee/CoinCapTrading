@@ -7,6 +7,11 @@ import { getAdminContext, hasPermission } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
+function toDate(value: unknown) {
+  const date = value instanceof Date ? value : new Date(String(value || ''));
+  return Number.isNaN(date.getTime()) ? new Date(0) : date;
+}
+
 // GET /api/admin/notifications — get recent registrations as notifications
 export async function GET(request: NextRequest) {
   const context = await getAdminContext(request);
@@ -62,10 +67,11 @@ export async function GET(request: NextRequest) {
       })),
       ...recentFundings.map((funding: any) => {
         const fundingUser = fundingUserMap.get(funding.userId.toString());
+        const fundingType = funding.type === 'withdraw' ? 'withdraw' : 'deposit';
         return {
           id: `funding-${funding._id.toString()}`,
           type: 'funding',
-          fundingType: funding.type,
+          fundingType,
           asset: funding.asset,
           amount: funding.amount,
           status: funding.status,
@@ -74,10 +80,10 @@ export async function GET(request: NextRequest) {
           email: fundingUser?.email || '',
           uid: fundingUser?.uid || '',
           timestamp: funding.createdAt,
-          message: `${funding.type === 'withdraw' ? 'Withdrawal' : 'Deposit'} request • ${funding.amount} ${funding.asset}`,
+          message: `${fundingType === 'withdraw' ? 'Withdrawal' : 'Deposit'} request • ${funding.amount} ${funding.asset}`,
         };
       }),
-    ].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    ].sort((a, b) => toDate(b.timestamp).getTime() - toDate(a.timestamp).getTime());
 
     const unreadQuery = lastSeenAt ? { createdAt: { $gt: lastSeenAt } } : {};
     const [unreadUsers, unreadFundings] = await Promise.all([

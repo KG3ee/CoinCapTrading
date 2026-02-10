@@ -38,7 +38,7 @@ html {
 /* App Theme Variables */
 :root {
   --app-bg: #0a0a0a;
-  --app-panel: rgba(255, 255, 255, 0.02);
+  --app-panel: #11141c;
   --app-card: rgba(255, 255, 255, 0.05);
   --app-card-strong: rgba(255, 255, 255, 0.1);
   --app-border: rgba(255, 255, 255, 0.1);
@@ -52,7 +52,7 @@ html {
 
 .theme-dark {
   --app-bg: #0a0a0a;
-  --app-panel: rgba(255, 255, 255, 0.02);
+  --app-panel: #11141c;
   --app-card: rgba(255, 255, 255, 0.05);
   --app-card-strong: rgba(255, 255, 255, 0.1);
   --app-border: rgba(255, 255, 255, 0.1);
@@ -81,7 +81,7 @@ html {
 /* Admin Theme Variables */
 :root {
   --admin-bg: #0a0a0a;
-  --admin-panel: rgba(255, 255, 255, 0.02);
+  --admin-panel: #11141c;
   --admin-card: rgba(255, 255, 255, 0.05);
   --admin-card-strong: rgba(255, 255, 255, 0.08);
   --admin-border: rgba(255, 255, 255, 0.1);
@@ -240,6 +240,13 @@ html {
   color-scheme: light;
 }
 
+select,
+select option,
+select optgroup {
+  background-color: var(--app-panel);
+  color: var(--app-text);
+}
+
 .theme-dark select,
 .theme-dark select option,
 .theme-dark select optgroup {
@@ -287,11 +294,12 @@ html {
 
   .menu-surface {
     background: var(--app-panel);
+    border-color: var(--app-border);
     backdrop-filter: none;
   }
 
   .theme-dark .menu-surface {
-    background: #0f1117;
+    background: #11141c;
   }
 
   .theme-light .menu-surface {

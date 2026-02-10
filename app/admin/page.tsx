@@ -119,13 +119,21 @@ interface AuditLog {
   targetId?: string;
   createdAt: string;
 }
+
+interface NewsSettingsItem {
+  id: string;
+  title: string;
+  url: string;
+  imageUrl?: string;
+}
+
 interface AdminSettingsState {
   rbacEnabled: boolean;
   roles: { name: string; permissions: string[] }[];
   security: { require2fa: boolean; ipWhitelist: string[] };
   notifications: { newUsers: boolean; largeWithdrawals: boolean; flaggedTrades: boolean };
   maintenance: { enabled: boolean; message: string };
-  news: { title: string; url: string };
+  news: { title: string; url: string; items: NewsSettingsItem[] };
   ui: { theme: 'dark' | 'light' };
 }
 
@@ -859,6 +867,12 @@ export default function AdminPage() {
     }
   }, [activeTab, fundingFilter, fetchFundingRequests, fetchFundingWallets]);
 
+  useEffect(() => {
+    if (activeTab !== 'funding' || !canManageFunding) return;
+    const interval = setInterval(() => fetchFundingRequests(fundingFilter), 10000);
+    return () => clearInterval(interval);
+  }, [activeTab, canManageFunding, fundingFilter, fetchFundingRequests]);
+
   const fetchAdminSettings = useCallback(async () => {
     if (!isAuthenticated || !can('manage_settings')) return;
     setSettingsLoading(true);
@@ -866,11 +880,27 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/settings', { headers: headers() });
       if (res.ok) {
         const data = await res.json();
+        const apiNews = data.settings?.news || {};
+        const normalizedNewsItems = Array.isArray(apiNews.items) && apiNews.items.length > 0
+          ? apiNews.items.map((item: any, index: number) => ({
+              id: item?.id || `news-${index + 1}`,
+              title: item?.title || `News ${index + 1}`,
+              url: item?.url || '',
+              imageUrl: item?.imageUrl || '',
+            }))
+          : [{
+              id: 'news-default',
+              title: apiNews.title || 'Market News',
+              url: apiNews.url || 'https://www.coindesk.com/',
+              imageUrl: '',
+            }];
+
         setAdminSettings({
           ...data.settings,
-          news: data.settings?.news || {
-            title: 'Market News',
-            url: 'https://www.coindesk.com/',
+          news: {
+            title: apiNews.title || normalizedNewsItems[0]?.title || 'Market News',
+            url: apiNews.url || normalizedNewsItems[0]?.url || 'https://www.coindesk.com/',
+            items: normalizedNewsItems,
           },
         });
         setIpWhitelistInput((data.settings?.security?.ipWhitelist || []).join('\n'));
@@ -963,6 +993,57 @@ export default function AdminPage() {
     adminContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
+  const handleNewsItemChange = (newsId: string, field: 'title' | 'url' | 'imageUrl', value: string) => {
+    setAdminSettings((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        news: {
+          ...current.news,
+          items: current.news.items.map((item) => (
+            item.id === newsId ? { ...item, [field]: value } : item
+          )),
+        },
+      };
+    });
+  };
+
+  const handleAddNewsItem = () => {
+    setAdminSettings((current) => {
+      if (!current) return current;
+      const nextIndex = current.news.items.length + 1;
+      return {
+        ...current,
+        news: {
+          ...current.news,
+          items: [
+            ...current.news.items,
+            {
+              id: `news-${Date.now().toString(36)}-${nextIndex}`,
+              title: `News ${nextIndex}`,
+              url: '',
+              imageUrl: '',
+            },
+          ],
+        },
+      };
+    });
+  };
+
+  const handleRemoveNewsItem = (newsId: string) => {
+    setAdminSettings((current) => {
+      if (!current) return current;
+      const remaining = current.news.items.filter((item) => item.id !== newsId);
+      return {
+        ...current,
+        news: {
+          ...current.news,
+          items: remaining.length > 0 ? remaining : current.news.items,
+        },
+      };
+    });
+  };
+
   const handleSaveAdminSettings = async () => {
     if (!can('manage_settings')) {
       setError('You do not have permission to update settings');
@@ -982,7 +1063,11 @@ export default function AdminPage() {
           },
           notifications: adminSettings.notifications,
           maintenance: adminSettings.maintenance,
-          news: adminSettings.news,
+          news: {
+            title: adminSettings.news.items[0]?.title || adminSettings.news.title,
+            url: adminSettings.news.items[0]?.url || adminSettings.news.url,
+            items: adminSettings.news.items,
+          },
           ui: adminSettings.ui,
         }),
       });
@@ -1442,7 +1527,7 @@ export default function AdminPage() {
                 )}
               </button>
               {showNotifications && (
-                <div className="absolute right-0 top-full mt-1 w-80 max-h-96 overflow-y-auto bg-[var(--admin-bg)] border border-[var(--admin-border)] rounded-xl shadow-2xl z-50">
+                <div className="menu-surface absolute right-0 top-full mt-1 w-80 max-h-96 overflow-y-auto border border-[var(--admin-border)] rounded-xl shadow-2xl z-[120]">
                   <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--admin-border)]">
                     <p className="text-xs font-semibold">Notifications</p>
                     <button onClick={handleMarkNotificationsRead} className="text-[10px] text-accent hover:underline">
@@ -1784,7 +1869,7 @@ export default function AdminPage() {
                         className="w-full px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs focus:border-accent focus:outline-none"
                       />
                       {overrideResults.length > 0 && overrideQuery.trim() && !selectedUser && (
-                        <div className="absolute z-10 mt-1 w-full max-h-32 overflow-y-auto rounded-lg border border-[var(--admin-border)] bg-[var(--admin-bg)] shadow-xl">
+                        <div className="menu-surface absolute z-20 mt-1 w-full max-h-32 overflow-y-auto rounded-lg border border-[var(--admin-border)] shadow-xl">
                           {overrideResults.map(u => (
                             <button
                               key={u.id}
@@ -3018,27 +3103,55 @@ export default function AdminPage() {
                           />
                         </div>
 
-                        <div className="panel p-3 min-h-[120px] lg:min-h-0 lg:flex-[0.85] flex flex-col gap-2">
-                          <p className="text-xs font-semibold">News Link (User Sidebar)</p>
-                          <div className="space-y-1">
-                            <label className="block text-[10px] text-gray-400">News title</label>
-                            <input
-                              value={adminSettings.news.title}
-                              onChange={(e) => setAdminSettings(s => s ? { ...s, news: { ...s.news, title: e.target.value } } : s)}
-                              className="w-full text-xs rounded px-2 py-1.5 border"
-                              placeholder="Market News"
-                            />
+                        <div className="panel p-3 min-h-[160px] lg:min-h-0 lg:flex-[1.05] flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold">News Sources (User News page)</p>
+                            <button
+                              type="button"
+                              onClick={handleAddNewsItem}
+                              className="px-2 py-1 rounded bg-accent/20 text-accent text-[10px] font-semibold hover:bg-accent/30"
+                            >
+                              Add Link
+                            </button>
                           </div>
-                          <div className="space-y-1">
-                            <label className="block text-[10px] text-gray-400">News URL</label>
-                            <input
-                              value={adminSettings.news.url}
-                              onChange={(e) => setAdminSettings(s => s ? { ...s, news: { ...s.news, url: e.target.value } } : s)}
-                              className="w-full text-xs rounded px-2 py-1.5 border"
-                              placeholder="https://www.coindesk.com/"
-                            />
+
+                          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                            {adminSettings.news.items.map((item, index) => (
+                              <div key={item.id} className="rounded border border-white/10 bg-white/5 p-2 space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] text-gray-400">Item {index + 1}</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveNewsItem(item.id)}
+                                    disabled={adminSettings.news.items.length <= 1}
+                                    className="text-[10px] text-danger disabled:text-gray-500"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                                <input
+                                  value={item.title}
+                                  onChange={(e) => handleNewsItemChange(item.id, 'title', e.target.value)}
+                                  className="w-full text-xs rounded px-2 py-1.5 border"
+                                  placeholder="Headline"
+                                />
+                                <input
+                                  value={item.url}
+                                  onChange={(e) => handleNewsItemChange(item.id, 'url', e.target.value)}
+                                  className="w-full text-xs rounded px-2 py-1.5 border"
+                                  placeholder="https://news-site.com/article"
+                                />
+                                <input
+                                  value={item.imageUrl || ''}
+                                  onChange={(e) => handleNewsItemChange(item.id, 'imageUrl', e.target.value)}
+                                  className="w-full text-xs rounded px-2 py-1.5 border"
+                                  placeholder="https://.../image.jpg (optional)"
+                                />
+                              </div>
+                            ))}
                           </div>
-                          <p className="text-[10px] text-gray-500">Users will open this source from the News page.</p>
+
+                          <p className="text-[10px] text-gray-500">Users will see headline + image cards and open the original source link.</p>
                         </div>
                       </div>
                     )}

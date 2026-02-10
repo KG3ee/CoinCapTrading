@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Search, Star, TrendingDown, TrendingUp } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useCoinCapPrices } from '@/lib/hooks/useCoinCapPrices';
 
 const formatPrice = (value: number) => {
@@ -64,6 +65,7 @@ const markets = [
 ];
 
 export default function MarketsPage() {
+  const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'gainers' | 'losers'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const { prices, isLoading: pricesLoading } = useCoinCapPrices(markets.map((coin) => coin.id));
@@ -79,6 +81,7 @@ export default function MarketsPage() {
 
   const liveMarkets = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
+    const compressedQuery = normalizedQuery.replace(/[^a-z0-9]/g, '');
     const withPrices = markets.map((coin) => {
       const live = prices[coin.id];
       if (!live) return { ...coin, changePercent: 0 };
@@ -111,9 +114,10 @@ export default function MarketsPage() {
 
     if (!normalizedQuery) return filteredByDirection;
 
-    return filteredByDirection.filter((coin) => (
-      `${coin.name} ${coin.symbol} ${coin.id}`.toLowerCase().includes(normalizedQuery)
-    ));
+    return filteredByDirection.filter((coin) => {
+      const searchText = `${coin.name} ${coin.symbol} ${coin.id} ${coin.symbol}/USDT`.toLowerCase();
+      return searchText.includes(normalizedQuery) || searchText.replace(/[^a-z0-9]/g, '').includes(compressedQuery);
+    });
   }, [prices, filter, searchQuery]);
 
   return (
@@ -194,7 +198,11 @@ export default function MarketsPage() {
 
         <div className="md:hidden space-y-3">
           {liveMarkets.map((coin) => (
-            <div key={coin.symbol} className="p-3 rounded-lg bg-white/5">
+            <div
+              key={coin.symbol}
+              onClick={() => router.push(`/trade?asset=${encodeURIComponent(coin.symbol)}`)}
+              className="p-3 rounded-lg bg-white/5 cursor-pointer hover:bg-white/10 transition-colors"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="relative w-10 h-10">
@@ -213,7 +221,11 @@ export default function MarketsPage() {
                     <p className="text-xs text-gray-400">{coin.name}</p>
                   </div>
                 </div>
-                <button className="p-2 rounded-lg hover:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" aria-label="Add to watchlist">
+                <button
+                  onClick={(event) => event.stopPropagation()}
+                  className="p-2 rounded-lg hover:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  aria-label="Add to watchlist"
+                >
                   <Star size={18} className="text-gray-400" />
                 </button>
               </div>
@@ -257,7 +269,11 @@ export default function MarketsPage() {
             </thead>
             <tbody>
               {liveMarkets.map((coin, index) => (
-                <tr key={coin.symbol} className="border-b border-white/5 hover:bg-white/5">
+                <tr
+                  key={coin.symbol}
+                  onClick={() => router.push(`/trade?asset=${encodeURIComponent(coin.symbol)}`)}
+                  className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors"
+                >
                   <td className="py-4 text-gray-400">{index + 1}</td>
                   <td className="py-4">
                     <div className="flex items-center gap-3">
@@ -296,7 +312,11 @@ export default function MarketsPage() {
                     </div>
                   </td>
                   <td className="py-4 text-right">
-                    <button className="p-2 rounded-lg hover:bg-white/10 min-w-[36px] min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" aria-label="Add to watchlist">
+                    <button
+                      onClick={(event) => event.stopPropagation()}
+                      className="p-2 rounded-lg hover:bg-white/10 min-w-[36px] min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      aria-label="Add to watchlist"
+                    >
                       <Star size={18} className="text-gray-400" />
                     </button>
                   </td>

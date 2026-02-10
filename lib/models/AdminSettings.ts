@@ -32,6 +32,16 @@ const fundingWalletSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const newsItemSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    title: { type: String, required: true },
+    url: { type: String, required: true },
+    imageUrl: { type: String, default: '' },
+  },
+  { _id: false }
+);
+
 const adminSettingsSchema = new mongoose.Schema(
   {
     rbacEnabled: { type: Boolean, default: false },
@@ -52,6 +62,7 @@ const adminSettingsSchema = new mongoose.Schema(
     news: {
       title: { type: String, default: 'Market News' },
       url: { type: String, default: 'https://www.coindesk.com/' },
+      items: { type: [newsItemSchema], default: [] },
     },
     funding: {
       wallets: { type: [fundingWalletSchema], default: [] },
@@ -129,7 +140,28 @@ adminSettingsSchema.statics.getSettings = async function () {
     await settings.save();
   }
   if (!settings.news || typeof settings.news !== 'object') {
-    settings.news = { title: 'Market News', url: 'https://www.coindesk.com/' };
+    settings.news = {
+      title: 'Market News',
+      url: 'https://www.coindesk.com/',
+      items: [
+        {
+          id: 'news-default',
+          title: 'Market News',
+          url: 'https://www.coindesk.com/',
+          imageUrl: '',
+        },
+      ],
+    };
+    await settings.save();
+  } else if (!Array.isArray(settings.news.items) || settings.news.items.length === 0) {
+    settings.news.items = [
+      {
+        id: 'news-default',
+        title: settings.news.title || 'Market News',
+        url: settings.news.url || 'https://www.coindesk.com/',
+        imageUrl: '',
+      },
+    ];
     await settings.save();
   }
   return settings;

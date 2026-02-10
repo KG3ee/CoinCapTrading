@@ -6,7 +6,7 @@ import { useCoinCapPrices } from '@/lib/hooks/useCoinCapPrices';
 import { TradingViewChart } from '@/lib/components/TradingViewChart';
 import { AVAILABLE_CRYPTOS, type CryptoType } from '@/lib/constants';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import TradeModal from '@/lib/components/TradeModal';
 import CountdownPopup from '@/lib/components/CountdownPopup';
 
@@ -83,6 +83,7 @@ function generateRecentTrades(basePrice: number) {
 export default function TradePage() {
   const { status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedCrypto, setSelectedCrypto] = useState<CryptoType>(AVAILABLE_CRYPTOS[0]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
@@ -163,11 +164,26 @@ export default function TradePage() {
     }
   }, [status, fetchBalance, fetchTradeHistory, tradeHistoryFilter]);
 
+  useEffect(() => {
+    const requestedAsset = searchParams.get('asset')?.trim().toUpperCase();
+    if (!requestedAsset) return;
+
+    const match = AVAILABLE_CRYPTOS.find(
+      (crypto) =>
+        crypto.symbol.toUpperCase() === requestedAsset ||
+        crypto.id.toUpperCase() === requestedAsset
+    );
+    if (match) {
+      setSelectedCrypto(match);
+    }
+  }, [searchParams]);
+
   // Handle crypto selection
   const handleCryptoSelect = useCallback((crypto: CryptoType) => {
     setSelectedCrypto(crypto);
     setIsDropdownOpen(false);
-  }, []);
+    router.replace(`/trade?asset=${encodeURIComponent(crypto.symbol)}`);
+  }, [router]);
 
   // Open trade modal
   const openTradeModal = (type: 'buy' | 'sell') => {
@@ -249,7 +265,7 @@ export default function TradePage() {
                   className="fixed inset-0 z-10" 
                   onClick={() => setIsDropdownOpen(false)}
                 />
-                <div className="menu-surface absolute top-full mt-1 left-0 z-20 p-1 min-w-[160px] rounded-lg shadow-xl border border-white/20">
+                <div className="menu-surface absolute top-full mt-1 left-0 z-[80] p-1 min-w-[160px] rounded-lg shadow-xl border border-white/20">
                   {AVAILABLE_CRYPTOS.map((crypto) => (
                     <button
                       key={crypto.id}

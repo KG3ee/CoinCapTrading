@@ -3,18 +3,24 @@
 import { useEffect, useState } from 'react';
 import { ExternalLink, Newspaper, Loader2 } from 'lucide-react';
 
-type NewsConfig = {
+type NewsItem = {
+  id: string;
   title: string;
   url: string;
+  imageUrl?: string;
 };
 
-const DEFAULT_NEWS: NewsConfig = {
-  title: 'Market News',
-  url: 'https://www.coindesk.com/',
-};
+const FALLBACK_NEWS: NewsItem[] = [
+  {
+    id: 'news-default',
+    title: 'Market News',
+    url: 'https://www.coindesk.com/',
+    imageUrl: '',
+  },
+];
 
 export default function NewsPage() {
-  const [news, setNews] = useState<NewsConfig>(DEFAULT_NEWS);
+  const [items, setItems] = useState<NewsItem[]>(FALLBACK_NEWS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,15 +28,19 @@ export default function NewsPage() {
       setLoading(true);
       try {
         const res = await fetch('/api/news', { cache: 'no-store' });
-        if (!res.ok) throw new Error('Failed to load news link');
+        if (!res.ok) throw new Error('Failed to load news links');
         const data = await res.json();
-        const nextNews = data?.news || DEFAULT_NEWS;
-        setNews({
-          title: nextNews.title || DEFAULT_NEWS.title,
-          url: nextNews.url || DEFAULT_NEWS.url,
-        });
+        const nextItems = Array.isArray(data?.items) && data.items.length > 0 ? data.items : FALLBACK_NEWS;
+        setItems(
+          nextItems.map((item: any, index: number) => ({
+            id: item?.id || `news-${index + 1}`,
+            title: item?.title || `News ${index + 1}`,
+            url: item?.url || FALLBACK_NEWS[0].url,
+            imageUrl: item?.imageUrl || '',
+          }))
+        );
       } catch {
-        setNews(DEFAULT_NEWS);
+        setItems(FALLBACK_NEWS);
       } finally {
         setLoading(false);
       }
@@ -39,34 +49,54 @@ export default function NewsPage() {
   }, []);
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
       <div>
         <h1 className="text-2xl font-bold">News</h1>
-        <p className="text-sm text-gray-400">Latest source selected by admin.</p>
+        <p className="text-sm text-gray-400">Latest sources selected by admin.</p>
       </div>
 
-      <div className="glass-card border border-white/10 p-4">
-        {loading ? (
+      {loading ? (
+        <div className="glass-card border border-white/10 p-6">
           <div className="flex items-center justify-center py-8 text-gray-400 gap-2">
             <Loader2 size={18} className="animate-spin" />
-            Loading news source...
+            Loading news sources...
           </div>
-        ) : (
-          <div className="space-y-2">
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {items.map((item) => (
             <a
-              href={news.url}
+              key={item.id}
+              href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-lg font-semibold text-white hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+              className="glass-card border border-white/10 p-0 overflow-hidden hover:border-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              <Newspaper size={18} className="text-accent" />
-              {news.title}
-              <ExternalLink size={16} />
+              {item.imageUrl ? (
+                <img
+                  src={item.imageUrl}
+                  alt={item.title}
+                  className="w-full h-40 object-cover border-b border-white/10"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="h-40 border-b border-white/10 bg-gradient-to-br from-blue-500/20 via-indigo-500/10 to-cyan-500/20 flex items-center justify-center">
+                  <Newspaper size={28} className="text-accent" />
+                </div>
+              )}
+
+              <div className="p-4 space-y-2">
+                <p className="text-sm font-semibold text-white line-clamp-2">{item.title}</p>
+                <p className="text-xs text-gray-500 break-all line-clamp-2">{item.url}</p>
+                <div className="inline-flex items-center gap-1 text-xs text-accent">
+                  Open source
+                  <ExternalLink size={13} />
+                </div>
+              </div>
             </a>
-            <p className="text-xs text-gray-500 break-all">{news.url}</p>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

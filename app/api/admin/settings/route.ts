@@ -10,6 +10,48 @@ export const dynamic = 'force-dynamic';
 
 const log = logger.child({ module: 'AdminSettings' });
 
+function sanitizeNewsItems(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item: any, index: number) => {
+      const title = typeof item?.title === 'string' ? item.title.trim() : '';
+      const rawUrl = typeof item?.url === 'string' ? item.url.trim() : '';
+      const imageUrl = typeof item?.imageUrl === 'string' ? item.imageUrl.trim() : '';
+      if (!rawUrl) return null;
+
+      try {
+        const parsedUrl = new URL(rawUrl);
+        if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+          return null;
+        }
+
+        let safeImageUrl = '';
+        if (imageUrl) {
+          try {
+            const parsedImage = new URL(imageUrl);
+            if (parsedImage.protocol === 'http:' || parsedImage.protocol === 'https:') {
+              safeImageUrl = parsedImage.toString();
+            }
+          } catch {
+            // Ignore invalid image URL
+          }
+        }
+
+        return {
+          id: typeof item?.id === 'string' && item.id.trim() ? item.id.trim() : `news-${index + 1}`,
+          title: title || `News ${index + 1}`,
+          url: parsedUrl.toString(),
+          imageUrl: safeImageUrl,
+        };
+      } catch {
+        return null;
+      }
+    })
+    .filter((item): item is { id: string; title: string; url: string; imageUrl: string } => Boolean(item))
+    .slice(0, 20);
+}
+
 export async function GET(request: NextRequest) {
   const context = await getAdminContext(request);
   if ('error' in context) {
@@ -22,6 +64,7 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB();
     const settings = await (AdminSettings as any).getSettings();
+    const newsItems = Array.isArray(settings?.news?.items) ? settings.news.items : [];
     return NextResponse.json({
       settings: {
         rbacEnabled: settings.rbacEnabled,
@@ -29,7 +72,19 @@ export async function GET(request: NextRequest) {
         security: settings.security,
         notifications: settings.notifications,
         maintenance: settings.maintenance,
-        news: settings.news,
+        news: {
+          ...settings.news,
+          items: newsItems.length > 0
+            ? newsItems
+            : [
+                {
+                  id: 'news-default',
+                  title: settings?.news?.title || 'Market News',
+                  url: settings?.news?.url || 'https://www.coindesk.com/',
+                  imageUrl: '',
+                },
+              ],
+        },
         apiKeys: settings.apiKeys?.map((k: any) => ({
           id: k.id,
           name: k.name,
@@ -77,6 +132,12 @@ export async function PUT(request: NextRequest) {
       if (typeof body.maintenance.message === 'string') settings.maintenance.message = body.maintenance.message;
     }
     if (body.news && typeof body.news === 'object') {
+      const nextItems = sanitizeNewsItems(body.news.items);
+      if (nextItems.length > 0) {
+        settings.news.items = nextItems;
+        settings.news.title = nextItems[0].title;
+        settings.news.url = nextItems[0].url;
+      }
       if (typeof body.news.title === 'string') {
         settings.news.title = body.news.title.trim() || 'Market News';
       }

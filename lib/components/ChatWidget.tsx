@@ -242,7 +242,7 @@ export default function ChatWidget() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 w-12 h-12 rounded-full bg-accent text-black shadow-lg shadow-accent/30 flex items-center justify-center hover:scale-110 transition-transform"
+          className="fixed bottom-[calc(8.75rem+env(safe-area-inset-bottom))] right-4 md:bottom-24 md:right-6 z-[90] w-12 h-12 rounded-full bg-accent text-black shadow-lg shadow-accent/30 flex items-center justify-center hover:scale-110 transition-transform"
           aria-label="Open chat"
         >
           <MessageCircle size={22} />
@@ -256,7 +256,7 @@ export default function ChatWidget() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed inset-0 md:inset-auto md:bottom-6 md:right-6 z-[70] w-full md:w-[380px] h-[100dvh] md:h-[520px] md:rounded-xl overflow-hidden flex flex-col bg-[var(--app-bg)] md:border md:border-white/10 md:shadow-2xl">
+        <div className="fixed inset-0 md:inset-auto md:bottom-24 md:right-6 z-[110] w-full md:w-[380px] h-[100dvh] md:h-[520px] md:rounded-xl overflow-hidden flex flex-col bg-[var(--app-bg)] md:border md:border-white/10 md:shadow-2xl">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-accent/20 to-purple-600/20 border-b border-white/10" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
             <div className="flex items-center gap-2">

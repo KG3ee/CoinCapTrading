@@ -17,6 +17,7 @@ const FALLBACK_ASSET_PRICES: Record<string, number> = {
   BTC: 60000,
   ETH: 3000,
 };
+const PRICE_FETCH_TIMEOUT_MS = 2800;
 
 function toFiniteNumber(value: unknown, fallback = 0) {
   const parsed = typeof value === 'number' ? value : Number(value);
@@ -25,6 +26,22 @@ function toFiniteNumber(value: unknown, fallback = 0) {
 
 function roundToSix(value: number) {
   return Number(toFiniteNumber(value).toFixed(6));
+}
+
+async function fetchAssetPriceWithTimeout(symbol: string) {
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('price-timeout')), PRICE_FETCH_TIMEOUT_MS);
+    });
+
+    const priceData = await Promise.race([fetchRealCryptoData(), timeoutPromise]);
+    if (!Array.isArray(priceData)) return 0;
+    const priceRecord = priceData.find((record: any) => record.symbol === symbol);
+    return toFiniteNumber(priceRecord?.currentPrice, 0);
+  } catch (error: any) {
+    log.warn({ error, symbol }, 'Failed to fetch real-time price for funding approval');
+    return 0;
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -130,15 +147,7 @@ export async function PUT(request: NextRequest) {
           return NextResponse.json({ error: 'Invalid funding amount' }, { status: 400 });
         }
 
-        let assetPrice = 0;
-        try {
-          const priceData = await fetchRealCryptoData();
-          const priceRecord = priceData.find((record) => record.symbol === cryptoSymbol);
-          assetPrice = toFiniteNumber(priceRecord?.currentPrice);
-        } catch (error: any) {
-          log.warn({ error }, 'Failed to fetch crypto price, falling back to defaults');
-          assetPrice = 0;
-        }
+        let assetPrice = await fetchAssetPriceWithTimeout(cryptoSymbol);
 
         if (assetPrice <= 0) {
           if (cryptoSymbol === 'USDT') {
@@ -223,6 +232,7 @@ export async function PUT(request: NextRequest) {
         await portfolio.save();
       }
       funding.status = 'approved';
+      funding.reason = '';
     } else {
       if (funding.type === 'withdraw') {
         portfolio.accountBalance = roundToSix(
