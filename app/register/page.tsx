@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { status } = useSession();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -16,6 +18,17 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const callbackParam = searchParams.get('callbackUrl');
+  const callbackUrl =
+    callbackParam && callbackParam.startsWith('/') && !callbackParam.startsWith('//')
+      ? callbackParam
+      : '/dashboard';
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.replace(callbackUrl);
+    }
+  }, [status, router, callbackUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,8 +71,8 @@ export default function RegisterPage() {
       setPassword('');
       setPasswordConfirm('');
 
-      // Redirect to login page
-      router.push('/login');
+      // Redirect to login page and preserve callback target
+      router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
     } catch (error) {
       console.error('Register error:', error);
       alert('An error occurred during registration');
@@ -207,7 +220,7 @@ export default function RegisterPage() {
             {/* Google Sign Up Button */}
             <button
               type="button"
-              onClick={() => signIn('google', { callbackUrl: '/' })}
+              onClick={() => signIn('google', { callbackUrl })}
               className="w-full py-3 rounded-lg font-semibold transition-all min-h-[44px] bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center gap-2"
             >
               <svg width="20" height="20" viewBox="0 0 24 24">
