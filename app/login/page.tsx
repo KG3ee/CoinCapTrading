@@ -78,8 +78,8 @@ export default function LoginPage() {
 
       localStorage.removeItem('rememberedPassword');
 
-      // Redirect to home page on successful login
-      router.push('/');
+      // Redirect to authenticated app on successful login
+      router.push('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
       setError('An error occurred during login');
@@ -238,7 +238,7 @@ export default function LoginPage() {
             {/* Google Sign In Button */}
             <button
               type="button"
-              onClick={() => signIn('google', { callbackUrl: '/' })}
+              onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
               className="w-full py-3 rounded-lg font-semibold transition-all min-h-[44px] bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center gap-2"
             >
               <svg width="20" height="20" viewBox="0 0 24 24">
