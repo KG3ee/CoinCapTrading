@@ -218,7 +218,7 @@ function RootLayoutContent({
   const showDemoBadge = isDemoMode || isDemoUser;
 
   const navItems = [
-    { name: 'Home', icon: Home, href: '/', match: (path: string) => path === '/' },
+    { name: 'Home', icon: Home, href: '/dashboard', match: (path: string) => path.startsWith('/dashboard') },
     { name: 'News', icon: Newspaper, href: '/news', match: (path: string) => path.startsWith('/news') },
     { name: 'Trade', icon: ArrowLeftRight, href: '/trade', match: (path: string) => path.startsWith('/trade') || path.startsWith('/markets') },
     { name: 'Message', icon: Mail, href: '/messages', match: (path: string) => path.startsWith('/messages') },

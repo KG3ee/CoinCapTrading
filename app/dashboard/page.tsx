@@ -116,7 +116,7 @@ export default function DashboardPage() {
         <div className="sticky top-0 z-50 glass border-b border-white/10 backdrop-blur-md">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/trade')}
               className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             >
               <ArrowLeft size={24} className="text-white" />
@@ -150,7 +150,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/trade')}
               className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             >
               <ArrowLeft size={24} className="text-white" />
