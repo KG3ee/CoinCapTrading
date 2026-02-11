@@ -213,7 +213,7 @@ function RootLayoutContent({
   // Check if current page is auth page or admin page (these get their own layout)
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/verify-email';
   const isAdminPage = pathname.startsWith('/admin');
-  const isPublicLanding = pathname === '/' && status !== 'authenticated';
+  const isPublicLanding = pathname === '/';
   const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
   const showDemoBadge = isDemoMode || isDemoUser;
 
