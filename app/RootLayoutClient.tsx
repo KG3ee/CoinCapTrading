@@ -213,6 +213,7 @@ function RootLayoutContent({
   // Check if current page is auth page or admin page (these get their own layout)
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/verify-email';
   const isAdminPage = pathname.startsWith('/admin');
+  const isPublicLanding = pathname === '/' && status !== 'authenticated';
   const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
   const showDemoBadge = isDemoMode || isDemoUser;
 
@@ -226,7 +227,7 @@ function RootLayoutContent({
 
   const accountLink = { name: 'Account', icon: User, href: '/account' };
 
-  if (isAuthPage || isAdminPage) {
+  if (isAuthPage || isAdminPage || isPublicLanding) {
     return <>{children}</>;
   }
 
